@@ -685,9 +685,1080 @@ export const useEngineStore = defineStore('engine', {
 });
 ```
 
----
+### 6. 音频生成工作流程 (基于 V2 学习)
 
-## 📋 开发执行方案
+**V2 实现参考**: `backend/core/audio_generator.py` + `frontend/pages/voice_clone_page.py`
+
+#### 6.1 异步任务处理架构
+
+V2 使用 `QThread` 在后台线程执行音频生成，避免阻塞 UI。V3 应使用 Rust 的 `tokio::spawn` 实现类似效果。
+
+```rust
+// src-tauri/src/commands/audio.rs
+use tauri::{AppHandle, Emitter};
+use tokio::spawn;
+
+#[tauri::command]
+pub async fn generate_audio(
+    text: String,
+    audio_prompt: String,
+    engine: String,
+    generation_params: serde_json::Value,
+    app_handle: AppHandle,
+) -> Result<String, String> {
+    // 立即返回任务ID，实际生成在后台进行
+    let task_id = generate_task_id();
+    
+    // 在后台任务中执行生成
+    let app_handle_clone = app_handle.clone();
+    spawn(async move {
+        // 发送开始事件
+        app_handle_clone.emit("generation-started", &task_id).unwrap();
+        
+        // 文本预处理
+        let processed_text = preprocess_text(&text);
+        app_handle_clone.emit("generation-progress", (10, "文本预处理完成")).unwrap();
+        
+        // 调用引擎生成
+        match generate_with_engine(
+            &processed_text,
+            &audio_prompt,
+            &engine,
+            &generation_params,
+            |progress, message| {
+                app_handle_clone.emit("generation-progress", (progress, message)).unwrap();
+            }
+        ).await {
+            Ok(output_path) => {
+                app_handle_clone.emit("generation-completed", (task_id, output_path)).unwrap();
+            }
+            Err(e) => {
+                app_handle_clone.emit("generation-failed", (task_id, e)).unwrap();
+            }
+        }
+    });
+    
+    Ok(task_id)
+}
+```
+
+#### 6.2 大文本分批处理
+
+V2 使用 `LargeTextGeneratorWorker` 处理超过1万字符的文本。V3 应实现类似的分批逻辑：
+
+```rust
+// src-tauri/src/services/tts/batch_processor.rs
+pub struct BatchProcessor {
+    max_chars_per_batch: usize,
+}
+
+impl BatchProcessor {
+    pub fn split_text(&self, text: &str) -> Vec<String> {
+        // 按标点符号智能分句
+        // 每批不超过 max_chars_per_batch 字符
+        // 保持句子完整性
+    }
+    
+    pub async fn generate_batches(
+        &self,
+        batches: Vec<String>,
+        engine: &dyn TtsEngine,
+        progress_callback: impl Fn(usize, usize),
+    ) -> Result<Vec<String>, String> {
+        let mut results = Vec::new();
+        for (index, batch) in batches.iter().enumerate() {
+            progress_callback(index + 1, batches.len());
+            let audio_path = engine.generate(batch).await?;
+            results.push(audio_path);
+        }
+        Ok(results)
+    }
+    
+    pub fn merge_audio_files(&self, audio_paths: Vec<String>, output_path: &str) -> Result<(), String> {
+        // 使用 FFmpeg 合并音频文件
+        // 添加适当的淡入淡出效果
+    }
+}
+```
+
+#### 6.3 进度反馈机制
+
+V2 使用 Qt 信号槽机制推送进度。V3 使用 Tauri Events：
+
+```typescript
+// src/views/VoiceClone.vue
+import { listen } from '@tauri-apps/api/event';
+
+// 监听生成进度
+const unlistenProgress = await listen<[number, string]>('generation-progress', (event) => {
+  const [progress, message] = event.payload;
+  updateProgress(progress, message);
+});
+
+// 监听生成完成
+const unlistenCompleted = await listen<[string, string]>('generation-completed', (event) => {
+  const [taskId, outputPath] = event.payload;
+  handleCompleted(outputPath);
+  unlistenProgress();
+  unlistenCompleted();
+});
+```
+
+### 7. 文本预处理与优化 (基于 V2 学习)
+
+**V2 实现参考**: `backend/services/text_optimizer.py`
+
+#### 7.1 文本预处理功能
+
+V2 的 `TextOptimizer` 实现了丰富的文本优化功能，V3 应在 Rust 中实现：
+
+```rust
+// src-tauri/src/services/text_optimizer.rs
+pub struct TextOptimizer {
+    // 配置选项
+}
+
+impl TextOptimizer {
+    pub fn preprocess(&self, text: &str) -> String {
+        let mut result = text.to_string();
+        
+        // 1. 清理特殊字符（零宽字符、多余空白）
+        result = self.clean_text(&result);
+        
+        // 2. 标准化标点符号
+        result = self.normalize_punctuation(&result);
+        
+        // 3. 补充缺失的结尾标点
+        result = self.add_missing_ending_punctuation(&result);
+        
+        // 4. 增强段落间停顿
+        result = self.enhance_paragraph_pauses(&result);
+        
+        // 5. 增强句子间停顿
+        result = self.enhance_sentence_pauses(&result);
+        
+        // 6. 优化长句换气
+        result = self.optimize_breathing(&result);
+        
+        result
+    }
+    
+    fn clean_text(&self, text: &str) -> String {
+        // 移除零宽字符: \u200b, \u200c, \u200d, \ufeff
+        // 规范化空白字符（保留换行符）
+    }
+    
+    fn normalize_punctuation(&self, text: &str) -> String {
+        // 标点符号转换映射
+        // 中文标点 -> 英文标点（TTS引擎支持）
+        // 例如: ：-> ,  ；-> ,  。-> .
+    }
+    
+    fn add_missing_ending_punctuation(&self, text: &str) -> String {
+        // 为缺失结尾标点的行添加标点
+        // 根据语境判断：疑问句(？)、感叹句(！)、陈述句(。)
+    }
+    
+    fn enhance_paragraph_pauses(&self, text: &str) -> String {
+        // 多个连续换行符 -> 转换为长省略号(……)表示段落间长停顿
+    }
+    
+    fn enhance_sentence_pauses(&self, text: &str) -> String {
+        // 句号后直接跟中文字符 -> 添加省略号(…)表示中等停顿
+    }
+    
+    fn optimize_breathing(&self, text: &str) -> String {
+        // 超长无标点片段(>25字符) -> 在适当位置插入逗号
+        // 寻找自然断句点（连接词、时间词等）
+    }
+}
+```
+
+#### 7.2 情感分析 (可选，基于 V2)
+
+V2 的 `TextOptimizer` 支持情感分析，V3 可作为高级功能：
+
+```rust
+// src-tauri/src/services/text_optimizer.rs
+pub struct EmotionAnalyzer {
+    // 情感关键词库
+    keywords: HashMap<String, Vec<(String, f32)>>,
+}
+
+impl EmotionAnalyzer {
+    pub fn analyze(&self, text: &str) -> EmotionVector {
+        // 1. 基于标点符号分析
+        // 2. 基于关键词分析
+        // 3. 返回情感向量（happy, angry, sad, calm等）
+    }
+    
+    pub fn suggest_speed(&self, emotion: &EmotionVector) -> f32 {
+        // 根据情感建议语速
+        // 激动/高兴 -> 稍快(1.05)
+        // 悲伤/低落 -> 稍慢(0.95)
+        // 愤怒 -> 稍快(1.08)
+    }
+}
+```
+
+### 8. 人声分离服务 (基于 V2 学习)
+
+**V2 实现参考**: `backend/services/vocal_separator.py`
+
+#### 8.1 服务架构
+
+V2 支持 Demucs（深度学习）和 librosa（基础方法）两种分离方式，V3 应实现类似降级策略：
+
+```rust
+// src-tauri/src/services/vocal_separator.rs
+pub enum SeparationMethod {
+    Demucs,  // 深度学习模型（高质量）
+    Librosa, // 基础方法（降级方案）
+    None,    // 不可用
+}
+
+pub struct VocalSeparator {
+    method: SeparationMethod,
+    ffmpeg_path: PathBuf,
+}
+
+impl VocalSeparator {
+    pub fn new() -> Self {
+        // 检测可用方法
+        let method = if Self::check_demucs() {
+            SeparationMethod::Demucs
+        } else if Self::check_librosa() {
+            SeparationMethod::Librosa
+        } else {
+            SeparationMethod::None
+        };
+        
+        Self {
+            method,
+            ffmpeg_path: Self::find_ffmpeg(),
+        }
+    }
+    
+    pub async fn process_file(
+        &self,
+        file_path: &Path,
+        output_path: &Path,
+        progress_callback: impl Fn(usize, &str),
+    ) -> Result<(), String> {
+        // 1. 判断是否为视频文件
+        if self.is_video(file_path) {
+            progress_callback(10, "正在从视频提取音频...");
+            let audio_path = self.extract_audio(file_path).await?;
+            // 继续处理音频
+        }
+        
+        // 2. 裁剪音频到15秒（参考音频限制）
+        progress_callback(40, "正在裁剪音频到15秒...");
+        let cut_path = self.cut_audio(file_path, 15).await?;
+        
+        // 3. 人声分离
+        if self.method != SeparationMethod::None {
+            progress_callback(60, "正在分离人声...");
+            let vocal_path = self.separate_vocals(&cut_path).await?;
+            // 复制到输出路径
+        } else {
+            // 降级：直接使用裁剪后的音频
+        }
+        
+        Ok(())
+    }
+    
+    async fn extract_audio(&self, video_path: &Path) -> Result<PathBuf, String> {
+        // 使用 FFmpeg 从视频提取音频
+        // ffmpeg -i video.mp4 -vn -acodec pcm_s16le -ar 44100 -ac 1 output.wav
+    }
+    
+    async fn cut_audio(&self, audio_path: &Path, duration_sec: u32) -> Result<PathBuf, String> {
+        // 使用 FFmpeg 裁剪音频
+        // ffmpeg -i input.wav -t 15 output.wav
+    }
+    
+    async fn separate_with_demucs(&self, audio_path: &Path) -> Result<PathBuf, String> {
+        // 调用 Demucs 模型分离人声
+        // 优先使用 GPU (CUDA)，降级到 CPU
+        // 返回分离后的人声文件路径
+    }
+    
+    async fn separate_with_librosa(&self, audio_path: &Path) -> Result<PathBuf, String> {
+        // 使用 librosa 的 HPSS (Harmonic-Percussive Source Separation) 方法
+        // 作为降级方案
+    }
+}
+```
+
+#### 8.2 FFmpeg 集成
+
+V2 使用项目自带的 FFmpeg。V3 应同样打包 FFmpeg：
+
+```rust
+// src-tauri/src/utils/ffmpeg.rs
+pub fn find_ffmpeg() -> Option<PathBuf> {
+    // 1. 优先查找项目目录下的 tools/ffmpeg/ffmpeg.exe
+    // 2. 降级到系统 PATH 中的 ffmpeg
+    // 3. 返回 None 如果都找不到
+}
+```
+
+### 9. 用户认证与 WebSocket 实时同步 (基于 V2 学习)
+
+**V2 实现参考**: `backend/auth/user_manager.py` + `backend/network/websocket_client.py`
+
+#### 9.1 用户状态管理
+
+V2 的 `UserManager` 是单例模式，管理用户登录状态、Token、会员信息。V3 应在 Rust 中实现：
+
+```rust
+// src-tauri/src/services/user_manager.rs
+use std::sync::{Arc, Mutex};
+
+pub struct UserManager {
+    user_data: Arc<Mutex<Option<UserData>>>,
+    token: Arc<Mutex<Option<String>>>,
+    refresh_token: Arc<Mutex<Option<String>>>,
+    config_path: PathBuf,
+    ws_client: Option<WebSocketClient>,
+}
+
+impl UserManager {
+    pub fn new() -> Self {
+        let config_path = Self::get_config_path();
+        let mut manager = Self {
+            user_data: Arc::new(Mutex::new(None)),
+            token: Arc::new(Mutex::new(None)),
+            refresh_token: Arc::new(Mutex::new(None)),
+            config_path,
+            ws_client: None,
+        };
+        
+        // 加载保存的会话
+        manager.load_saved_session();
+        
+        manager
+    }
+    
+    fn get_config_path() -> PathBuf {
+        // Windows: %APPDATA%/MaruAudio/user_session.json
+        // Linux/Mac: ~/.config/MaruAudio/user_session.json
+    }
+    
+    pub fn load_saved_session(&mut self) {
+        // 从本地文件加载 Token 和用户数据
+        // 验证 Token 有效性
+        // 如果有效，连接 WebSocket
+    }
+    
+    pub fn save_session(&self) {
+        // 保存 Token、Refresh Token、用户数据到本地文件
+    }
+    
+    pub fn clear_session(&mut self) {
+        // 清除本地会话
+        // 断开 WebSocket
+    }
+    
+    pub fn is_logged_in(&self) -> bool {
+        self.token.lock().unwrap().is_some() && 
+        self.user_data.lock().unwrap().is_some()
+    }
+    
+    pub fn get_max_chars(&self) -> usize {
+        let user_data = self.user_data.lock().unwrap();
+        if let Some(user) = user_data.as_ref() {
+            match user.user_group.as_str() {
+                "monthly" | "yearly" | "permanent" => 100000, // 无限制
+                "trial" => 1000,
+                _ => 500, // 免费用户
+            }
+        } else {
+            500
+        }
+    }
+    
+    pub async fn login(&mut self, email: String, password: String) -> Result<UserData, String> {
+        // 调用 API 登录
+        // 保存 Token 和用户数据
+        // 连接 WebSocket
+        // 返回用户数据
+    }
+    
+    pub async fn connect_websocket(&mut self) {
+        // 连接 WebSocket 服务器
+        // 监听用户状态更新、配置更新等事件
+        // 实现断线重连机制
+    }
+}
+```
+
+#### 9.2 WebSocket 实时同步
+
+V2 使用 WebSocket 实现用户状态、配置的实时同步。V3 应使用 Rust 的 WebSocket 库：
+
+```rust
+// src-tauri/src/services/websocket_client.rs
+use tokio_tungstenite::{connect_async, tungstenite::Message};
+
+pub struct WebSocketClient {
+    url: String,
+    token: String,
+    sender: Option<mpsc::UnboundedSender<Message>>,
+    reconnect_interval: Duration,
+}
+
+impl WebSocketClient {
+    pub async fn connect(&mut self, token: String) -> Result<(), String> {
+        self.token = token;
+        self.connect_internal().await
+    }
+    
+    async fn connect_internal(&mut self) -> Result<(), String> {
+        // 建立 WebSocket 连接
+        // 发送认证消息（包含 Token）
+        // 启动消息接收循环
+        // 实现断线重连
+    }
+    
+    pub async fn handle_message(&self, message: Message) {
+        // 解析消息类型
+        // - user_updated: 用户信息更新
+        // - config_updated: 配置更新
+        // - announcement: 公告通知
+        // 通过 Tauri Events 推送到前端
+    }
+    
+    pub async fn reconnect(&mut self) {
+        // 实现指数退避重连策略
+        // 最大重连间隔限制
+    }
+}
+```
+
+前端监听 WebSocket 事件：
+
+```typescript
+// src/stores/user.ts
+import { listen } from '@tauri-apps/api/event';
+
+// 监听用户更新事件
+listen('user-updated', (event) => {
+  const userData = event.payload;
+  updateUserData(userData);
+});
+
+// 监听配置更新事件
+listen('config-updated', (event) => {
+  const config = event.payload;
+  updateConfig(config);
+});
+```
+
+### 10. 引擎热切换实现 (基于 V2 学习)
+
+**V2 实现参考**: `backend/engine/manager.py`
+
+#### 10.1 引擎管理器
+
+V2 的 `EngineManager` 支持运行时热切换引擎，V3 应实现类似功能：
+
+```rust
+// src-tauri/src/services/engine_manager.rs
+use std::sync::{Arc, Mutex};
+
+pub struct EngineManager {
+    engines: HashMap<String, Box<dyn EngineFactory>>,
+    current_engine: Arc<Mutex<Option<Box<dyn TtsEngine>>>>,
+    current_version: Arc<Mutex<Option<String>>>,
+    switch_lock: Arc<Mutex<()>>, // 防止并发切换
+}
+
+impl EngineManager {
+    pub fn new() -> Self {
+        let mut manager = Self {
+            engines: HashMap::new(),
+            current_engine: Arc::new(Mutex::new(None)),
+            current_version: Arc::new(Mutex::new(None)),
+            switch_lock: Arc::new(Mutex::new(())),
+        };
+        
+        // 注册所有可用引擎
+        manager.register_engines();
+        
+        manager
+    }
+    
+    fn register_engines(&mut self) {
+        // 注册轻量引擎
+        self.engines.insert("lightweight".to_string(), Box::new(LightweightEngineFactory));
+        
+        // 注册情感引擎
+        self.engines.insert("emotion".to_string(), Box::new(EmotionEngineFactory));
+        
+        // 注册云端引擎
+        self.engines.insert("cloud".to_string(), Box::new(CloudEngineFactory));
+    }
+    
+    pub async fn switch_engine(
+        &self,
+        version: String,
+        app_handle: AppHandle,
+    ) -> Result<(), String> {
+        let _lock = self.switch_lock.lock().unwrap();
+        
+        // 检查是否已经是当前版本
+        if *self.current_version.lock().unwrap() == Some(version.clone()) {
+            return Ok(());
+        }
+        
+        // 发送切换开始事件
+        app_handle.emit("engine-switch-progress", (5.0, "准备切换引擎...")).unwrap();
+        
+        // 1. 卸载当前引擎
+        if let Some(mut engine) = self.current_engine.lock().unwrap().take() {
+            app_handle.emit("engine-switch-progress", (10.0, "正在卸载旧引擎...")).unwrap();
+            engine.cleanup().await?;
+        }
+        
+        // 2. 加载新引擎
+        app_handle.emit("engine-switch-progress", (15.0, "正在加载新引擎...")).unwrap();
+        
+        let factory = self.engines.get(&version)
+            .ok_or_else(|| format!("不支持的引擎版本: {}", version))?;
+        
+        let mut new_engine = factory.create().await?;
+        new_engine.initialize().await?;
+        
+        // 3. 更新当前引擎
+        *self.current_engine.lock().unwrap() = Some(new_engine);
+        *self.current_version.lock().unwrap() = Some(version);
+        
+        app_handle.emit("engine-switch-progress", (100.0, "引擎切换完成")).unwrap();
+        app_handle.emit("engine-switch-finished", (true, "切换成功")).unwrap();
+        
+        Ok(())
+    }
+    
+    pub fn get_current_engine(&self) -> Option<Arc<Mutex<Box<dyn TtsEngine>>>> {
+        // 返回当前引擎的引用（用于生成音频）
+    }
+}
+```
+
+#### 10.2 引擎接口定义
+
+```rust
+// src-tauri/src/services/tts/trait.rs
+pub trait TtsEngine: Send + Sync {
+    async fn initialize(&mut self) -> Result<(), String>;
+    async fn generate(
+        &self,
+        text: &str,
+        audio_prompt: &str,
+        output_path: &str,
+        params: GenerationParams,
+        progress_callback: impl Fn(usize, &str),
+    ) -> Result<String, String>;
+    async fn cleanup(&mut self) -> Result<(), String>;
+}
+
+pub trait EngineFactory: Send + Sync {
+    async fn create(&self) -> Result<Box<dyn TtsEngine>, String>;
+}
+```
+
+### 11. GPU 检测与自动模型选择 (基于 V2 学习)
+
+**V2 实现参考**: `frontend/pages/voice_clone_page.py` 中的 `check_gpu_support()`
+
+#### 11.1 GPU 检测
+
+V2 使用 `nvidia-smi` 检测 GPU 和显存，V3 应在 Rust 中实现：
+
+```rust
+// src-tauri/src/utils/gpu_detector.rs
+pub struct GpuInfo {
+    pub has_gpu: bool,
+    pub gpu_name: String,
+    pub vram_gb: f32,
+    pub recommended_mode: String, // "local" 或 "cloud"
+    pub recommended_model: String, // "0.6B" 或 "1.7B"
+}
+
+impl GpuDetector {
+    pub fn detect() -> GpuInfo {
+        // 1. 尝试调用 nvidia-smi 检测 GPU
+        if let Ok(output) = Command::new("nvidia-smi")
+            .args(&["--query-gpu=name,memory.total", "--format=csv,noheader,nounits"])
+            .output()
+        {
+            if let Ok(stdout) = String::from_utf8(output.stdout) {
+                if let Some((name, vram_mb)) = Self::parse_nvidia_smi(&stdout) {
+                    let vram_gb = vram_mb / 1024.0;
+                    let (recommended_mode, recommended_model) = 
+                        Self::recommend_config(vram_gb);
+                    
+                    return GpuInfo {
+                        has_gpu: true,
+                        gpu_name: name,
+                        vram_gb,
+                        recommended_mode,
+                        recommended_model,
+                    };
+                }
+            }
+        }
+        
+        // 2. 未检测到 GPU
+        GpuInfo {
+            has_gpu: false,
+            gpu_name: "未检测到".to_string(),
+            vram_gb: 0.0,
+            recommended_mode: "cloud".to_string(),
+            recommended_model: "0.6B".to_string(),
+        }
+    }
+    
+    fn recommend_config(vram_gb: f32) -> (String, String) {
+        if vram_gb > 4.0 {
+            // 显存 > 4GB：推荐本地引擎 + 1.7B 模型
+            ("local".to_string(), "1.7B".to_string())
+        } else {
+            // 显存 <= 4GB：推荐本地引擎 + 0.6B 模型（同时推荐云端）
+            ("local".to_string(), "0.6B".to_string())
+        }
+    }
+}
+```
+
+#### 11.2 自动模型选择
+
+```rust
+// src-tauri/src/services/engine_config.rs
+pub struct EngineConfig {
+    gpu_info: GpuInfo,
+}
+
+impl EngineConfig {
+    pub fn get_local_model_size(&self) -> String {
+        if self.gpu_info.has_gpu {
+            self.gpu_info.recommended_model.clone()
+        } else {
+            "0.6B".to_string() // 默认
+        }
+    }
+    
+    pub fn get_model_dir(&self, model_size: &str) -> PathBuf {
+        // 返回模型目录路径
+        // models/IndexTTS-{model_size}/
+    }
+}
+```
+
+### 12. 参考音频处理流程 (基于 V2 学习)
+
+**V2 实现参考**: `frontend/pages/voice_clone_page.py` + `backend/services/vocal_separator.py`
+
+#### 12.1 参考音频上传与处理
+
+```rust
+// src-tauri/src/commands/audio.rs
+#[tauri::command]
+pub async fn process_reference_audio(
+    file_path: String,
+    enable_vocal_separation: bool,
+    app_handle: AppHandle,
+) -> Result<String, String> {
+    let input_path = PathBuf::from(file_path);
+    
+    // 1. 判断文件类型（视频/音频）
+    let is_video = is_video_file(&input_path);
+    
+    // 2. 如果是视频，先提取音频
+    let audio_path = if is_video {
+        app_handle.emit("reference-audio-progress", (10, "正在从视频提取音频...")).unwrap();
+        extract_audio_from_video(&input_path).await?
+    } else {
+        input_path
+    };
+    
+    // 3. 裁剪到15秒（参考音频限制）
+    app_handle.emit("reference-audio-progress", (40, "正在裁剪音频到15秒...")).unwrap();
+    let cut_path = cut_audio(&audio_path, 15).await?;
+    
+    // 4. 可选：人声分离
+    let final_path = if enable_vocal_separation {
+        app_handle.emit("reference-audio-progress", (60, "正在分离人声...")).unwrap();
+        let separator = VocalSeparator::new();
+        separator.process_file(&cut_path, &output_path, |progress, msg| {
+            app_handle.emit("reference-audio-progress", (progress, msg)).unwrap();
+        }).await?;
+        output_path
+    } else {
+        cut_path
+    };
+    
+    // 5. 可选：ASR 识别参考文本
+    app_handle.emit("reference-audio-progress", (90, "正在识别参考文本...")).unwrap();
+    let reference_text = recognize_audio_text(&final_path).await?;
+    
+    app_handle.emit("reference-audio-completed", (final_path, reference_text)).unwrap();
+    
+    Ok(final_path)
+}
+```
+
+#### 12.2 ASR 参考文本识别
+
+V2 支持自动识别参考音频的文本内容。V3 应实现类似功能：
+
+```rust
+// src-tauri/src/services/asr.rs
+pub struct AsrService {
+    // ASR 引擎配置
+}
+
+impl AsrService {
+    pub async fn recognize(&self, audio_path: &Path) -> Result<String, String> {
+        // 使用必剪 ASR 或其他 ASR 服务
+        // 返回识别的文本内容
+    }
+}
+```
+
+### 13. 字幕生成功能细节 (基于 V2 学习)
+
+**V2 实现参考**: `backend/subtitle/` + `frontend/pages/subtitle_page.py`
+
+#### 13.1 视频/音频转录
+
+```rust
+// src-tauri/src/services/subtitle.rs
+pub struct SubtitleService {
+    asr_engine: Box<dyn AsrEngine>,
+}
+
+impl SubtitleService {
+    pub async fn transcribe_file(
+        &self,
+        file_path: &Path,
+        progress_callback: impl Fn(usize, &str),
+    ) -> Result<SubtitleResult, String> {
+        // 1. 判断文件类型
+        let is_video = is_video_file(file_path);
+        
+        // 2. 如果是视频，先提取音频
+        let audio_path = if is_video {
+            progress_callback(10, "正在从视频提取音频...");
+            extract_audio_from_video(file_path).await?
+        } else {
+            file_path.to_path_buf()
+        };
+        
+        // 3. 调用 ASR 引擎转录音频
+        progress_callback(30, "正在转录音频...");
+        let segments = self.asr_engine.transcribe(&audio_path, |progress, msg| {
+            progress_callback(30 + (progress * 0.6) as usize, msg);
+        }).await?;
+        
+        // 4. 生成字幕文件
+        progress_callback(90, "正在生成字幕文件...");
+        let subtitle_file = self.generate_subtitle_file(&segments).await?;
+        
+        Ok(SubtitleResult {
+            segments,
+            subtitle_file,
+        })
+    }
+    
+    pub async fn generate_subtitle_file(
+        &self,
+        segments: &[SubtitleSegment],
+    ) -> Result<PathBuf, String> {
+        // 支持多种格式：SRT、VTT、ASS
+        // 根据用户选择生成对应格式
+    }
+}
+```
+
+#### 13.2 字幕翻译
+
+```rust
+// src-tauri/src/services/subtitle/translator.rs
+pub struct SubtitleTranslator {
+    // 翻译服务配置
+}
+
+impl SubtitleTranslator {
+    pub async fn translate(
+        &self,
+        segments: &[SubtitleSegment],
+        target_lang: &str,
+    ) -> Result<Vec<SubtitleSegment>, String> {
+        // 批量翻译字幕片段
+        // 保持时间轴不变
+    }
+}
+```
+
+### 14. 文件管理功能细节 (基于 V2 学习)
+
+**V2 实现参考**: `frontend/pages/file_manager_page.py`
+
+#### 14.1 文件分类与浏览
+
+```rust
+// src-tauri/src/commands/file.rs
+#[tauri::command]
+pub async fn list_files(
+    category: Option<String>, // "gen", "sample", "subtitle", "other"
+) -> Result<Vec<FileInfo>, String> {
+    let base_dir = match category.as_deref() {
+        Some("gen") => PathBuf::from("outputs/gen"),
+        Some("sample") => PathBuf::from("outputs/Sample"),
+        Some("subtitle") => PathBuf::from("outputs/Subtitle"),
+        _ => PathBuf::from("outputs"),
+    };
+    
+    let mut files = Vec::new();
+    
+    // 遍历目录，收集文件信息
+    for entry in fs::read_dir(base_dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        
+        if path.is_file() {
+            let metadata = entry.metadata()?;
+            files.push(FileInfo {
+                path: path.to_string_lossy().to_string(),
+                name: path.file_name().unwrap().to_string_lossy().to_string(),
+                size: metadata.len(),
+                created: metadata.created()?.into(),
+                modified: metadata.modified()?.into(),
+                file_type: detect_file_type(&path),
+            });
+        }
+    }
+    
+    // 按修改时间倒序排序
+    files.sort_by(|a, b| b.modified.cmp(&a.modified));
+    
+    Ok(files)
+}
+
+fn detect_file_type(path: &Path) -> String {
+    match path.extension().and_then(|s| s.to_str()) {
+        Some("wav") | Some("mp3") | Some("flac") => "audio".to_string(),
+        Some("srt") | Some("vtt") | Some("ass") => "subtitle".to_string(),
+        _ => "other".to_string(),
+    }
+}
+```
+
+#### 14.2 文件操作
+
+```rust
+#[tauri::command]
+pub async fn delete_file(path: String) -> Result<(), String> {
+    fs::remove_file(path)?;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn rename_file(old_path: String, new_name: String) -> Result<String, String> {
+    let old_path = PathBuf::from(old_path);
+    let mut new_path = old_path.parent().unwrap().join(new_name);
+    
+    // 如果新名称没有扩展名，保留原扩展名
+    if new_path.extension().is_none() {
+        if let Some(ext) = old_path.extension() {
+            new_path.set_extension(ext);
+        }
+    }
+    
+    fs::rename(&old_path, &new_path)?;
+    Ok(new_path.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+pub async fn open_file_in_explorer(path: String) -> Result<(), String> {
+    // Windows: explorer /select,path
+    // Linux: xdg-open
+    // Mac: open -R
+    open::that(path)?;
+    Ok(())
+}
+```
+
+### 15. 样音库管理细节 (基于 V2 学习)
+
+**V2 实现参考**: `frontend/pages/sample_library_page.py`
+
+#### 15.1 样音数据结构
+
+```rust
+// src-tauri/src/models/sample.rs
+#[derive(Serialize, Deserialize)]
+pub struct Sample {
+    pub id: String,
+    pub name: String,
+    pub audio_path: String,
+    pub cover_path: Option<String>,
+    pub tags: Vec<String>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct SampleMetadata {
+    samples: Vec<Sample>,
+}
+```
+
+#### 15.2 样音管理操作
+
+```rust
+// src-tauri/src/commands/sample.rs
+#[tauri::command]
+pub async fn create_sample(
+    name: String,
+    audio_path: String,
+    cover_path: Option<String>,
+    tags: Vec<String>,
+) -> Result<Sample, String> {
+    // 1. 复制音频文件到 outputs/Sample/ 目录
+    // 2. 生成样音 ID
+    // 3. 创建样音元数据
+    // 4. 保存到 metadata.json
+}
+
+#[tauri::command]
+pub async fn list_samples(
+    search_query: Option<String>,
+    tags: Option<Vec<String>>,
+) -> Result<Vec<Sample>, String> {
+    // 加载 metadata.json
+    // 根据搜索条件和标签过滤
+    // 返回样音列表
+}
+
+#[tauri::command]
+pub async fn apply_sample(sample_id: String) -> Result<Sample, String> {
+    // 加载样音信息
+    // 通过事件推送到前端，应用到配音生成页面
+}
+```
+
+### 16. 单实例应用实现 (基于 V2 学习)
+
+**V2 实现参考**: `main.py` 中的 `QSharedMemory` 检测
+
+V3 应使用 Tauri 的 `single-instance` 插件或系统级单实例检测：
+
+```rust
+// src-tauri/src/main.rs
+use tauri::Manager;
+
+fn main() {
+    tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
+            // 如果已有实例运行，激活现有窗口
+            if let Some(window) = app.get_window("main") {
+                window.show().unwrap();
+                window.set_focus().unwrap();
+            }
+        }))
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
+}
+```
+
+### 17. 配置持久化 (基于 V2 学习)
+
+**V2 实现参考**: `backend/utils/path_config.py` + `backend/auth/user_manager.py`
+
+#### 17.1 用户配置存储
+
+```rust
+// src-tauri/src/utils/config.rs
+pub struct ConfigManager {
+    config_dir: PathBuf,
+}
+
+impl ConfigManager {
+    pub fn new() -> Self {
+        let config_dir = Self::get_config_dir();
+        fs::create_dir_all(&config_dir).unwrap();
+        
+        Self { config_dir }
+    }
+    
+    fn get_config_dir() -> PathBuf {
+        // Windows: %APPDATA%/MaruAudio
+        // Linux: ~/.config/MaruAudio
+        // Mac: ~/Library/Application Support/MaruAudio
+    }
+    
+    pub fn save_user_session(&self, session: &UserSession) -> Result<(), String> {
+        let path = self.config_dir.join("user_session.json");
+        let json = serde_json::to_string_pretty(session)?;
+        fs::write(path, json)?;
+        Ok(())
+    }
+    
+    pub fn load_user_session(&self) -> Option<UserSession> {
+        let path = self.config_dir.join("user_session.json");
+        if path.exists() {
+            if let Ok(content) = fs::read_to_string(path) {
+                if let Ok(session) = serde_json::from_str(&content) {
+                    return Some(session);
+                }
+            }
+        }
+        None
+    }
+    
+    pub fn save_path_memory(&self, path_type: &str, path: &Path) -> Result<(), String> {
+        // 记住用户选择的文件路径（上传文本、保存音频等）
+        let path_memory = self.load_path_memory();
+        // 更新并保存
+    }
+}
+```
+
+### 18. 版本管理与更新检测 (基于 V2 学习)
+
+**V2 实现参考**: `backend/utils/version.py` + `backend/utils/updater.py`
+
+#### 18.1 版本检测
+
+```rust
+// src-tauri/src/utils/version.rs
+pub struct VersionManager {
+    current_version: String,
+    update_check_url: String,
+}
+
+impl VersionManager {
+    pub async fn check_update(&self) -> Result<UpdateInfo, String> {
+        // 从 CNB.cool 或 GitHub 检测更新
+        // 返回最新版本信息
+    }
+    
+    pub async fn download_update(&self, update_url: &str) -> Result<PathBuf, String> {
+        // 下载更新包
+        // 返回下载路径
+    }
+    
+    pub async fn install_update(&self, update_path: &Path) -> Result<(), String> {
+        // 安装更新（可能需要重启应用）
+    }
+}
+```
+
+---
 
 ### 第一阶段: 项目基础搭建 (1-2周)
 
@@ -924,7 +1995,49 @@ reqwest = { version = "0.11", features = ["json"] }
 
 ---
 
-**文档版本**: 1.0  
-**创建时间**: 2026-02-01
-**最后更新**: 2026-02-01
+---
+
+## 📖 V2 项目学习总结
+
+### 核心架构模式
+
+1. **异步任务处理**: V2 使用 `QThread` 在后台线程执行耗时操作，V3 应使用 Rust 的 `tokio::spawn` 实现类似效果
+2. **信号槽机制**: V2 使用 Qt 信号槽实现跨线程通信，V3 应使用 Tauri Events 实现事件推送
+3. **单例模式**: V2 的 `UserManager`、`EngineManager` 等使用单例模式，V3 应使用 Rust 的 `Arc<Mutex<>>` 实现
+4. **引擎热切换**: V2 支持运行时切换引擎，V3 应实现类似的引擎管理器
+5. **降级策略**: V2 在多个地方实现降级方案（Demucs -> librosa，GPU -> CPU），V3 应保持类似的容错机制
+
+### 关键技术点
+
+1. **文本预处理**: V2 的 `TextOptimizer` 实现了丰富的文本优化功能，包括标点标准化、停顿增强、换气优化等
+2. **人声分离**: V2 支持 Demucs（深度学习）和 librosa（基础方法）两种分离方式
+3. **大文本处理**: V2 的 `LargeTextGeneratorWorker` 实现了超过1万字符的自动分批处理
+4. **WebSocket 实时同步**: V2 使用 WebSocket 实现用户状态、配置的实时同步
+5. **GPU 自动检测**: V2 使用 `nvidia-smi` 检测 GPU，并根据显存自动选择模型
+
+### 迁移注意事项
+
+1. **Python -> Rust**: 需要将 Python 的业务逻辑迁移到 Rust，保持功能一致性
+2. **PySide6 -> Vue 3**: UI 需要完全重新实现，但可以参考 V2 的页面布局和交互设计
+3. **Qt 信号槽 -> Tauri Events**: 事件通信机制需要适配
+4. **QThread -> tokio::spawn**: 异步任务处理方式需要调整
+5. **文件路径处理**: V2 使用 Python 的 `pathlib`，V3 应使用 Rust 的 `PathBuf`
+
+### V2 项目文件参考清单
+
+- **音频生成**: `backend/core/audio_generator.py`
+- **引擎管理**: `backend/engine/manager.py`
+- **用户管理**: `backend/auth/user_manager.py`
+- **文本优化**: `backend/services/text_optimizer.py`
+- **人声分离**: `backend/services/vocal_separator.py`
+- **字幕生成**: `backend/subtitle/transcribe.py`
+- **前端页面**: `frontend/pages/voice_clone_page.py`
+- **WebSocket**: `backend/network/websocket_client.py`
+
+---
+
+**文档版本**: 2.0  
+**创建时间**: 2026-02-01  
+**最后更新**: 2026-02-01  
+**更新内容**: 基于 V2 项目源码分析，补充详细的技术实现方案
 

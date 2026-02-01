@@ -102,3 +102,7 @@ credentials.json
 logs/
 *.log
 
+# Sensitive server information
+项目开发文档/服务器信息.txt
+**/服务器信息.txt
+

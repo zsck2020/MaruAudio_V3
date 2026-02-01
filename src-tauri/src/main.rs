@@ -5,8 +5,6 @@ mod commands;
 mod services;
 mod utils;
 
-use tauri::Manager;
-
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
@@ -20,7 +18,7 @@ fn main() {
             commands::file::delete_file,
             commands::user::login,
         ])
-        .setup(|app| {
+        .setup(|_app| {
             // 初始化应用设置
             Ok(())
         })

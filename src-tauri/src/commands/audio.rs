@@ -2,10 +2,10 @@ use tauri::{command, AppHandle, Emitter};
 
 #[command]
 pub async fn generate_audio(
-    text: String,
-    audio_prompt: String,
-    engine: String,
-    generation_params: serde_json::Value,
+    _text: String,
+    _audio_prompt: String,
+    _engine: String,
+    _generation_params: serde_json::Value,
     app_handle: AppHandle,
 ) -> Result<String, String> {
     // TODO: 实现音频生成逻辑
@@ -19,8 +19,8 @@ pub async fn generate_audio(
 #[command]
 pub async fn process_reference_audio(
     file_path: String,
-    enable_vocal_separation: bool,
-    app_handle: AppHandle,
+    _enable_vocal_separation: bool,
+    _app_handle: AppHandle,
 ) -> Result<String, String> {
     // TODO: 实现参考音频处理逻辑
     Ok(file_path)

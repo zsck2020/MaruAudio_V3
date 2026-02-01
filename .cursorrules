@@ -58,3 +58,164 @@
    - 禁止出现上万行代码的大文件
    - 单个文件代码行数应控制在合理范围内
    - 如文件过大，应进行合理的拆分和重构
+
+## Ant Design Vue 组件库配置
+
+### LLMs.txt 文档引用
+
+项目已创建 `llms.txt` 文件，包含 Ant Design Vue 组件库的完整文档链接。
+
+**在 Cursor 中使用 @Docs 功能引用文档：**
+
+1. **方法一：使用 @Docs 命令**
+   - 在 Cursor 聊天或 Cmd K 中输入 `@Docs`
+   - 选择"添加新文档"
+   - 输入 Ant Design Vue 文档 URL: `https://antdv.com/`
+   - 或在 URL 末尾添加斜杠以爬取整个站点: `https://antdv.com/`
+
+2. **方法二：引用本地 llms.txt**
+   - 在聊天中输入 `@Docs` 并选择项目中的 `llms.txt` 文件
+   - 或在代码中使用 `@file llms.txt` 引用
+
+3. **管理文档**
+   - 在 `Cursor 设置` → `功能` → `文档` 中管理已添加的文档
+   - 可以编辑、删除或手动触发重新索引
+
+### 组件使用规范
+
+- 优先使用 Ant Design Vue 官方组件，避免重复造轮子
+- 遵循 Ant Design Vue 4.x 版本的 API 规范
+- 使用 TypeScript 类型定义确保类型安全
+- 图标统一使用 `@ant-design/icons-vue` 图标库
+
+### Ant Design Vue 开发规范（严格遵循）
+
+#### 1. Design Token 使用规范
+
+**必须遵循**：
+- 所有样式必须使用 Ant Design Design Token（CSS 变量 `--ant-*`）
+- 禁止定义自定义 CSS 变量（如 `--primary-color`、`--spacing-lg` 等）
+- 颜色、间距、字体、圆角、阴影等必须通过 `themeConfig` 中的 `token` 配置
+- 在 CSS 中使用 `var(--ant-color-primary)` 而不是自定义变量
+
+**正确示例**：
+```css
+/* 正确：使用 Ant Design Token */
+.title {
+  color: var(--ant-color-text);
+  background: var(--ant-color-bg-container);
+  padding: var(--ant-padding);
+  border-radius: var(--ant-border-radius);
+}
+
+/* 错误：使用自定义变量 */
+.title {
+  color: var(--text-color);
+  background: var(--bg-color);
+  padding: var(--spacing-lg);
+}
+```
+
+#### 2. 组件使用规范
+
+**Layout 组件**：
+- 必须使用 `a-layout`、`a-layout-header`、`a-layout-sider`、`a-layout-content`、`a-layout-footer` 构建页面布局
+- 禁止使用自定义 div 布局替代 Layout 组件
+- Sidebar 必须使用 `a-layout-sider` 组件
+
+**Space 组件**：
+- 元素间距必须使用 `a-space` 组件，而不是自定义 margin
+- 使用 `a-space` 的 `size` 属性控制间距，而不是 CSS margin
+
+**Menu 组件**：
+- 导航菜单必须使用 `a-menu` 组件
+- 通过 `themeConfig.components.Menu` 配置菜单样式，而不是深度选择器覆盖
+- 菜单项使用 `a-menu-item`，图标使用 `template #icon` 插槽
+
+**Typography 组件**：
+- 标题使用 `a-typography-title`，段落使用 `a-typography-paragraph`
+- 禁止使用原生 `h1-h6`、`p` 标签替代 Typography 组件
+
+**Button 组件**：
+- 所有按钮必须使用 `a-button` 组件
+- 使用 `type`、`size`、`shape` 等属性控制样式，而不是自定义 CSS
+
+#### 3. 样式覆盖规范
+
+**禁止行为**：
+- 禁止使用 `:deep()` 深度选择器覆盖 Ant Design 组件内部样式
+- 禁止使用 `!important` 强制覆盖样式
+- 禁止直接修改 `.ant-*` 类名样式
+
+**正确做法**：
+- 通过 `themeConfig.components` 配置组件样式
+- 使用 Design Token 变量
+- 使用组件提供的 props 和 slots 定制样式
+
+**错误示例**：
+```vue
+<style scoped>
+/* 错误：深度选择器覆盖 */
+.menu :deep(.ant-menu-item) {
+  background-color: red !important;
+}
+</style>
+```
+
+**正确示例**：
+```typescript
+// 正确：通过 themeConfig 配置
+const themeConfig = ref<ThemeConfig>({
+  components: {
+    Menu: {
+      itemSelectedBg: '#fafafa',
+      itemSelectedColor: '#1890ff',
+    },
+  },
+})
+```
+
+#### 4. 主题配置规范
+
+**必须配置的 Token**：
+- 主色系：`colorPrimary`、`colorSuccess`、`colorWarning`、`colorError`、`colorInfo`
+- 文本色：`colorText`、`colorTextSecondary`、`colorTextTertiary`、`colorTextDisabled`
+- 背景色：`colorBgContainer`、`colorBgElevated`、`colorBgLayout`、`colorBgSpotlight`
+- 边框色：`colorBorder`、`colorBorderSecondary`
+- 圆角：`borderRadius`、`borderRadiusLG`、`borderRadiusSM`、`borderRadiusXS`
+- 字体：`fontFamily`、`fontSize`、`fontSizeLG`、`fontSizeSM`、`lineHeight`
+- 间距：`padding`、`paddingLG`、`paddingSM`、`paddingXS`、`margin`、`marginLG`、`marginSM`、`marginXS`
+- 阴影：`boxShadow`、`boxShadowSecondary`、`boxShadowTertiary`
+- 动画：`motionDurationFast`、`motionDurationMid`、`motionDurationSlow`、`motionEaseInOut`
+
+**组件级配置**：
+- Layout：`bodyBg`、`headerBg`、`siderBg`、`footerBg`
+- Menu：`itemBg`、`itemSelectedBg`、`itemSelectedColor`、`itemHoverBg`、`itemActiveBg`
+- Button：`borderRadius`、`controlHeight`、`controlHeightLG`、`controlHeightSM`
+- Input：`borderRadius`、`controlHeight`、`controlHeightLG`、`controlHeightSM`
+
+#### 5. 图标使用规范
+
+- 所有图标必须从 `@ant-design/icons-vue` 导入
+- 图标已全局注册，可直接使用组件名（如 `<AudioOutlined />`）
+- 禁止使用其他图标库或自定义 SVG 图标（除非 Ant Design Icons 中没有）
+
+#### 6. 响应式设计规范
+
+- 使用 Ant Design 的 Grid 系统（`a-row`、`a-col`）进行响应式布局
+- 使用 `a-space` 的 `direction` 属性控制移动端和桌面端布局
+- 禁止使用自定义媒体查询覆盖 Ant Design 组件样式
+
+#### 7. 代码质量要求
+
+- 所有组件必须使用 TypeScript
+- 使用 Composition API（`<script setup lang="ts">`）
+- 组件 props 必须定义类型
+- 遵循 Vue 3 和 Ant Design Vue 4.x 的最佳实践
+
+#### 8. 参考资源
+
+- 官方文档：https://antdv.com/
+- 组件示例：https://antdv.com/components/overview-cn
+- Design Token：https://antdv.com/docs/vue/customize-theme-cn
+- 设计规范：https://antdv.com/docs/spec/overview-cn

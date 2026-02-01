@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__serena__get_symbols_overview",
+      "Bash(npm run tauri:dev)"
+    ]
+  }
+}

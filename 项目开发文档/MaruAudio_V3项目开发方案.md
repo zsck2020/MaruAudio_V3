@@ -3,9 +3,7 @@
 ## 📋 项目概述
 
 **项目名称**: 丸子配音 (MaruAudio) V3  
-**技术栈**: Tauri 2.0 + Vue 3 + TypeScript + Rust  
-**组件库**: Ant Design Vue  
-**图标库**: Ant Design Icons + Iconfont  
+**技术栈**: Tauri 2.0 + SvelteKit + TypeScript + Rust  
 **项目类型**: AI 语音克隆桌面应用  
 **版本**: V3.0.0
 
@@ -16,15 +14,11 @@
 ### 核心技术栈
 
 #### 前端层
-- **框架**: Vue 3 (Composition API)
+- **框架**: Svelte 5 + SvelteKit
 - **语言**: TypeScript
-- **构建工具**: Vite 5
-- **UI组件库**: Ant Design Vue 4.x
-- **图标库**: 
-  - Ant Design Icons Vue
-  - Iconfont (自定义图标)
-- **状态管理**: Pinia
-- **路由**: Vue Router 4
+- **构建工具**: Vite 6
+- **状态管理**: Svelte Stores
+- **路由**: SvelteKit 文件系统路由
 
 #### 后端层
 - **框架**: Tauri 2.0
@@ -50,11 +44,10 @@
 
 ```
 ┌─────────────────────────────────────────┐
-│     Frontend Layer (Vue 3 + TS)         │
-│  - Pages (页面组件)                      │
+│     Frontend Layer (SvelteKit + TS)     │
+│  - Routes (路由页面)                     │
 │  - Components (UI组件)                   │
 │  - Stores (状态管理)                     │
-│  - Router (路由)                        │
 │  - IPC优化层 (缓存/批处理/监控)          │
 └─────────────────────────────────────────┘
                     ↕ (Tauri IPC + Events)
@@ -80,32 +73,28 @@
 
 ```
 MaruAudio_V3/
-├── src/                          # 前端源码 (Vue 3)
-│   ├── assets/                   # 静态资源
-│   │   ├── images/              # 图片资源
-│   │   ├── icons/               # 图标资源
-│   │   └── styles/              # 全局样式
-│   ├── components/              # Vue组件
-│   │   ├── common/              # 通用组件
-│   │   ├── audio/               # 音频相关组件
-│   │   └── form/                # 表单组件
-│   ├── views/                   # 页面视图
-│   │   ├── VoiceClone.vue      # 配音生成页
-│   │   ├── SampleLibrary.vue   # 样音库页
-│   │   ├── Subtitle.vue        # 字幕生成页
-│   │   └── FileManager.vue     # 文件管理页
-│   ├── stores/                  # Pinia状态管理
-│   │   ├── user.ts             # 用户状态
-│   │   ├── engine.ts           # 引擎状态
-│   │   └── audio.ts            # 音频状态
-│   ├── router/                  # 路由配置
-│   │   └── index.ts
-│   ├── utils/                   # 工具函数
-│   │   ├── api.ts              # API调用
-│   │   ├── format.ts           # 格式化工具
-│   │   └── constants.ts        # 常量定义
-│   ├── App.vue                  # 根组件
-│   └── main.ts                  # 入口文件
+├── src/                          # 前端源码 (SvelteKit)
+│   ├── routes/                   # SvelteKit 路由
+│   │   ├── +layout.svelte       # 布局组件
+│   │   ├── +page.svelte         # 首页
+│   │   ├── voice-clone/         # 配音生成页
+│   │   ├── sample-library/      # 样音库页
+│   │   ├── subtitle/            # 字幕生成页
+│   │   └── file-manager/        # 文件管理页
+│   ├── lib/                     # 共享库
+│   │   ├── components/          # Svelte组件
+│   │   │   ├── common/          # 通用组件
+│   │   │   ├── audio/           # 音频相关组件
+│   │   │   └── form/            # 表单组件
+│   │   ├── stores/              # Svelte状态管理
+│   │   │   ├── user.ts         # 用户状态
+│   │   │   ├── engine.ts       # 引擎状态
+│   │   │   └── audio.ts        # 音频状态
+│   │   └── utils/               # 工具函数
+│   │       ├── api.ts          # API调用
+│   │       ├── format.ts       # 格式化工具
+│   │       └── constants.ts    # 常量定义
+│   └── app.html                 # HTML 模板
 │
 ├── src-tauri/                   # Tauri后端 (Rust)
 │   ├── src/
@@ -149,7 +138,7 @@ MaruAudio_V3/
 
 ### 1. 配音生成 (Voice Clone)
 
-**前端位置**: `src/views/VoiceClone.vue`  
+**前端位置**: `src/routes/voice-clone/+page.svelte`  
 **后端位置**: `src-tauri/src/commands/audio.rs` + `src-tauri/src/services/tts/`
 
 **功能特性**:
@@ -166,7 +155,7 @@ MaruAudio_V3/
 - ✅ **批量生成**: 支持长文本自动分批生成并合并
 
 **技术实现**:
-- 前端: Vue 3 Composition API + Ant Design Vue
+- 前端: Svelte 5 + SvelteKit
 - 后端: Rust + Tauri Commands
 - 引擎集成: 通过 Rust FFI 或 Python 子进程调用 IndexTTS
 
@@ -174,7 +163,7 @@ MaruAudio_V3/
 
 ### 2. 样音库管理 (Sample Library)
 
-**前端位置**: `src/views/SampleLibrary.vue`  
+**前端位置**: `src/routes/sample-library/+page.svelte`  
 **后端位置**: `src-tauri/src/commands/file.rs`
 
 **功能特性**:
@@ -190,7 +179,7 @@ MaruAudio_V3/
 
 ### 3. 字幕生成 (Subtitle Generation)
 
-**前端位置**: `src/views/Subtitle.vue`  
+**前端位置**: `src/routes/subtitle/+page.svelte`  
 **后端位置**: `src-tauri/src/services/subtitle.rs`
 
 **功能特性**:
@@ -205,7 +194,7 @@ MaruAudio_V3/
 
 ### 4. 文件管理 (File Manager)
 
-**前端位置**: `src/views/FileManager.vue`  
+**前端位置**: `src/routes/file-manager/+page.svelte`  
 **后端位置**: `src-tauri/src/commands/file.rs`
 
 **功能特性**:
@@ -219,7 +208,7 @@ MaruAudio_V3/
 
 ### 5. 用户认证与会员系统
 
-**前端位置**: `src/stores/user.ts` + `src/components/common/LoginModal.vue`  
+**前端位置**: `src/lib/stores/user.ts` + `src/lib/components/common/LoginModal.svelte`  
 **后端位置**: `src-tauri/src/commands/user.rs`
 
 **功能特性**:
@@ -237,7 +226,7 @@ MaruAudio_V3/
 
 ### 6. 引擎管理系统
 
-**前端位置**: `src/stores/engine.ts`  
+**前端位置**: `src/lib/stores/engine.ts`  
 **后端位置**: `src-tauri/src/services/tts/`
 
 **功能特性**:
@@ -274,20 +263,20 @@ MaruAudio_V3/
 
 #### 2. 代码层面
 - **常量定义**: 使用代号而非真实名称
-  ```typescript
-  // src/utils/constants.ts
-  export const ENGINE_TYPES = {
-    LIGHTWEIGHT: 'lightweight',  // 内部代号
-    EMOTION: 'emotion',          // 内部代号
-    CLOUD: 'cloud'               // 内部代号
-  } as const;
-  
-  export const ENGINE_DISPLAY_NAMES = {
-    [ENGINE_TYPES.LIGHTWEIGHT]: '快速模式',
-    [ENGINE_TYPES.EMOTION]: '标准模式',
-    [ENGINE_TYPES.CLOUD]: '高质量模式'
-  } as const;
-  ```
+```typescript
+// src/lib/utils/constants.ts
+export const ENGINE_TYPES = {
+  LIGHTWEIGHT: 'lightweight',  // 内部代号
+  EMOTION: 'emotion',          // 内部代号
+  CLOUD: 'cloud'               // 内部代号
+} as const;
+
+export const ENGINE_DISPLAY_NAMES = {
+  [ENGINE_TYPES.LIGHTWEIGHT]: '快速模式',
+  [ENGINE_TYPES.EMOTION]: '标准模式',
+  [ENGINE_TYPES.CLOUD]: '高质量模式'
+} as const;
+```
 
 #### 3. 配置文件
 - **配置文件**: 不包含模型真实名称
@@ -306,7 +295,7 @@ MaruAudio_V3/
 
 #### 前端调用后端
 ```typescript
-// src/utils/api.ts
+// src/lib/utils/api.ts
 import { invoke } from '@tauri-apps/api/core';
 
 // 调用 Rust 命令
@@ -345,6 +334,7 @@ pub async fn generate_audio(
 
 ##### 1. 批量操作优化
 ```typescript
+// src/lib/utils/api.ts
 // ❌ 不推荐: 多次IPC调用
 for (const file of files) {
   await invoke('delete_file', { path: file.path });
@@ -373,6 +363,7 @@ pub async fn batch_delete_files(
 
 ##### 2. 事件系统替代轮询
 ```typescript
+// src/lib/utils/api.ts
 // ❌ 不推荐: 前端轮询
 setInterval(async () => {
   const status = await invoke('get_generation_status');
@@ -449,7 +440,7 @@ pub async fn get_audio_info(path: String) -> Result<AudioInfo, String> {
 
 ##### 4. 状态缓存机制
 ```typescript
-// src/utils/api.ts
+// src/lib/utils/api.ts
 // 前端缓存，减少重复请求
 const cache = new Map<string, { data: any; timestamp: number }>();
 const CACHE_TTL = 5000; // 5秒缓存
@@ -502,7 +493,7 @@ pub async fn generate_audio_stream(
 
 ##### 6. 命令合并与批处理
 ```typescript
-// src/utils/api.ts
+// src/lib/utils/api.ts
 // 命令批处理工具
 export class CommandBatcher {
   private queue: Array<{ command: string; args: any; resolve: Function; reject: Function }> = [];
@@ -543,29 +534,31 @@ export const commandBatcher = new CommandBatcher();
 
 ##### 7. 预加载与预热
 ```typescript
-// src/stores/engine.ts
+// src/lib/stores/engine.ts
 // 应用启动时预加载引擎状态
-export const useEngineStore = defineStore('engine', {
-  actions: {
-    async preload() {
-      // 并行预加载多个状态
-      const [status, config, history] = await Promise.all([
-        invoke('get_engine_status'),
-        invoke('get_engine_config'),
-        invoke('get_generation_history', { limit: 10 }),
-      ]);
-      
-      this.status = status;
-      this.config = config;
-      this.history = history;
-    },
-  },
+import { writable } from 'svelte/store';
+
+export const engineStore = writable({
+  status: null,
+  config: null,
+  history: []
 });
+
+export async function preloadEngine() {
+  // 并行预加载多个状态
+  const [status, config, history] = await Promise.all([
+    invoke('get_engine_status'),
+    invoke('get_engine_config'),
+    invoke('get_generation_history', { limit: 10 }),
+  ]);
+  
+  engineStore.set({ status, config, history });
+}
 ```
 
 ##### 8. IPC 性能监控
 ```typescript
-// src/utils/ipc-monitor.ts
+// src/lib/utils/ipc-monitor.ts
 // IPC调用性能监控
 export async function monitoredInvoke<T>(
   command: string,
@@ -644,45 +637,24 @@ impl CloudEngine {
 }
 ```
 
-### 4. Ant Design Vue 集成
+### 4. 状态管理 (Svelte Stores)
 
 ```typescript
-// src/main.ts
-import { createApp } from 'vue';
-import Antd from 'ant-design-vue';
-import 'ant-design-vue/dist/reset.css';
-import * as Icons from '@ant-design/icons-vue';
+// src/lib/stores/engine.ts
+import { writable } from 'svelte/store';
 
-const app = createApp(App);
-app.use(Antd);
+export const currentEngine = writable('lightweight'); // 内部代号
 
-// 注册图标
-Object.keys(Icons).forEach(key => {
-  app.component(key, Icons[key]);
-});
-```
+export const engines = writable([
+  { id: 'lightweight', name: '快速模式' },
+  { id: 'emotion', name: '标准模式' },
+  { id: 'cloud', name: '高质量模式' },
+]);
 
-### 5. 状态管理 (Pinia)
-
-```typescript
-// src/stores/engine.ts
-import { defineStore } from 'pinia';
-
-export const useEngineStore = defineStore('engine', {
-  state: () => ({
-    currentEngine: 'lightweight', // 内部代号
-    engines: [
-      { id: 'lightweight', name: '快速模式' },
-      { id: 'emotion', name: '标准模式' },
-      { id: 'cloud', name: '高质量模式' },
-    ],
-  }),
-  actions: {
-    async switchEngine(engineId: string) {
-      // 切换引擎逻辑
-    },
-  },
-});
+export async function switchEngine(engineId: string) {
+  // 切换引擎逻辑
+  currentEngine.set(engineId);
+}
 ```
 
 ### 6. 音频生成工作流程 (基于 V2 学习)
@@ -786,22 +758,37 @@ impl BatchProcessor {
 V2 使用 Qt 信号槽机制推送进度。V3 使用 Tauri Events：
 
 ```typescript
-// src/views/VoiceClone.vue
-import { listen } from '@tauri-apps/api/event';
-
-// 监听生成进度
-const unlistenProgress = await listen<[number, string]>('generation-progress', (event) => {
-  const [progress, message] = event.payload;
-  updateProgress(progress, message);
-});
-
-// 监听生成完成
-const unlistenCompleted = await listen<[string, string]>('generation-completed', (event) => {
-  const [taskId, outputPath] = event.payload;
-  handleCompleted(outputPath);
-  unlistenProgress();
-  unlistenCompleted();
-});
+// src/routes/voice-clone/+page.svelte
+<script lang="ts">
+  import { onMount, onDestroy } from 'svelte';
+  import { listen } from '@tauri-apps/api/event';
+  
+  let progress = 0;
+  let message = '';
+  
+  let unlistenProgress: () => void;
+  let unlistenCompleted: () => void;
+  
+  onMount(async () => {
+    // 监听生成进度
+    unlistenProgress = await listen<[number, string]>('generation-progress', (event) => {
+      const [prog, msg] = event.payload;
+      progress = prog;
+      message = msg;
+    });
+    
+    // 监听生成完成
+    unlistenCompleted = await listen<[string, string]>('generation-completed', (event) => {
+      const [taskId, outputPath] = event.payload;
+      handleCompleted(outputPath);
+    });
+  });
+  
+  onDestroy(() => {
+    unlistenProgress?.();
+    unlistenCompleted?.();
+  });
+</script>
 ```
 
 ### 7. 文本预处理与优化 (基于 V2 学习)
@@ -1140,19 +1127,20 @@ impl WebSocketClient {
 前端监听 WebSocket 事件：
 
 ```typescript
-// src/stores/user.ts
+// src/lib/stores/user.ts
+import { writable } from 'svelte/store';
 import { listen } from '@tauri-apps/api/event';
+
+export const userData = writable(null);
 
 // 监听用户更新事件
 listen('user-updated', (event) => {
-  const userData = event.payload;
-  updateUserData(userData);
+  userData.set(event.payload);
 });
 
 // 监听配置更新事件
 listen('config-updated', (event) => {
-  const config = event.payload;
-  updateConfig(config);
+  // 更新配置
 });
 ```
 
@@ -1764,16 +1752,15 @@ impl VersionManager {
 
 #### 1.1 初始化项目
 - [ ] 创建 Tauri 2.0 项目
-- [ ] 配置 Vue 3 + TypeScript
-- [ ] 集成 Ant Design Vue
+- [ ] 配置 SvelteKit + TypeScript
 - [ ] 配置 Vite 构建
 - [ ] 设置项目目录结构
 
 #### 1.2 基础组件开发
 - [ ] 主窗口布局
 - [ ] 侧边栏导航
-- [ ] 路由配置
-- [ ] 状态管理 (Pinia)
+- [ ] 路由配置 (SvelteKit 文件系统路由)
+- [ ] 状态管理 (Svelte Stores)
 - [ ] 主题配置 (暗色主题)
 
 #### 1.3 Rust 后端基础
@@ -1878,7 +1865,7 @@ impl VersionManager {
 - **字体**: HarmonyOS Sans, 14px 正文
 
 ### 组件规范
-- 使用 Ant Design Vue 组件库
+- 使用 Svelte 组件系统
 - 自定义主题色
 - 响应式布局
 - 无障碍支持
@@ -1911,11 +1898,13 @@ impl VersionManager {
 {
   "dependencies": {
     "@tauri-apps/api": "^2.0.0",
-    "vue": "^3.4.21",
-    "vue-router": "^4.3.0",
-    "pinia": "^2.1.7",
-    "ant-design-vue": "^4.2.2",
-    "@ant-design/icons-vue": "^7.0.1"
+    "@sveltejs/kit": "^2.9.0",
+    "svelte": "^5.0.0"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^5.0.0",
+    "typescript": "~5.6.2",
+    "vite": "^6.0.3"
   }
 }
 ```
@@ -1959,6 +1948,7 @@ reqwest = { version = "0.11", features = ["json"] }
 - ✅ TypeScript 严格模式
 - ✅ Rust 使用 clippy 检查
 - ✅ 代码格式化 (Prettier + rustfmt)
+- ✅ Svelte 代码检查 (svelte-check)
 - ✅ 提交前运行 lint
 
 ### 3. 性能优化
@@ -1985,8 +1975,8 @@ reqwest = { version = "0.11", features = ["json"] }
 
 ### 技术文档
 - [Tauri 2.0 文档](https://tauri.app/)
-- [Vue 3 文档](https://vuejs.org/)
-- [Ant Design Vue 文档](https://antdv.com/)
+- [Svelte 文档](https://svelte.dev/)
+- [SvelteKit 文档](https://kit.svelte.dev/)
 - [Rust 文档](https://doc.rust-lang.org/)
 
 ### 引擎源码
@@ -2018,7 +2008,7 @@ reqwest = { version = "0.11", features = ["json"] }
 ### 迁移注意事项
 
 1. **Python -> Rust**: 需要将 Python 的业务逻辑迁移到 Rust，保持功能一致性
-2. **PySide6 -> Vue 3**: UI 需要完全重新实现，但可以参考 V2 的页面布局和交互设计
+2. **PySide6 -> SvelteKit**: UI 需要完全重新实现，但可以参考 V2 的页面布局和交互设计
 3. **Qt 信号槽 -> Tauri Events**: 事件通信机制需要适配
 4. **QThread -> tokio::spawn**: 异步任务处理方式需要调整
 5. **文件路径处理**: V2 使用 Python 的 `pathlib`，V3 应使用 Rust 的 `PathBuf`

@@ -2,13 +2,25 @@
 /**
  * 应用配置
  */
+$debug = getenv('MARUAUDIO_DEBUG') ? (getenv('MARUAUDIO_DEBUG') === '1') : false;
+$env = getenv('MARUAUDIO_ENV') ?: ($debug ? 'development' : 'production');
+
+$jwtSecret = getenv('MARUAUDIO_JWT_SECRET') ?: (getenv('JWT_SECRET') ?: 'CHANGE_ME');
+if ($env === 'production' && ($jwtSecret === 'CHANGE_ME' || $jwtSecret === '')) {
+    // 生产环境必须显式配置密钥
+    throw new RuntimeException('Missing JWT secret. Set MARUAUDIO_JWT_SECRET (or JWT_SECRET).');
+}
+
 return [
     'name' => '丸子配音',
     'version' => '1.0.0',
-    'debug' => false,
+    'debug' => $debug,
     
     // JWT 配置
-    'jwt_secret' => 'MaruAudio_JWT_Secret_2026_Secure_Key',
+    // IMPORTANT: do not hardcode real secrets in repo. Configure via env in production.
+    // - MARUAUDIO_JWT_SECRET (preferred)
+    // - JWT_SECRET (compatible fallback for websocket server)
+    'jwt_secret' => $jwtSecret,
     'jwt_expire' => 7200, // Token 过期时间（秒）
     
     // 安全配置

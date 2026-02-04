@@ -1,10 +1,9 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "MaruAudio",
+  "productName": "丸子配音",
   "version": "0.1.0",
   "identifier": "com.maruaudio.app",
   "build": {
-    "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
     "beforeBuildCommand": "npm run build",
     "frontendDist": "../build"
@@ -12,7 +11,7 @@
   "app": {
     "windows": [
       {
-        "title": "MaruAudio",
+        "title": "丸子配音",
         "width": 1440,
         "height": 900,
         "decorations": false,
@@ -28,8 +27,10 @@
     "targets": "all",
     "icon": [
       "icons/32x32.png",
+      "icons/64x64.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
+      "icons/icon.png",
       "icons/icon.icns",
       "icons/icon.ico"
     ]

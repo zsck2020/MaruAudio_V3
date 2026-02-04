@@ -1,5 +1,5 @@
 #!/bin/bash
-# MaruAudio WebSocket 服务器启动脚本
+# 丸子配音 WebSocket 服务器启动脚本
 
 cd "$(dirname "$0")"
 

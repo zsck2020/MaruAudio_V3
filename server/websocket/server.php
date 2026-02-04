@@ -1,6 +1,6 @@
 <?php
 /**
- * MaruAudio WebSocket 服务器入口
+ * 丸子配音 WebSocket 服务器入口
  * 
  * 启动命令: php server.php
  * 默认端口: 8080 (WebSocket), 8081 (内部 API)
@@ -22,7 +22,7 @@ $wsPort = getenv('WS_PORT') ?: 8080;
 $internalPort = getenv('INTERNAL_PORT') ?: 8081;
 
 echo "===========================================\n";
-echo "MaruAudio WebSocket Server\n";
+echo "丸子配音 WebSocket Server\n";
 echo "===========================================\n";
 echo "WebSocket Port: {$wsPort}\n";
 echo "Internal API Port: {$internalPort}\n";

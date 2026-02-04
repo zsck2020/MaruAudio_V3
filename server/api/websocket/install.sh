@@ -36,7 +36,7 @@ mkdir -p websocket/queue
 echo "创建 systemd 服务..."
 cat > /etc/systemd/system/maruaudio-websocket.service << 'EOF'
 [Unit]
-Description=MaruAudio WebSocket Server
+Description=丸子配音 WebSocket Server
 After=network.target
 
 [Service]

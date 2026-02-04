@@ -1,7 +1,7 @@
 [package]
 name = "maruaudio_v3"
 version = "0.1.0"
-description = "MaruAudio V3"
+description = "丸子配音 V3"
 authors = ["you"]
 edition = "2021"
 

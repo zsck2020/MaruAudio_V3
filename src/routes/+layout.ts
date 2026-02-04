@@ -1,3 +1,4 @@
-// 确保此布局没有服务器端逻辑
-// 所有数据加载都在客户端完成
+// Tauri doesn't have a Node.js server to do proper SSR.
+// Keep SvelteKit in SPA mode and ensure no server-side rendering happens.
+export const ssr = false;
 

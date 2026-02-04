@@ -6,7 +6,7 @@
 class SecurityHelper {
     
     // 签名密钥（应该从配置文件读取）
-    private static $signatureKey = 'MaruAudio_Signature_Key_2026_Secure';
+    private static $signatureKey;
     
     // 授权码有效期（秒）
     private static $authCodeExpiry = 300; // 5分钟
@@ -22,6 +22,7 @@ class SecurityHelper {
      * @return string 授权码
      */
     public static function generateAuthCode($userId, $characters, $logId) {
+        self::init();
         $timestamp = time();
         $data = [
             'user_id' => $userId,
@@ -45,6 +46,7 @@ class SecurityHelper {
      * @return array|false 验证成功返回数据，失败返回 false
      */
     public static function verifyAuthCode($authCode) {
+        self::init();
         try {
             $decoded = base64_decode($authCode);
             if (!$decoded) {
@@ -90,6 +92,7 @@ class SecurityHelper {
      * @return string 签名
      */
     public static function generateSignature($params, $timestamp, $token) {
+        self::init();
         // 参数排序
         ksort($params);
         
@@ -114,6 +117,7 @@ class SecurityHelper {
      * @return bool 是否有效
      */
     public static function verifySignature($params, $signature, $timestamp, $token) {
+        self::init();
         // 检查时间戳
         if (abs(time() - $timestamp) > self::$timestampTolerance) {
             return false;
@@ -190,6 +194,7 @@ class SecurityHelper {
      * @return string Refresh Token
      */
     public static function generateRefreshToken($userId) {
+        self::init();
         $data = [
             'user_id' => $userId,
             'type' => 'refresh',
@@ -210,6 +215,7 @@ class SecurityHelper {
      * @return array|false 验证成功返回数据，失败返回 false
      */
     public static function verifyRefreshToken($refreshToken) {
+        self::init();
         try {
             $decoded = base64_decode($refreshToken);
             if (!$decoded) {
@@ -244,6 +250,18 @@ class SecurityHelper {
             
         } catch (Exception $e) {
             return false;
+        }
+    }
+
+    private static function init() {
+        if (!empty(self::$signatureKey)) {
+            return;
+        }
+        $debug = getenv('MARUAUDIO_DEBUG') ? (getenv('MARUAUDIO_DEBUG') === '1') : false;
+        $env = getenv('MARUAUDIO_ENV') ?: ($debug ? 'development' : 'production');
+        self::$signatureKey = getenv('MARUAUDIO_SIGNATURE_KEY') ?: 'CHANGE_ME';
+        if ($env === 'production' && (self::$signatureKey === 'CHANGE_ME' || self::$signatureKey === '')) {
+            throw new RuntimeException('Missing signature key. Set MARUAUDIO_SIGNATURE_KEY.');
         }
     }
 }

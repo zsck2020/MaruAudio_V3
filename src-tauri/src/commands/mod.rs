@@ -1,0 +1,14 @@
+pub mod app;
+pub mod audio;
+pub mod engine;
+pub mod file;
+pub mod sample;
+pub mod tts;
+pub mod user;
+
+#[tauri::command]
+pub fn get_app_version() -> &'static str {
+    env!("CARGO_PKG_VERSION")
+}
+
+

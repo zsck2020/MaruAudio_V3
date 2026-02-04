@@ -1,7 +1,4 @@
 <script lang="ts">
-  // 禁用 SSR，确保在 Tauri 环境中正常工作
-  export const ssr = false;
-  
   import '../app.css';
   import { onMount } from 'svelte';
   

@@ -1,6 +1,6 @@
 {
     "name": "maruaudio/websocket-server",
-    "description": "MaruAudio WebSocket Server",
+    "description": "丸子配音 WebSocket Server",
     "require": {
         "php": ">=7.4",
         "cboden/ratchet": "^0.4.4",

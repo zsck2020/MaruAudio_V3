@@ -33,8 +33,11 @@
 
 <div
   class="tooltip-wrapper"
+  role="group"
   onmouseenter={show}
   onmouseleave={hide}
+  onfocusin={show}
+  onfocusout={hide}
 >
   {@render children()}
   {#if visible}
@@ -156,4 +159,7 @@
     }
   }
 </style>
+
+
+
 

@@ -1,4 +1,4 @@
-# 丸子配音 (MaruAudio) V3
+# 丸子配音 V3
 
 AI 语音克隆桌面应用 - 基于 Tauri 2.0 + SvelteKit 构建
 

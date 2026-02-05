@@ -4,9 +4,10 @@
   "description": "丸子配音桌面端",
   "type": "module",
   "scripts": {
-    "dev": "concurrently -k -n web,desktop \"npm:dev:web\" \"npm:dev:desktop\"",
-    "dev:web": "vite dev --port 1420 --strictPort",
+    "dev": "concurrently -n web,desktop --restart-tries 3 --restart-after 2000 \"npm:dev:web\" \"npm:dev:desktop\"",
+    "dev:web": "vite dev --port 1420 --strictPort --host",
     "dev:desktop": "wait-on http://localhost:1420 && tauri dev",
+    "dev:web-only": "vite dev --port 1420 --strictPort --host",
     "build": "vite build",
     "preview": "vite preview",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",

@@ -11,18 +11,29 @@
   let isTauriApp = false;
   
   // 菜单状态管理
-  type MenuKey = 'home' | 'video' | 'copywriting' | 'dubbing' | 'cover' | 'resource' | 'project' | 'setting' | 'about';
+  type MenuKey =
+    | 'home'
+    | 'video'
+    | 'copywriting'
+    | 'dubbing'
+    | 'cover'
+    | 'resource'
+    | 'project'
+    | 'setting'
+    | 'about';
   let activeMenu: MenuKey = 'home';
   
   // 菜单配置
   const menuConfig: Record<MenuKey, { name: string; icon: string }> = {
     home: { name: '首页', icon: 'home' },
-    video: { name: '创作', icon: 'video' },
-    copywriting: { name: '文案', icon: 'copywriting' },
+    // 左侧主菜单
     dubbing: { name: '配音', icon: 'dubbing' },
-    cover: { name: '封面', icon: 'cover' },
-    resource: { name: '资源', icon: 'resource' },
-    project: { name: '项目', icon: 'project' },
+    project: { name: '角色', icon: 'project' },
+    video: { name: '声播', icon: 'video' },
+    resource: { name: '音库', icon: 'resource' },
+    copywriting: { name: '字幕', icon: 'copywriting' },
+    cover: { name: '文件', icon: 'cover' },
+    // 底部菜单
     setting: { name: '设置', icon: 'setting' },
     about: { name: '关于', icon: 'about' }
   };
@@ -113,22 +124,8 @@
     <div class="header-left">
       <div class="logo-section">
         <div class="logo-icon">
-          <svg
-            data-t="1770190367399"
-            class="icon app-logo"
-            viewBox="0 0 1024 1024"
-            version="1.1"
-            xmlns="http://www.w3.org/2000/svg"
-            data-p-id="5243"
-            role="img"
-            aria-label="丸子配音"
-            focusable="false"
-          >
-            <path
-              d="M122.709333 626.432c0 27.050667-24.96 48.512-57.216 48.512S11.562667 653.312 11.562667 621.013333v-161.749333c0-26.88 21.632-53.930667 53.930666-53.930667 27.050667 0 57.216 21.632 57.216 53.930667v167.168z m217.258667 129.28c0 32.298667-24.96 53.930667-57.216 53.930667-32.298667 0-53.930667-21.632-53.930667-53.930667V324.736c0-26.88 21.461333-53.930667 53.930667-53.930667 26.88 0 57.216 21.461333 57.216 53.930667v430.976z m215.466667 107.690667c0 32.256-21.461333 53.930667-53.930667 53.930666-32.298667 0-53.930667-21.461333-53.930667-53.930666V217.088c0-27.050667 21.632-53.930667 53.930667-53.930667 27.050667 0 53.930667 21.461333 53.930667 53.930667v646.314667z m218.965333-107.690667c0 32.298667-21.632 53.930667-53.930667 53.930667-32.256 0-53.930667-21.632-53.930666-53.930667V324.736c0-26.88 21.632-53.930667 53.930666-53.930667 26.88 0 53.930667 21.461333 53.930667 53.930667v430.976z m215.338667-129.28c0 27.050667-21.461333 48.512-53.930667 48.512-32.298667 0-53.930667-21.632-53.930667-53.930667v-161.749333c0-26.88 21.632-53.930667 53.930667-53.930667 27.050667 0 53.930667 21.632 53.930667 53.930667v167.168z"
-              fill="#ffffff"
-              data-p-id="5244"
-            />
+          <svg viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" width="28" height="28">
+            <path d="M122.709333 626.432c0 27.050667-24.96 48.512-57.216 48.512S11.562667 653.312 11.562667 621.013333v-161.749333c0-26.88 21.632-53.930667 53.930666-53.930667 27.050667 0 57.216 21.632 57.216 53.930667v167.168z m217.258667 129.28c0 32.298667-24.96 53.930667-57.216 53.930667-32.298667 0-53.930667-21.632-53.930667-53.930667V324.736c0-26.88 21.461333-53.930667 53.930667-53.930667 26.88 0 57.216 21.461333 57.216 53.930667v430.976z m215.466667 107.690667c0 32.256-21.461333 53.930667-53.930667 53.930666-32.298667 0-53.930667-21.461333-53.930667-53.930666V217.088c0-27.050667 21.632-53.930667 53.930667-53.930667 27.050667 0 53.930667 21.461333 53.930667 53.930667v646.314667z m218.965333-107.690667c0 32.298667-21.632 53.930667-53.930667 53.930667-32.256 0-53.930667-21.632-53.930666-53.930667V324.736c0-26.88 21.632-53.930667 53.930666-53.930667 26.88 0 53.930667 21.461333 53.930667 53.930667v430.976z m215.338667-129.28c0 27.050667-21.461333 48.512-53.930667 48.512-32.298667 0-53.930667-21.632-53.930667-53.930667v-161.749333c0-26.88 21.632-53.930667 53.930667-53.930667 27.050667 0 53.930667 21.632 53.930667 53.930667v167.168z"/>
           </svg>
         </div>
         <div class="app-title">丸子配音</div>
@@ -176,7 +173,7 @@
     <!-- 左侧菜单栏 -->
     <div class="sidebar" class:mobile={isMobile} class:collapsed={sidebarCollapsed && isTablet}>
       <div class="main-menu">
-        <Tooltip text="返回工作台首页" position={isMobile ? "top" : "right"} delay={100}>
+        <Tooltip text="返回首页" position={isMobile ? "top" : "right"} delay={100}>
           <div 
             class="menu-item" 
             class:active={activeMenu === 'home'} 
@@ -191,37 +188,7 @@
             <div class="menu-text">首页</div>
           </div>
         </Tooltip>
-        <Tooltip text="视频创作与管理" position={isMobile ? "top" : "right"} delay={100}>
-          <div 
-            class="menu-item" 
-            class:active={activeMenu === 'video'} 
-            role="button"
-            tabindex="0"
-            on:click={() => handleMenuClick('video')}
-            on:keydown={(e) => e.key === 'Enter' && handleMenuClick('video')}
-          >
-            <div class="menu-icon">
-              <Icon name="video" size={20} color={activeMenu === 'video' ? '#ffffff' : '#9ca3af'} />
-            </div>
-            <div class="menu-text">创作</div>
-          </div>
-        </Tooltip>
-        <Tooltip text="文案创作与编辑" position={isMobile ? "top" : "right"} delay={100}>
-          <div 
-            class="menu-item" 
-            class:active={activeMenu === 'copywriting'} 
-            role="button"
-            tabindex="0"
-            on:click={() => handleMenuClick('copywriting')}
-            on:keydown={(e) => e.key === 'Enter' && handleMenuClick('copywriting')}
-          >
-            <div class="menu-icon">
-              <Icon name="copywriting" size={20} color={activeMenu === 'copywriting' ? '#ffffff' : '#9ca3af'} />
-            </div>
-            <div class="menu-text">文案</div>
-          </div>
-        </Tooltip>
-        <Tooltip text="配音制作与管理" position={isMobile ? "top" : "right"} delay={100}>
+        <Tooltip text="通用配音" position={isMobile ? "top" : "right"} delay={100}>
           <div 
             class="menu-item" 
             class:active={activeMenu === 'dubbing'} 
@@ -236,37 +203,7 @@
             <div class="menu-text">配音</div>
           </div>
         </Tooltip>
-        <Tooltip text="封面设计与制作" position={isMobile ? "top" : "right"} delay={100}>
-          <div 
-            class="menu-item" 
-            class:active={activeMenu === 'cover'} 
-            role="button"
-            tabindex="0"
-            on:click={() => handleMenuClick('cover')}
-            on:keydown={(e) => e.key === 'Enter' && handleMenuClick('cover')}
-          >
-            <div class="menu-icon">
-              <Icon name="cover" size={20} color={activeMenu === 'cover' ? '#ffffff' : '#9ca3af'} />
-            </div>
-            <div class="menu-text">封面</div>
-          </div>
-        </Tooltip>
-        <Tooltip text="素材资源管理库" position={isMobile ? "top" : "right"} delay={100}>
-          <div 
-            class="menu-item" 
-            class:active={activeMenu === 'resource'} 
-            role="button"
-            tabindex="0"
-            on:click={() => handleMenuClick('resource')}
-            on:keydown={(e) => e.key === 'Enter' && handleMenuClick('resource')}
-          >
-            <div class="menu-icon">
-              <Icon name="resource" size={20} color={activeMenu === 'resource' ? '#ffffff' : '#9ca3af'} />
-            </div>
-            <div class="menu-text">资源</div>
-          </div>
-        </Tooltip>
-        <Tooltip text="项目管理与列表" position={isMobile ? "top" : "right"} delay={100}>
+        <Tooltip text="多角色配音" position={isMobile ? "top" : "right"} delay={100}>
           <div 
             class="menu-item" 
             class:active={activeMenu === 'project'} 
@@ -278,13 +215,73 @@
             <div class="menu-icon">
               <Icon name="project" size={20} color={activeMenu === 'project' ? '#ffffff' : '#9ca3af'} />
             </div>
-            <div class="menu-text">项目</div>
+            <div class="menu-text">角色</div>
+          </div>
+        </Tooltip>
+        <Tooltip text="有声主播录音平台" position={isMobile ? "top" : "right"} delay={100}>
+          <div 
+            class="menu-item" 
+            class:active={activeMenu === 'video'} 
+            role="button"
+            tabindex="0"
+            on:click={() => handleMenuClick('video')}
+            on:keydown={(e) => e.key === 'Enter' && handleMenuClick('video')}
+          >
+            <div class="menu-icon">
+              <Icon name="video" size={20} color={activeMenu === 'video' ? '#ffffff' : '#9ca3af'} />
+            </div>
+            <div class="menu-text">声播</div>
+          </div>
+        </Tooltip>
+        <Tooltip text="本地样音库" position={isMobile ? "top" : "right"} delay={100}>
+          <div 
+            class="menu-item" 
+            class:active={activeMenu === 'resource'} 
+            role="button"
+            tabindex="0"
+            on:click={() => handleMenuClick('resource')}
+            on:keydown={(e) => e.key === 'Enter' && handleMenuClick('resource')}
+          >
+            <div class="menu-icon">
+              <Icon name="resource" size={20} color={activeMenu === 'resource' ? '#ffffff' : '#9ca3af'} />
+            </div>
+            <div class="menu-text">音库</div>
+          </div>
+        </Tooltip>
+        <Tooltip text="字幕生成/编辑" position={isMobile ? "top" : "right"} delay={100}>
+          <div 
+            class="menu-item" 
+            class:active={activeMenu === 'copywriting'} 
+            role="button"
+            tabindex="0"
+            on:click={() => handleMenuClick('copywriting')}
+            on:keydown={(e) => e.key === 'Enter' && handleMenuClick('copywriting')}
+          >
+            <div class="menu-icon">
+              <Icon name="copywriting" size={20} color={activeMenu === 'copywriting' ? '#ffffff' : '#9ca3af'} />
+            </div>
+            <div class="menu-text">字幕</div>
+          </div>
+        </Tooltip>
+        <Tooltip text="生成文件管理" position={isMobile ? "top" : "right"} delay={100}>
+          <div 
+            class="menu-item" 
+            class:active={activeMenu === 'cover'} 
+            role="button"
+            tabindex="0"
+            on:click={() => handleMenuClick('cover')}
+            on:keydown={(e) => e.key === 'Enter' && handleMenuClick('cover')}
+          >
+            <div class="menu-icon">
+              <Icon name="cover" size={20} color={activeMenu === 'cover' ? '#ffffff' : '#9ca3af'} />
+            </div>
+            <div class="menu-text">文件</div>
           </div>
         </Tooltip>
       </div>
       
       <div class="bottom-menu">
-        <Tooltip text="系统设置与配置" position={isMobile ? "top" : "right"} delay={100}>
+        <Tooltip text="软件设置" position={isMobile ? "top" : "right"} delay={100}>
           <div 
             class="menu-item" 
             class:active={activeMenu === 'setting'} 
@@ -299,7 +296,7 @@
             <div class="menu-text">设置</div>
           </div>
         </Tooltip>
-        <Tooltip text="关于版本与帮助" position={isMobile ? "top" : "right"} delay={100}>
+        <Tooltip text="关于我们" position={isMobile ? "top" : "right"} delay={100}>
           <div 
             class="menu-item" 
             class:active={activeMenu === 'about'} 
@@ -379,10 +376,14 @@
     flex-shrink: 0;
   }
   
-  .logo-icon :global(svg) {
+  .logo-icon svg path {
+    fill: var(--color-text);
+  }
+  
+  .logo-icon img {
     width: 100%;
     height: 100%;
-    display: block;
+    object-fit: contain;
   }
   
   .app-title {

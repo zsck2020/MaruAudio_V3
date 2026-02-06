@@ -1,0 +1,42 @@
+{
+	"/(admin)": [
+		"src/routes/+layout.js",
+		"src/routes/+layout.js"
+	],
+	"/": [
+		"src/routes/+layout.js"
+	],
+	"/(admin)/announcements": [
+		"src/routes/+layout.js"
+	],
+	"/(admin)/cards": [
+		"src/routes/+layout.js"
+	],
+	"/(admin)/character-packs": [
+		"src/routes/+layout.js"
+	],
+	"/(admin)/commission": [
+		"src/routes/+layout.js"
+	],
+	"/(admin)/dashboard": [
+		"src/routes/+layout.js"
+	],
+	"/login": [
+		"src/routes/+layout.js"
+	],
+	"/(admin)/logs": [
+		"src/routes/+layout.js"
+	],
+	"/(admin)/marketing": [
+		"src/routes/+layout.js"
+	],
+	"/(admin)/settings": [
+		"src/routes/+layout.js"
+	],
+	"/(admin)/software": [
+		"src/routes/+layout.js"
+	],
+	"/(admin)/users": [
+		"src/routes/+layout.js"
+	]
+}

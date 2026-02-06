@@ -4,3 +4,8 @@
 fn main() {
     maruaudio_v3_lib::run()
 }
+
+
+fn main() {
+    maruaudio_v3_lib::run()
+}

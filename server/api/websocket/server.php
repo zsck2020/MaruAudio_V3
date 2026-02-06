@@ -163,9 +163,9 @@ $loop->addPeriodicTimer(1, function() use ($server, $queueDir) {
             if ($data) {
                 $filename = basename($file, '.json');
                 if ($filename === 'broadcast') {
-                    // 广播消息
+                    // 㲥Ϣ
                     $server->broadcast($data);
-                    echo "广播消息: " . json_encode($data) . "\n";
+                    echo "㲥Ϣ: " . json_encode($data) . "\n";
                 } else {
                     // 用户消息
                     $userId = (int)$filename;

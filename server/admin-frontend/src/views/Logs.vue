@@ -45,6 +45,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { getOperationLogs } from '../api'
+import logger from '../utils/logger'
 
 const loading = ref(false)
 const logs = ref([])
@@ -111,7 +112,7 @@ const loadLogs = async () => {
     logs.value = res.data?.list || []
     total.value = res.data?.total || 0
   } catch (e) {
-    console.error('加载日志失败', e)
+    logger.error('加载日志失败', e)
   } finally {
     loading.value = false
   }
@@ -130,3 +131,4 @@ onMounted(() => {
   color: #606266;
 }
 </style>
+

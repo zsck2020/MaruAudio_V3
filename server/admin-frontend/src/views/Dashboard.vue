@@ -111,6 +111,7 @@
 import { ref, onMounted, watch } from 'vue'
 import { getStats, getUsers } from '../api'
 import { useProductStore } from '../stores/product'
+import logger from '../utils/logger'
 
 const productStore = useProductStore()
 
@@ -180,7 +181,7 @@ const loadData = async () => {
       }
     }
   } catch (e) {
-    console.error('加载统计数据失败', e)
+    logger.error('加载统计数据失败', e)
   }
   
   try {
@@ -189,7 +190,7 @@ const loadData = async () => {
       recentUsers.value = res.data.list
     }
   } catch (e) {
-    console.error('加载用户列表失败', e)
+    logger.error('加载用户列表失败', e)
   }
 }
 
@@ -197,4 +198,5 @@ onMounted(() => {
   loadData()
 })
 </script>
+
 

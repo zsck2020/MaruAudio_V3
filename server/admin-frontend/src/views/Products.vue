@@ -51,7 +51,7 @@
           <el-input v-model="productForm.description" type="textarea" placeholder="产品简介" />
         </el-form-item>
         <el-form-item label="图标">
-          <el-input v-model="productForm.icon" placeholder="Emoji图标，如: 🎙️" />
+          <el-input v-model="productForm.icon" placeholder="图标，如: VOICE" />
         </el-form-item>
         <el-form-item label="主题色">
           <el-color-picker v-model="productForm.color" />
@@ -87,7 +87,7 @@ const products = ref([
     code: 'dubbing',
     name: '丸子配音',
     description: '智能AI配音工具，支持多种音色',
-    icon: '🎙️',
+    icon: 'VOICE',
     color: 'rgba(59, 130, 246, 0.1)',
     status: 'active',
     user_count: 128,
@@ -98,7 +98,7 @@ const products = ref([
     code: 'comic',
     name: '丸子漫剧',
     description: '漫画剧本创作与配音工具',
-    icon: '📚',
+    icon: 'BOOK',
     color: 'rgba(245, 158, 11, 0.1)',
     status: 'developing',
     user_count: 0,
@@ -111,7 +111,7 @@ const productForm = reactive({
   code: '',
   name: '',
   description: '',
-  icon: '🎯',
+  icon: 'MA',
   color: 'rgba(59, 130, 246, 0.1)',
   status: 'developing'
 })
@@ -123,7 +123,7 @@ const showAddDialog = () => {
     code: '',
     name: '',
     description: '',
-    icon: '🎯',
+    icon: 'MA',
     color: 'rgba(59, 130, 246, 0.1)',
     status: 'developing'
   })

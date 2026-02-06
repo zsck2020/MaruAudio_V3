@@ -1,0 +1,1 @@
+import{w as i}from"./Co40BFZ2.js";const e=i("dubbing");function o(t){(t==="dubbing"||t==="comic")&&(e.set(t),typeof window<"u"&&localStorage.setItem("current_product",t))}function c(){if(typeof window<"u"){const t=localStorage.getItem("current_product");t&&(t==="dubbing"||t==="comic")?e.set(t):e.set("dubbing")}}export{e as c,c as i,o as s};

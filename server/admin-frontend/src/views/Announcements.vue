@@ -78,6 +78,7 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getAnnouncements, saveAnnouncement, deleteAnnouncement } from '../api'
+import logger from '../utils/logger'
 
 const loading = ref(false)
 const saving = ref(false)
@@ -110,7 +111,7 @@ const loadAnnouncements = async () => {
     const res = await getAnnouncements()
     announcements.value = res.data?.list || []
   } catch (e) {
-    console.error('加载公告失败', e)
+    logger.error('加载公告失败', e)
   } finally {
     loading.value = false
   }

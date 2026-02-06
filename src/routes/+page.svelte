@@ -855,3 +855,20 @@
     }
   }
 </style>
+
+    .tutorial-btn {
+      height: 28px;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    .logo-icon {
+      width: 28px;
+      height: 28px;
+    }
+    
+    .header-right {
+      gap: 4px;
+    }
+  }
+</style>

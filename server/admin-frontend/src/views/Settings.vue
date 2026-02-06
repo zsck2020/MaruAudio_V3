@@ -106,6 +106,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getSettings, updateSettings, updateAdminProfile } from '../api'
+import logger from '../utils/logger'
 
 const domainForm = reactive({
   api_domain: '',
@@ -164,7 +165,7 @@ const loadSettings = async () => {
       mailForm.from_name = res.data.from_name || '丸子配音'
     }
   } catch (e) {
-    console.error('加载设置失败', e)
+    logger.error('加载设置失败', e)
   }
 }
 
@@ -285,3 +286,4 @@ onMounted(() => {
   loadSettings()
 })
 </script>
+

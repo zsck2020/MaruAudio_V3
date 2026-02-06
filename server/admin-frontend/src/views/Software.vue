@@ -145,6 +145,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus, Connection } from '@element-plus/icons-vue'
 import { getSettings, updateSettings } from '../api'
+import logger from '../utils/logger'
 
 const registerForm = reactive({
   registration_enabled: true,
@@ -188,7 +189,7 @@ const loadSettings = async () => {
       cloudApiForm.dashscope_api_key = res.data.dashscope_api_key || ''
     }
   } catch (e) {
-    console.error('加载设置失败', e)
+    logger.error('加载设置失败', e)
   }
 }
 
@@ -477,3 +478,4 @@ onMounted(() => {
   margin-bottom: 8px;
 }
 </style>
+

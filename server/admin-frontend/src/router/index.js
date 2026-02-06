@@ -1,4 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import api from '../api'
+import logger from '../utils/logger'
 
 const routes = [
   {
@@ -87,17 +89,83 @@ const router = createRouter({
   routes
 })
 
+// Token验证缓存（避免频繁验证）
+let tokenValidationCache = {
+  isValid: false,
+  timestamp: 0,
+  cacheDuration: 5 * 60 * 1000 // 5分钟缓存
+}
+
+/**
+ * 验证token有效性
+ */
+async function validateToken(token) {
+  // 检查缓存
+  const now = Date.now()
+  if (tokenValidationCache.isValid && (now - tokenValidationCache.timestamp) < tokenValidationCache.cacheDuration) {
+    return true
+  }
+  
+  try {
+    // 使用轻量级API验证token
+    const response = await api.get('/admin/stats', {
+      validateStatus: (status) => status < 500 // 只处理服务器错误，401/403由拦截器处理
+    })
+    
+    if (response.status === 200) {
+      tokenValidationCache.isValid = true
+      tokenValidationCache.timestamp = now
+      return true
+    }
+    return false
+  } catch (error) {
+    logger.error('Token验证失败:', error)
+    return false
+  }
+}
+
+/**
+ * 清除token和缓存
+ */
+function clearAuth() {
+  localStorage.removeItem('admin_token')
+  localStorage.removeItem('admin_info')
+  tokenValidationCache.isValid = false
+  tokenValidationCache.timestamp = 0
+}
+
 // 路由守卫
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to, from, next) => {
   const token = localStorage.getItem('admin_token')
   
+  // 如果访问登录页且已有token，验证token有效性
+  if (to.path === '/login' && token) {
+    const isValid = await validateToken(token)
+    if (isValid) {
+      next('/dashboard')
+      return
+    } else {
+      clearAuth()
+    }
+  }
+  
+  // 需要登录的页面
   if (to.path !== '/login' && !token) {
     next('/login')
-  } else if (to.path === '/login' && token) {
-    next('/dashboard')
-  } else {
-    next()
+    return
   }
+  
+  if (to.path !== '/login' && token) {
+    // 验证token有效性
+    const isValid = await validateToken(token)
+    if (!isValid) {
+      clearAuth()
+      next('/login')
+      return
+    }
+  }
+  
+  next()
 })
 
 export default router

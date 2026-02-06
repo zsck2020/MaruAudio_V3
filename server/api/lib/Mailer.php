@@ -259,7 +259,7 @@ HTML;
         <div class="title">管理后台登录提醒</div>
         <div class="info">
             <div class="info-row"><span class="info-label">账号：</span><span class="info-value">{$username}</span></div>
-            <div class="info-row"><span class="info-label">时间：</span><span class="info-value">{$time}</span></div>
+            <div class="info-row"><span class="info-label">ʱ䣺</span><span class="info-value">{$time}</span></div>
             <div class="info-row"><span class="info-label">IP：</span><span class="info-value">{$ip}</span></div>
             <div class="info-row"><span class="info-label">浏览器：</span><span class="info-value">{$browser}</span></div>
             <div class="info-row"><span class="info-label">登录地区：</span><span class="info-value">{$location}</span></div>

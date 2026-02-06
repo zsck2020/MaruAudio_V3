@@ -159,6 +159,7 @@ import { ref, reactive, onMounted, watch, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getCards, generateCards, disableCard as apiDisableCard, deleteCard as apiDeleteCard, getSettings, updateSettings } from '../api'
 import { useProductStore } from '../stores/product'
+import logger from '../utils/logger'
 
 const productStore = useProductStore()
 
@@ -240,7 +241,7 @@ const loadCards = async () => {
       total.value = res.data.total || 0
     }
   } catch (e) {
-    console.error('加载卡密列表失败', e)
+    logger.error('加载卡密列表失败', e)
     cards.value = []
     total.value = 0
   } finally {
@@ -379,3 +380,4 @@ onMounted(() => {
   loadPriceSettings()
 })
 </script>
+

@@ -479,7 +479,7 @@ class UserController {
     
     /**
      * 同步用户状态（轻量级轮询端点，替代 WebSocket）
-     * 返回用户关键状态和版本号，客户端对比版本号决定是否刷新完整信息
+     * 用于检查关键状态和版本信息，客户端通过版本判断是否有新变化
      */
     public static function sync() {
         $payload = JWTAuth::getPayloadFromRequest();

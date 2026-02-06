@@ -337,6 +337,7 @@ import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search, CopyDocument, DataAnalysis } from '@element-plus/icons-vue'
 import api from '../api'
+import logger from '../utils/logger'
 
 // 状态
 const activeTab = ref('packages')
@@ -434,7 +435,7 @@ const loadStats = async () => {
     const res = await api.get('/admin/character-pack/stats')
     stats.value = res.data
   } catch (e) {
-    console.error('加载统计失败', e)
+    logger.error('加载统计失败', e)
   }
 }
 
@@ -674,3 +675,4 @@ onMounted(() => {
   margin-top: 8px;
 }
 </style>
+

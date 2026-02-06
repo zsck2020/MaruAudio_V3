@@ -209,6 +209,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getWithdrawals, processWithdrawal } from '../api'
+import logger from '../utils/logger'
 
 const loading = ref(false)
 const withdrawFilter = ref('')
@@ -260,7 +261,7 @@ const loadWithdrawRequests = async () => {
       stats.value.totalPaid = res.data.stats.total_paid || 0
     }
   } catch (e) {
-    console.error('加载提现列表失败', e)
+    logger.error('加载提现列表失败', e)
   } finally {
     loading.value = false
   }
@@ -311,7 +312,7 @@ const submitProcess = async () => {
     processDialogVisible.value = false
     loadWithdrawRequests()
   } catch (e) {
-    console.error('处理提现失败', e)
+    logger.error('处理提现失败', e)
   }
 }
 
@@ -319,3 +320,4 @@ onMounted(() => {
   loadWithdrawRequests()
 })
 </script>
+

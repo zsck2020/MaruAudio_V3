@@ -13,21 +13,34 @@ class JWTAuth {
     }
     
     public static function generate($payload) {
+        // 向后兼容的默认生成方法，使用配置中的默认过期时间
+        return self::generateToken($payload, null);
+    }
+
+    /**
+     * 生成 JWT Token，支持自定义过期时间
+     *
+     * @param array $payload 负载数据
+     * @param int|null $expire 自定义过期秒数；为 null 时使用配置中的默认值
+     */
+    public static function generateToken($payload, $expire = null) {
         self::init();
-        
+
         $header = self::base64UrlEncode(json_encode([
             'typ' => 'JWT',
             'alg' => 'HS256'
         ]));
-        
-        $payload['iat'] = time();
-        $payload['exp'] = time() + self::$expire;
+
+        $now = time();
+        $lifetime = $expire !== null ? (int)$expire : (int)self::$expire;
+        $payload['iat'] = $now;
+        $payload['exp'] = $now + $lifetime;
         $payloadEncoded = self::base64UrlEncode(json_encode($payload));
-        
+
         $signature = self::base64UrlEncode(
             hash_hmac('sha256', "{$header}.{$payloadEncoded}", self::$secret, true)
         );
-        
+
         return "{$header}.{$payloadEncoded}.{$signature}";
     }
     

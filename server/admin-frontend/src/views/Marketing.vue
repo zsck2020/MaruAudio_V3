@@ -113,6 +113,7 @@
 import { reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getSettings, updateSettings } from '../api'
+import logger from '../utils/logger'
 
 // 免费试用设置
 const trialForm = reactive({
@@ -170,7 +171,7 @@ const loadSettings = async () => {
       commissionForm.min_withdraw = parseInt(res.data.commission_min_withdraw) || 50
     }
   } catch (e) {
-    console.error('加载设置失败', e)
+    logger.error('加载设置失败', e)
   }
 }
 

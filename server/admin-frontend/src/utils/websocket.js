@@ -2,9 +2,28 @@
  * 管理后台 WebSocket 客户端
  */
 
+import logger from './logger'
+
+// 安全修复：从环境变量或配置读取WebSocket地址，避免硬编码
+function getWebSocketUrl() {
+  // 优先使用环境变量
+  if (import.meta.env && import.meta.env.VITE_WEBSOCKET_URL) {
+    return import.meta.env.VITE_WEBSOCKET_URL
+  }
+  // 其次使用window配置
+  if (window.WEBSOCKET_URL) {
+    return window.WEBSOCKET_URL
+  }
+  // 默认值（开发环境）
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  const host = window.location.hostname
+  const port = import.meta.env && import.meta.env.VITE_WEBSOCKET_PORT ? import.meta.env.VITE_WEBSOCKET_PORT : '8080'
+  return `${protocol}//${host}:${port}`
+}
+
 class AdminWebSocket {
-  constructor(url = 'ws://175.178.131.67:8080') {
-    this.url = url
+  constructor(url = null) {
+    this.url = url || getWebSocketUrl()
     this.ws = null
     this.connected = false
     this.authenticated = false
@@ -39,7 +58,7 @@ class AdminWebSocket {
         
         this.ws.onopen = () => {
           this.connected = true
-          console.log('[WebSocket] 已连接')
+          logger.log('[WebSocket] 已连接')
           this._emit('connected')
           
           // 发送认证
@@ -62,7 +81,7 @@ class AdminWebSocket {
         }
         
         this.ws.onerror = (error) => {
-          console.error('[WebSocket] 错误:', error)
+          logger.error('[WebSocket] 错误:', error)
           this._emit('error', error)
           reject(error)
         }
@@ -70,7 +89,7 @@ class AdminWebSocket {
         this.ws.onclose = (event) => {
           this.connected = false
           this.authenticated = false
-          console.log('[WebSocket] 已断开:', event.code, event.reason)
+          logger.log('[WebSocket] 已断开:', event.code, event.reason)
           this._emit('disconnected', { code: event.code, reason: event.reason })
           
           // 停止心跳
@@ -117,7 +136,7 @@ class AdminWebSocket {
       this.ws.send(JSON.stringify(data))
       return true
     } catch (error) {
-      console.error('[WebSocket] 发送失败:', error)
+      logger.error('[WebSocket] 发送失败:', error)
       return false
     }
   }
@@ -154,7 +173,7 @@ class AdminWebSocket {
         try {
           callback(data)
         } catch (error) {
-          console.error(`[WebSocket] 回调错误 [${event}]:`, error)
+          logger.error(`[WebSocket] 回调错误 [${event}]:`, error)
         }
       })
     }
@@ -168,12 +187,12 @@ class AdminWebSocket {
       const data = JSON.parse(message)
       const msgType = data.type || ''
       
-      console.log('[WebSocket] 收到消息:', msgType)
+      logger.log('[WebSocket] 收到消息:', msgType)
       
       switch (msgType) {
         case 'auth_success':
           this.authenticated = true
-          console.log('[WebSocket] 认证成功')
+          logger.log('[WebSocket] 认证成功')
           this._emit('authenticated', data)
           // 请求在线用户状态
           this.send({ type: 'user_status_request' })
@@ -181,7 +200,7 @@ class AdminWebSocket {
           
         case 'auth_error':
           this.authenticated = false
-          console.error('[WebSocket] 认证失败:', data.message)
+          logger.error('[WebSocket] 认证失败:', data.message)
           this._emit('auth_error', data)
           break
           
@@ -211,7 +230,7 @@ class AdminWebSocket {
       }
       
     } catch (error) {
-      console.error('[WebSocket] 消息解析失败:', message)
+      logger.error('[WebSocket] 消息解析失败:', message)
     }
   }
   
@@ -242,9 +261,9 @@ class AdminWebSocket {
    */
   _startReconnect() {
     this._stopReconnect()
-    console.log(`[WebSocket] 将在 ${this.reconnectInterval / 1000} 秒后重连...`)
+    logger.log(`[WebSocket] 将在 ${this.reconnectInterval / 1000} 秒后重连...`)
     this.reconnectTimer = setTimeout(() => {
-      console.log('[WebSocket] 尝试重连...')
+      logger.log('[WebSocket] 尝试重连...')
       this.connect(this.token)
     }, this.reconnectInterval)
   }
@@ -267,6 +286,25 @@ class AdminWebSocket {
       type: 'admin_broadcast',
       payload: {
         type: event,
+        data: data
+      }
+    })
+  }
+  
+  /**
+   * 请求在线用户状态
+   */
+  requestUserStatus() {
+    return this.send({ type: 'user_status_request' })
+  }
+}
+
+// 创建单例
+const adminWs = new AdminWebSocket()
+
+export default adminWs
+export { AdminWebSocket }
+
         data: data
       }
     })

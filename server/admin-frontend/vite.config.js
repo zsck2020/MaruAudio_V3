@@ -1,10 +1,11 @@
-import { defineConfig } from 'vite'
-import vue from '@vitejs/plugin-vue'
+import { defineConfig } from 'vite';
+import { sveltekit } from '@sveltejs/kit/vite';
 
 export default defineConfig({
-  plugins: [vue()],
+  plugins: [sveltekit()],
   base: '/admin/',
   server: {
+    port: 3000,
     proxy: {
       '/api': {
         target: 'https://175.178.131.67',
@@ -17,4 +18,4 @@ export default defineConfig({
     outDir: 'dist',
     assetsDir: 'assets'
   }
-})
+});

@@ -304,22 +304,3 @@ const adminWs = new AdminWebSocket()
 
 export default adminWs
 export { AdminWebSocket }
-
-        data: data
-      }
-    })
-  }
-  
-  /**
-   * 请求在线用户状态
-   */
-  requestUserStatus() {
-    return this.send({ type: 'user_status_request' })
-  }
-}
-
-// 创建单例
-const adminWs = new AdminWebSocket()
-
-export default adminWs
-export { AdminWebSocket }

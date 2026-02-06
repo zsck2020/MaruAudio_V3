@@ -1,16 +1,8 @@
 <script>
-  import { redirect } from '@sveltejs/kit';
-  
-  export function load() {
-    throw redirect(302, '/dashboard');
-  }
+  import { onMount } from 'svelte';
+  import { goto } from '$app/navigation';
+
+  onMount(() => {
+    goto('/dashboard');
+  });
 </script>
-
-
-  import { redirect } from '@sveltejs/kit';
-  
-  export function load() {
-    throw redirect(302, '/dashboard');
-  }
-</script>
-

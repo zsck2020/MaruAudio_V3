@@ -380,12 +380,6 @@
     fill: var(--color-text);
   }
   
-  .logo-icon img {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-  }
-  
   .app-title {
     font-size: var(--font-size-lg);
     font-weight: 600;
@@ -839,23 +833,6 @@
       height: 32px;
     }
     
-    .tutorial-btn {
-      height: 28px;
-    }
-  }
-  
-  @media (max-width: 480px) {
-    .logo-icon {
-      width: 28px;
-      height: 28px;
-    }
-    
-    .header-right {
-      gap: 4px;
-    }
-  }
-</style>
-
     .tutorial-btn {
       height: 28px;
     }

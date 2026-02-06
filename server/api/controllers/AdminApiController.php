@@ -2,6 +2,9 @@
 /**
  * 管理后台 API 控制器
  */
+
+require_once __DIR__ . '/../lib/RBAC.php';
+
 class AdminApiController {
     
     /**
@@ -49,7 +52,7 @@ class AdminApiController {
      * 获取操作日志
      */
     public static function getOperationLogs($input) {
-        self::checkAdminAuth();
+        RBAC::checkPermission(RBAC::PERMISSION_LOG_VIEW);
         
         $db = Database::getInstance();
         
@@ -79,7 +82,7 @@ class AdminApiController {
      * 获取统计数据
      */
     public static function getStats() {
-        self::checkAdminAuth();
+        RBAC::checkPermission(RBAC::PERMISSION_LOG_VIEW);
         
         $db = Database::getInstance();
         
@@ -197,7 +200,7 @@ class AdminApiController {
      * 获取用户列表
      */
     public static function getUsers($input) {
-        self::checkAdminAuth();
+        RBAC::checkPermission(RBAC::PERMISSION_USER_MANAGE);
         
         $db = Database::getInstance();
         
@@ -304,7 +307,7 @@ class AdminApiController {
      * 管理员重置用户密码
      */
     public static function resetUserPassword($input) {
-        self::checkAdminAuth();
+        RBAC::checkPermission(RBAC::PERMISSION_USER_RESET_PASSWORD);
         
         $userId = (int)($input['user_id'] ?? 0);
         $newPassword = trim($input['new_password'] ?? '');
@@ -338,7 +341,7 @@ class AdminApiController {
      * 获取用户邀请记录
      */
     public static function getUserInvites($input) {
-        self::checkAdminAuth();
+        RBAC::checkPermission(RBAC::PERMISSION_USER_MANAGE);
         
         $userId = (int)($input['user_id'] ?? 0);
         if ($userId <= 0) {
@@ -359,7 +362,7 @@ class AdminApiController {
      * 获取用户佣金记录
      */
     public static function getUserCommissions($input) {
-        self::checkAdminAuth();
+        RBAC::checkPermission(RBAC::PERMISSION_USER_MANAGE);
         
         $userId = (int)($input['user_id'] ?? 0);
         if ($userId <= 0) {
@@ -398,7 +401,7 @@ class AdminApiController {
      * 更新用户
      */
     public static function updateUser($input) {
-        self::checkAdminAuth();
+        RBAC::checkPermission(RBAC::PERMISSION_USER_MANAGE);
         
         $userId = (int)($input['user_id'] ?? 0);
         if ($userId <= 0) {
@@ -485,7 +488,7 @@ class AdminApiController {
      * 导出用户数据
      */
     public static function exportUsers($input) {
-        self::checkAdminAuth();
+        RBAC::checkPermission(RBAC::PERMISSION_USER_MANAGE);
         
         $db = Database::getInstance();
         
@@ -517,7 +520,7 @@ class AdminApiController {
      * 导出卡密数据
      */
     public static function exportCards($input) {
-        self::checkAdminAuth();
+        RBAC::checkPermission(RBAC::PERMISSION_CARD_MANAGE);
         
         $db = Database::getInstance();
         
@@ -546,7 +549,7 @@ class AdminApiController {
      * 获取公告列表
      */
     public static function getAnnouncements($input) {
-        self::checkAdminAuth();
+        RBAC::checkPermission(RBAC::PERMISSION_SETTING_MANAGE);
         
         $db = Database::getInstance();
         
@@ -561,7 +564,7 @@ class AdminApiController {
      * 创建或更新公告
      */
     public static function saveAnnouncement($input) {
-        self::checkAdminAuth();
+        RBAC::checkPermission(RBAC::PERMISSION_SETTING_MANAGE);
         
         $db = Database::getInstance();
         $adminData = JWTAuth::getPayloadFromRequest();
@@ -615,7 +618,7 @@ class AdminApiController {
      * 删除公告
      */
     public static function deleteAnnouncement($input) {
-        self::checkAdminAuth();
+        RBAC::checkPermission(RBAC::PERMISSION_SETTING_MANAGE);
         
         $id = (int)($input['id'] ?? 0);
         if ($id <= 0) {
@@ -634,7 +637,7 @@ class AdminApiController {
      * 切换用户状态
      */
     public static function toggleUserStatus($input) {
-        self::checkAdminAuth();
+        RBAC::checkPermission(RBAC::PERMISSION_USER_MANAGE);
         
         $userId = (int)($input['user_id'] ?? 0);
         if ($userId <= 0) {
@@ -666,7 +669,7 @@ class AdminApiController {
      * 获取用户机器码绑定列表
      */
     public static function getUserMachines($input) {
-        self::checkAdminAuth();
+        RBAC::checkPermission(RBAC::PERMISSION_USER_MANAGE);
         
         $userId = (int)($input['user_id'] ?? 0);
         if ($userId <= 0) {
@@ -688,7 +691,7 @@ class AdminApiController {
      * 解绑用户机器码
      */
     public static function unbindUserMachine($input) {
-        self::checkAdminAuth();
+        RBAC::checkPermission(RBAC::PERMISSION_USER_MANAGE);
         
         $userId = (int)($input['user_id'] ?? 0);
         $machineCode = trim($input['machine_code'] ?? '');
@@ -721,7 +724,7 @@ class AdminApiController {
      * 为用户绑定机器码
      */
     public static function bindUserMachine($input) {
-        self::checkAdminAuth();
+        RBAC::checkPermission(RBAC::PERMISSION_USER_MANAGE);
         
         $userId = (int)($input['user_id'] ?? 0);
         $machineCode = trim($input['machine_code'] ?? '');
@@ -763,7 +766,7 @@ class AdminApiController {
      * 验证机器码归属关系
      */
     public static function verifyUserMachine($input) {
-        self::checkAdminAuth();
+        RBAC::checkPermission(RBAC::PERMISSION_USER_MANAGE);
         
         $userId = (int)($input['user_id'] ?? 0);
         $machineCode = trim($input['machine_code'] ?? '');
@@ -816,7 +819,7 @@ class AdminApiController {
      * 获取用户登录日志
      */
     public static function getUserLogs($input) {
-        self::checkAdminAuth();
+        RBAC::checkPermission(RBAC::PERMISSION_USER_MANAGE);
         
         $userId = (int)($input['user_id'] ?? 0);
         if ($userId <= 0) {
@@ -838,7 +841,7 @@ class AdminApiController {
      * 获取卡密列表
      */
     public static function getCards($input) {
-        self::checkAdminAuth();
+        RBAC::checkPermission(RBAC::PERMISSION_CARD_MANAGE);
         
         $db = Database::getInstance();
         
@@ -906,7 +909,7 @@ class AdminApiController {
      * 生成卡密
      */
     public static function generateCards($input) {
-        $payload = self::checkAdminAuth();
+        $payload = RBAC::checkPermission(RBAC::PERMISSION_CARD_GENERATE);
         
         $productCode = $input['product_code'] ?? 'dubbing';
         $cardType = $input['card_type'] ?? 'monthly';
@@ -975,7 +978,7 @@ class AdminApiController {
      * 禁用卡密
      */
     public static function disableCard($input) {
-        self::checkAdminAuth();
+        RBAC::checkPermission(RBAC::PERMISSION_CARD_DELETE);
         
         $cardId = (int)($input['card_id'] ?? 0);
         if ($cardId <= 0) {
@@ -1005,7 +1008,7 @@ class AdminApiController {
      * 删除卡密
      */
     public static function deleteCard($input) {
-        self::checkAdminAuth();
+        RBAC::checkPermission(RBAC::PERMISSION_CARD_DELETE);
         
         $cardId = (int)($input['card_id'] ?? 0);
         if ($cardId <= 0) {
@@ -1036,7 +1039,7 @@ class AdminApiController {
      * 获取系统设置
      */
     public static function getSettings() {
-        self::checkAdminAuth();
+        RBAC::checkPermission(RBAC::PERMISSION_SETTING_MANAGE);
         
         $db = Database::getInstance();
         
@@ -1068,7 +1071,7 @@ class AdminApiController {
      * 更新系统设置
      */
     public static function updateSettings($input) {
-        self::checkAdminAuth();
+        RBAC::checkPermission(RBAC::PERMISSION_SETTING_MANAGE);
         
         $db = Database::getInstance();
         
@@ -1113,7 +1116,7 @@ class AdminApiController {
      * 更新管理员信息
      */
     public static function updateAdmin($input) {
-        $payload = self::checkAdminAuth();
+        $payload = RBAC::checkPermission(RBAC::PERMISSION_ADMIN_MANAGE);
         
         $db = Database::getInstance();
         
@@ -1142,7 +1145,7 @@ class AdminApiController {
      * 测试邮件发送
      */
     public static function testMail($input) {
-        self::checkAdminAuth();
+        RBAC::checkPermission(RBAC::PERMISSION_SETTING_MANAGE);
         
         $to = $input['to'] ?? '';
         
@@ -1197,7 +1200,7 @@ class AdminApiController {
      * 获取提现申列表
      */
     public static function getWithdrawals($input) {
-        self::checkAdminAuth();
+        RBAC::checkPermission(RBAC::PERMISSION_WITHDRAWAL_MANAGE);
 
         $db = Database::getInstance();
         $page = max(1, (int)($input['page'] ?? 1));
@@ -1252,7 +1255,7 @@ class AdminApiController {
      * 处理提现申请
      */
     public static function processWithdrawal($input) {
-        self::checkAdminAuth();
+        RBAC::checkPermission(RBAC::PERMISSION_WITHDRAWAL_MANAGE);
 
         $withdrawalId = (int)($input['id'] ?? 0);
         $action = $input['action'] ?? '';
@@ -1349,7 +1352,7 @@ class AdminApiController {
      * 获取版本历史
      */
     public static function getVersionHistory($input) {
-        self::checkAdminAuth();
+        RBAC::checkPermission(RBAC::PERMISSION_VERSION_MANAGE);
         
         $db = Database::getInstance();
         $productCode = $input['product_code'] ?? 'dubbing';
@@ -1366,7 +1369,7 @@ class AdminApiController {
      * 发布新版本
      */
     public static function publishVersion($input) {
-        $payload = self::checkAdminAuth();
+        $payload = RBAC::checkPermission(RBAC::PERMISSION_VERSION_MANAGE);
         
         $version = trim($input['version'] ?? '');
         $forceUpdate = isset($input['force_update']) ? ($input['force_update'] ? 1 : 0) : 0;
@@ -1428,7 +1431,7 @@ class AdminApiController {
      * 数据库备份
      */
     public static function backupDatabase($input) {
-        self::checkAdminAuth();
+        RBAC::checkPermission(RBAC::PERMISSION_BACKUP_MANAGE);
         
         // 生成备份文件名
         $filename = 'backup_' . date('Ymd_His') . '.sql';
@@ -1472,7 +1475,7 @@ class AdminApiController {
      * 获取备份列表
      */
     public static function getBackupList($input) {
-        self::checkAdminAuth();
+        RBAC::checkPermission(RBAC::PERMISSION_BACKUP_MANAGE);
         
         $backupDir = '/www/wwwroot/MaruAudio/backups/';
         $backups = [];
@@ -1503,7 +1506,7 @@ class AdminApiController {
      * 清理过期日志
      */
     public static function cleanupLogs($input) {
-        self::checkAdminAuth();
+        RBAC::checkPermission(RBAC::PERMISSION_LOG_CLEANUP);
         
         $db = Database::getInstance();
         $days = (int)($input['days'] ?? 30);
@@ -1543,7 +1546,7 @@ class AdminApiController {
      * 上传文件
      */
     public static function upload() {
-        self::checkAdminAuth();
+        RBAC::checkPermission(RBAC::PERMISSION_SETTING_MANAGE);
         
         if (!isset($_FILES['file']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
             Response::error('文件上传失败', 1001);
@@ -1746,6 +1749,8 @@ class AdminApiController {
      * 测试 DashScope API Key
      */
     public static function testDashScopeApi($input) {
+        RBAC::checkPermission(RBAC::PERMISSION_SETTING_MANAGE);
+
         $apiKey = $input['api_key'] ?? '';
         
         if (empty($apiKey)) {
@@ -1802,7 +1807,7 @@ class AdminApiController {
      * 获取字包激活码列表
      */
     public static function getCharacterPackCodes($input) {
-        self::checkAdminAuth();
+        RBAC::checkPermission(RBAC::PERMISSION_CHARACTER_PACK_MANAGE);
         
         $db = Database::getInstance();
         $page = max(1, intval($input['page'] ?? 1));
@@ -1862,7 +1867,7 @@ class AdminApiController {
      * 生成字包激活码
      */
     public static function generateCharacterPackCodes($input) {
-        $adminData = self::checkAdminAuth();
+        $adminData = RBAC::checkPermission(RBAC::PERMISSION_CHARACTER_PACK_MANAGE);
         
         $packType = $input['pack_type'] ?? '';
         $count = max(1, min(100, intval($input['count'] ?? 1)));
@@ -1941,7 +1946,7 @@ class AdminApiController {
      * 禁用字包激活码
      */
     public static function disableCharacterPackCode($input) {
-        self::checkAdminAuth();
+        RBAC::checkPermission(RBAC::PERMISSION_CHARACTER_PACK_MANAGE);
         
         $codeId = intval($input['id'] ?? 0);
         
@@ -1979,7 +1984,7 @@ class AdminApiController {
      * 删除字包激活码
      */
     public static function deleteCharacterPackCode($input) {
-        self::checkAdminAuth();
+        RBAC::checkPermission(RBAC::PERMISSION_CHARACTER_PACK_MANAGE);
         
         $codeId = intval($input['id'] ?? 0);
         
@@ -2016,7 +2021,7 @@ class AdminApiController {
      * 获取用户字余列表
      */
     public static function getCharacterPackUsers($input) {
-        self::checkAdminAuth();
+        RBAC::checkPermission(RBAC::PERMISSION_CHARACTER_PACK_MANAGE);
         
         $db = Database::getInstance();
         $page = max(1, intval($input['page'] ?? 1));
@@ -2068,7 +2073,7 @@ class AdminApiController {
      * 调整用户字符余额
      */
     public static function adjustUserCharacterBalance($input) {
-        $adminData = self::checkAdminAuth();
+        $adminData = RBAC::checkPermission(RBAC::PERMISSION_CHARACTER_PACK_MANAGE);
         
         $userId = intval($input['user_id'] ?? 0);
         $adjustment = intval($input['adjustment'] ?? 0);
@@ -2170,7 +2175,7 @@ class AdminApiController {
      * 获取字符包统计数据
      */
     public static function getCharacterPackStats() {
-        self::checkAdminAuth();
+        RBAC::checkPermission(RBAC::PERMISSION_CHARACTER_PACK_MANAGE);
         
         $db = Database::getInstance();
         
@@ -2241,7 +2246,7 @@ class AdminApiController {
      * 获取字符包套餐配置
      */
     public static function getCharacterPackPackages() {
-        self::checkAdminAuth();
+        RBAC::checkPermission(RBAC::PERMISSION_CHARACTER_PACK_MANAGE);
         
         $db = Database::getInstance();
         
@@ -2258,7 +2263,7 @@ class AdminApiController {
      * 更新字符包套餐配置
      */
     public static function updateCharacterPackPackages($input) {
-        self::checkAdminAuth();
+        RBAC::checkPermission(RBAC::PERMISSION_CHARACTER_PACK_MANAGE);
         
         $packages = $input['packages'] ?? [];
         

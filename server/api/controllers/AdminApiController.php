@@ -1439,6 +1439,13 @@ class AdminApiController {
         
         // 执行备份命令
         $dbConfig = require __DIR__ . '/../config/database.php';
+        
+        // 验证数据库配置
+        if (empty($dbConfig['host']) || empty($dbConfig['username']) || empty($dbConfig['database'])) {
+            Response::error('数据库配置不完整', 5001);
+        }
+        
+        // 使用更安全的方式执行备份命令
         $cmd = sprintf(
             'mysqldump -h%s -u%s -p%s %s > %s 2>&1',
             escapeshellarg($dbConfig['host']),
@@ -1449,26 +1456,47 @@ class AdminApiController {
         );
         
         // 确保备份目录存在
-        if (!is_dir('/www/wwwroot/MaruAudio/backups')) {
-            mkdir('/www/wwwroot/MaruAudio/backups', 0755, true);
+        $backupDir = '/www/wwwroot/MaruAudio/backups';
+        if (!is_dir($backupDir)) {
+            if (!mkdir($backupDir, 0755, true)) {
+                Response::error('无法创建备份目录', 5001);
+            }
         }
         
+        // 验证备份目录可写
+        if (!is_writable($backupDir)) {
+            Response::error('备份目录不可写', 5001);
+        }
+        
+        // 执行备份命令
+        $output = [];
+        $returnCode = 0;
         exec($cmd, $output, $returnCode);
         
-        if ($returnCode === 0 && file_exists($backupPath)) {
-            $fileSize = filesize($backupPath);
-            
-            // 记录操作日志
-            self::logOperation('数据库备份', 'backup', null, ['filename' => $filename, 'size' => $fileSize]);
-            
-            Response::success([
-                'filename' => $filename,
-                'size' => $fileSize,
-                'path' => $backupPath
-            ], '备份成功');
-        } else {
-            Response::error('备份失败', 5001);
+        // 检查命令执行结果
+        if ($returnCode !== 0) {
+            $errorMsg = implode("\n", $output);
+            error_log("数据库备份失败: " . $errorMsg);
+            Response::error('备份失败: 命令执行错误', 5001);
         }
+        
+        if (!file_exists($backupPath)) {
+            Response::error('备份失败: 备份文件未生成', 5001);
+        }
+        
+        $fileSize = filesize($backupPath);
+        if ($fileSize === false || $fileSize === 0) {
+            Response::error('备份失败: 备份文件为空', 5001);
+        }
+        
+        // 记录操作日志
+        self::logOperation('数据库备份', 'backup', null, ['filename' => $filename, 'size' => $fileSize]);
+        
+        Response::success([
+            'filename' => $filename,
+            'size' => $fileSize,
+            'path' => $backupPath
+        ], '备份成功');
     }
     
     /**

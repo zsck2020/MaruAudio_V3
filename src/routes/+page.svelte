@@ -52,7 +52,10 @@
         isTauriApp = true;
       } catch (e) {
         isTauriApp = false;
-        console.log('Running in browser mode (not Tauri app)');
+        // 开发模式下记录日志
+        if (import.meta.env.DEV) {
+          console.log('Running in browser mode (not Tauri app)');
+        }
       }
     })();
 
@@ -79,7 +82,9 @@
       const appWindow = getCurrentWindow();
       await appWindow.minimize();
     } catch (e) {
-      console.error('Failed to minimize window:', e);
+      if (import.meta.env.DEV) {
+        console.error('Failed to minimize window:', e);
+      }
     }
   }
 
@@ -91,7 +96,9 @@
       await appWindow.toggleMaximize();
       isMaximized = await appWindow.isMaximized();
     } catch (e) {
-      console.error('Failed to toggle maximize window:', e);
+      if (import.meta.env.DEV) {
+        console.error('Failed to toggle maximize window:', e);
+      }
     }
   }
 
@@ -102,7 +109,9 @@
       const appWindow = getCurrentWindow();
       await appWindow.close();
     } catch (e) {
-      console.error('Failed to close window:', e);
+      if (import.meta.env.DEV) {
+        console.error('Failed to close window:', e);
+      }
     }
   }
 

@@ -1,12 +1,15 @@
 <?php
 /**
  * 数据库连接类
+ * 支持 Redis 缓存和性能监控
  */
 class Database {
     private static $instance = null;
     private $pdo;
+    private $cache = null;
     private static $queryCache = [];
     private static $cacheEnabled = true;
+    private static $queryTimes = [];
     
     private function __construct() {
         $config = require __DIR__ . '/../config/database.php';
@@ -20,6 +23,10 @@ class Database {
         ];
         
         $this->pdo = new PDO($dsn, $config['username'], $config['password'], $options);
+        
+        // 初始化缓存
+        require_once __DIR__ . '/Cache.php';
+        $this->cache = Cache::getInstance();
     }
     
     public static function getInstance() {
@@ -34,32 +41,82 @@ class Database {
     }
     
     public function query($sql, $params = []) {
+        $startTime = microtime(true);
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute($params);
+        $queryTime = microtime(true) - $startTime;
+        
+        // 记录查询时间（用于性能监控）
+        self::$queryTimes[] = [
+            'sql' => $sql,
+            'time' => $queryTime,
+            'params' => $params
+        ];
+        
+        // 记录慢查询（超过 1 秒）
+        if ($queryTime > 1.0) {
+            require_once __DIR__ . '/Logger.php';
+            Logger::warning('Slow query detected', [
+                'sql' => $sql,
+                'time' => $queryTime,
+                'params' => $params
+            ]);
+        }
+        
         return $stmt;
     }
     
-    public function fetch($sql, $params = [], $useCache = false) {
+    public function fetch($sql, $params = [], $useCache = false, $cacheTtl = 3600) {
         if ($useCache && self::$cacheEnabled) {
-            $cacheKey = md5($sql . serialize($params));
-            if (isset(self::$queryCache[$cacheKey])) {
-                return self::$queryCache[$cacheKey];
+            $cacheKey = 'db_query:' . md5($sql . serialize($params));
+            
+            // 尝试从 Redis/文件缓存获取
+            $cached = $this->cache->get($cacheKey);
+            if ($cached !== null) {
+                return $cached;
             }
+            
+            // 尝试从内存缓存获取
+            $memoryKey = md5($sql . serialize($params));
+            if (isset(self::$queryCache[$memoryKey])) {
+                return self::$queryCache[$memoryKey];
+            }
+            
+            // 执行查询
             $result = $this->query($sql, $params)->fetch();
-            self::$queryCache[$cacheKey] = $result;
+            
+            // 存储到缓存
+            $this->cache->set($cacheKey, $result, $cacheTtl);
+            self::$queryCache[$memoryKey] = $result;
+            
             return $result;
         }
         return $this->query($sql, $params)->fetch();
     }
     
-    public function fetchAll($sql, $params = [], $useCache = false) {
+    public function fetchAll($sql, $params = [], $useCache = false, $cacheTtl = 3600) {
         if ($useCache && self::$cacheEnabled) {
-            $cacheKey = md5($sql . serialize($params));
-            if (isset(self::$queryCache[$cacheKey])) {
-                return self::$queryCache[$cacheKey];
+            $cacheKey = 'db_query:' . md5($sql . serialize($params));
+            
+            // 尝试从 Redis/文件缓存获取
+            $cached = $this->cache->get($cacheKey);
+            if ($cached !== null) {
+                return $cached;
             }
+            
+            // 尝试从内存缓存获取
+            $memoryKey = md5($sql . serialize($params));
+            if (isset(self::$queryCache[$memoryKey])) {
+                return self::$queryCache[$memoryKey];
+            }
+            
+            // 执行查询
             $result = $this->query($sql, $params)->fetchAll();
-            self::$queryCache[$cacheKey] = $result;
+            
+            // 存储到缓存
+            $this->cache->set($cacheKey, $result, $cacheTtl);
+            self::$queryCache[$memoryKey] = $result;
+            
             return $result;
         }
         return $this->query($sql, $params)->fetchAll();
@@ -67,6 +124,36 @@ class Database {
     
     public static function clearCache() {
         self::$queryCache = [];
+        if (self::$instance && self::$instance->cache) {
+            self::$instance->cache->clear();
+        }
+    }
+    
+    /**
+     * 获取查询性能统计
+     */
+    public static function getQueryStats() {
+        $totalQueries = count(self::$queryTimes);
+        $totalTime = array_sum(array_column(self::$queryTimes, 'time'));
+        $avgTime = $totalQueries > 0 ? $totalTime / $totalQueries : 0;
+        $slowQueries = array_filter(self::$queryTimes, function($q) {
+            return $q['time'] > 1.0;
+        });
+        
+        return [
+            'total_queries' => $totalQueries,
+            'total_time' => $totalTime,
+            'avg_time' => $avgTime,
+            'slow_queries' => count($slowQueries),
+            'queries' => self::$queryTimes
+        ];
+    }
+    
+    /**
+     * 重置查询统计
+     */
+    public static function resetQueryStats() {
+        self::$queryTimes = [];
     }
     
     public function insert($table, $data) {

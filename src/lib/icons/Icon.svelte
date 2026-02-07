@@ -210,7 +210,7 @@
   };
 
   $effect(() => {
-    if (!icons[name]) {
+    if (!icons[name] && import.meta.env.DEV) {
       console.warn(`Icon "${name}" not found`);
     }
   });

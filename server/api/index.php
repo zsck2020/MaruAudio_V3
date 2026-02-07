@@ -16,9 +16,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 // 加载基础类库
+require_once __DIR__ . '/lib/Cache.php';
 require_once __DIR__ . '/lib/Database.php';
 require_once __DIR__ . '/lib/Response.php';
 require_once __DIR__ . '/lib/JWTAuth.php';
+require_once __DIR__ . '/lib/Logger.php';
+require_once __DIR__ . '/lib/APM.php';
+
+// 开始性能监控
+APM::start();
 
 // 重放攻击检测（基于时间戳和 nonce）
 function checkReplayAttack($timestamp, $nonce) {
@@ -569,5 +575,14 @@ try {
             Response::error('接口不存在', 404);
     }
 } catch (Exception $e) {
+    Logger::error('Unhandled exception', [
+        'message' => $e->getMessage(),
+        'file' => $e->getFile(),
+        'line' => $e->getLine(),
+        'trace' => $e->getTraceAsString()
+    ]);
     Response::error($e->getMessage(), 5001);
+} finally {
+    // 结束性能监控
+    APM::end();
 }

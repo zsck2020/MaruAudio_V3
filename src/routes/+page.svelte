@@ -29,9 +29,9 @@
     // 左侧主菜单
     dubbing: { name: '配音', icon: 'dubbing' },
     project: { name: '角色', icon: 'project' },
-    video: { name: '声播', icon: 'video' },
-    resource: { name: '音库', icon: 'resource' },
+    video: { name: '对轴', icon: 'video' },
     copywriting: { name: '字幕', icon: 'copywriting' },
+    resource: { name: '音库', icon: 'resource' },
     cover: { name: '文件', icon: 'cover' },
     // 底部菜单
     setting: { name: '设置', icon: 'setting' },
@@ -218,7 +218,7 @@
             <div class="menu-text">角色</div>
           </div>
         </Tooltip>
-        <Tooltip text="有声主播录音平台" position={isMobile ? "top" : "right"} delay={100}>
+        <Tooltip text="音频/字幕对轴" position={isMobile ? "top" : "right"} delay={100}>
           <div 
             class="menu-item" 
             class:active={activeMenu === 'video'} 
@@ -230,22 +230,7 @@
             <div class="menu-icon">
               <Icon name="video" size={20} color={activeMenu === 'video' ? '#ffffff' : '#9ca3af'} />
             </div>
-            <div class="menu-text">声播</div>
-          </div>
-        </Tooltip>
-        <Tooltip text="本地样音库" position={isMobile ? "top" : "right"} delay={100}>
-          <div 
-            class="menu-item" 
-            class:active={activeMenu === 'resource'} 
-            role="button"
-            tabindex="0"
-            on:click={() => handleMenuClick('resource')}
-            on:keydown={(e) => e.key === 'Enter' && handleMenuClick('resource')}
-          >
-            <div class="menu-icon">
-              <Icon name="resource" size={20} color={activeMenu === 'resource' ? '#ffffff' : '#9ca3af'} />
-            </div>
-            <div class="menu-text">音库</div>
+            <div class="menu-text">对轴</div>
           </div>
         </Tooltip>
         <Tooltip text="字幕生成/编辑" position={isMobile ? "top" : "right"} delay={100}>
@@ -261,6 +246,21 @@
               <Icon name="copywriting" size={20} color={activeMenu === 'copywriting' ? '#ffffff' : '#9ca3af'} />
             </div>
             <div class="menu-text">字幕</div>
+          </div>
+        </Tooltip>
+        <Tooltip text="本地样音库" position={isMobile ? "top" : "right"} delay={100}>
+          <div 
+            class="menu-item" 
+            class:active={activeMenu === 'resource'} 
+            role="button"
+            tabindex="0"
+            on:click={() => handleMenuClick('resource')}
+            on:keydown={(e) => e.key === 'Enter' && handleMenuClick('resource')}
+          >
+            <div class="menu-icon">
+              <Icon name="resource" size={20} color={activeMenu === 'resource' ? '#ffffff' : '#9ca3af'} />
+            </div>
+            <div class="menu-text">音库</div>
           </div>
         </Tooltip>
         <Tooltip text="生成文件管理" position={isMobile ? "top" : "right"} delay={100}>

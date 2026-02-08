@@ -27,6 +27,7 @@ pub fn run() {
                         .expect("missing default window icon for tray")
                         .clone(),
                 )
+                .tooltip("丸子配音")
                 .menu(&tray_menu)
                 // 托盘菜单事件处理
                 .on_menu_event(|app, event| {

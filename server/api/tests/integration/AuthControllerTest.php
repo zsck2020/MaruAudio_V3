@@ -91,3 +91,4 @@ class AuthControllerTest extends TestCase {
     }
 }
 
+

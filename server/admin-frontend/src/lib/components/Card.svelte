@@ -1,5 +1,15 @@
-<script>
-  let { title = '', shadow = true } = $props();
+<script lang="ts">
+  import type { Snippet } from 'svelte';
+
+  let { 
+    title = '', 
+    shadow = true,
+    children
+  }: { 
+    title?: string; 
+    shadow?: boolean;
+    children?: Snippet;
+  } = $props();
 </script>
 
 <div class="card" class:card-shadow={shadow}>
@@ -9,7 +19,9 @@
     </div>
   {/if}
   <div class="card-body">
-    <slot />
+    {#if children}
+      {@render children()}
+    {/if}
   </div>
 </div>
 

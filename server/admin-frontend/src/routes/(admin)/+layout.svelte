@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
@@ -8,11 +8,19 @@
   import adminWs from '$lib/utils/websocket';
   import logger from '$lib/utils/logger';
   import { getStats } from '$lib/api';
+  import type { Snippet } from 'svelte';
+  
+  interface AdminInfo {
+    username?: string;
+    [key: string]: unknown;
+  }
+  
+  let { children }: { children?: Snippet } = $props();
   
   let mobileMenuOpen = $state(false);
-  let adminInfo = $state({});
+  let adminInfo = $state<AdminInfo>({});
   let dropdownOpen = $state(false);
-  let dropdownRef;
+  let dropdownRef: HTMLElement | undefined;
   let currentPath = $state('');
   let currentTitle = $state('管理后台');
   let wsConnected = $state(false);
@@ -30,7 +38,7 @@
     { path: '/settings', icon: 'ST', label: '系统设置' }
   ];
   
-  const pageTitles = {
+  const pageTitles: Record<string, string> = {
     '/dashboard': '控制台',
     '/users': '用户管理',
     '/cards': '卡密管理',
@@ -83,12 +91,12 @@
       logger.log('[WebSocket] 认证成功');
     });
     
-    adminWs.on('auth_error', (data) => {
+    adminWs.on('auth_error', (data: unknown) => {
       logger.error('[WebSocket] 认证失败:', data);
     });
     
     // 监听用户状态变更事件
-    adminWs.on('user_status_changed', (data) => {
+    adminWs.on('user_status_changed', (data: unknown) => {
       logger.log('[WebSocket] 用户状态变更:', data);
       // 触发页面刷新（如果当前在用户管理页面）
       if (currentPath === '/users') {
@@ -100,7 +108,7 @@
     });
     
     // 监听配置更新事件
-    adminWs.on('config_updated', (data) => {
+    adminWs.on('config_updated', (data: unknown) => {
       logger.log('[WebSocket] 配置已更新:', data);
       // 触发页面刷新（如果当前在设置页面）
       if (currentPath === '/settings') {
@@ -111,7 +119,7 @@
     });
     
     // 监听统计数据更新
-    adminWs.on('stats_updated', (data) => {
+    adminWs.on('stats_updated', (data: unknown) => {
       logger.log('[WebSocket] 统计数据已更新:', data);
       // 触发页面刷新（如果当前在控制台页面）
       if (currentPath === '/dashboard') {
@@ -122,7 +130,7 @@
     });
     
     // 监听所有消息（用于调试）
-    adminWs.on('message', (data) => {
+    adminWs.on('message', (data: unknown) => {
       logger.log('[WebSocket] 收到消息:', data);
     });
     
@@ -157,13 +165,13 @@
     mobileMenuOpen = !mobileMenuOpen;
   }
   
-  function handleMenuItemClick(path) {
+  function handleMenuItemClick(path: string) {
     goto(path);
     mobileMenuOpen = false;
   }
   
-  function handleClickOutside(event) {
-    if (dropdownRef && !dropdownRef.contains(event.target)) {
+  function handleClickOutside(event: MouseEvent) {
+    if (dropdownRef && !dropdownRef.contains(event.target as Node)) {
       dropdownOpen = false;
     }
   }
@@ -285,7 +293,9 @@
     
     <!-- 内容区 -->
     <main class="layout-content">
-      <slot />
+      {#if children}
+        {@render children()}
+      {/if}
     </main>
   </div>
 </div>

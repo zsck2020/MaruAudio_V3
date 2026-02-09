@@ -1,28 +1,34 @@
-<script>
+<script lang="ts">
   import { onMount } from 'svelte';
   import { fade } from 'svelte/transition';
   
-  export let messages = [];
+  interface Message {
+    id: string;
+    message: string;
+    type: 'info' | 'success' | 'warning' | 'error';
+  }
+
+  export let messages: Message[] = [];
   
-  function removeMessage(id) {
+  function removeMessage(id: string) {
     messages = messages.filter(m => m.id !== id);
   }
   
   onMount(() => {
-    const handleShow = (e) => {
+    const handleShow = (e: CustomEvent<Message>) => {
       messages = [...messages, e.detail];
     };
     
-    const handleHide = (e) => {
+    const handleHide = (e: CustomEvent<{ id: string }>) => {
       messages = messages.filter(m => m.id !== e.detail.id);
     };
     
-    window.addEventListener('show-message', handleShow);
-    window.addEventListener('hide-message', handleHide);
+    window.addEventListener('show-message', handleShow as EventListener);
+    window.addEventListener('hide-message', handleHide as EventListener);
     
     return () => {
-      window.removeEventListener('show-message', handleShow);
-      window.removeEventListener('hide-message', handleHide);
+      window.removeEventListener('show-message', handleShow as EventListener);
+      window.removeEventListener('hide-message', handleHide as EventListener);
     };
   });
 </script>

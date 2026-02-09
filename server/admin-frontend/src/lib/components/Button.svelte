@@ -1,10 +1,23 @@
-<script>
+<script lang="ts">
+  import type { Snippet } from 'svelte';
+
+  type ButtonType = 'default' | 'primary' | 'success' | 'warning' | 'danger';
+  type ButtonSize = 'small' | 'medium' | 'large';
+
   let { 
     type = 'default',
     size = 'medium',
     loading = false,
     disabled = false,
-    onClick = () => {}
+    onClick = () => {},
+    children
+  }: {
+    type?: ButtonType;
+    size?: ButtonSize;
+    loading?: boolean;
+    disabled?: boolean;
+    onClick?: () => void;
+    children?: Snippet;
   } = $props();
   
   let buttonClass = $derived(
@@ -20,8 +33,8 @@
 >
   {#if loading}
     <span class="btn-loading">加载中...</span>
-  {:else}
-    <slot />
+  {:else if children}
+    {@render children()}
   {/if}
 </button>
 

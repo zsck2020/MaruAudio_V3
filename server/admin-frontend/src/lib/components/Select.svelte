@@ -1,4 +1,11 @@
-<script>
+<script lang="ts">
+  type SelectSize = 'small' | 'medium' | 'large';
+
+  interface SelectOption {
+    label: string;
+    value: string | number;
+  }
+
   let {
     value = $bindable(''),
     id = undefined,
@@ -7,10 +14,18 @@
     disabled = false,
     size = 'medium',
     onChange = () => {}
+  }: {
+    value?: string | number;
+    id?: string;
+    options?: SelectOption[];
+    placeholder?: string;
+    disabled?: boolean;
+    size?: SelectSize;
+    onChange?: (option: SelectOption) => void;
   } = $props();
   
   let open = $state(false);
-  let selectRef;
+  let selectRef: HTMLElement | undefined;
   
   function toggle() {
     if (!disabled) {
@@ -18,7 +33,7 @@
     }
   }
 
-  function handleTriggerKeydown(event) {
+  function handleTriggerKeydown(event: KeyboardEvent) {
     if (disabled) return;
 
     if (event.key === 'Escape') {
@@ -39,8 +54,8 @@
   }
   
   
-  function handleClickOutside(event) {
-    if (selectRef && !selectRef.contains(event.target)) {
+  function handleClickOutside(event: MouseEvent) {
+    if (selectRef && !selectRef.contains(event.target as Node)) {
       open = false;
     }
   }
@@ -56,7 +71,7 @@
   
   let selectedLabel = $derived(options.find(opt => opt.value === value)?.label || placeholder);
   
-  function handleChange(option) {
+  function handleChange(option: SelectOption) {
     value = option.value;
     open = false;
     onChange(option);

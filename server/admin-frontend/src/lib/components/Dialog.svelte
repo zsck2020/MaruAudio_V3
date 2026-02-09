@@ -1,27 +1,38 @@
-<script>
+<script lang="ts">
+  import type { Snippet } from 'svelte';
+
   let {
     visible = $bindable(false),
     title = '',
     width = '500px',
-    showFooter = true
+    showFooter = true,
+    children,
+    footer
+  }: {
+    visible?: boolean;
+    title?: string;
+    width?: string;
+    showFooter?: boolean;
+    children?: Snippet;
+    footer?: Snippet;
   } = $props();
   
-  let dialogRef = $state(null);
+  let dialogRef = $state<HTMLElement | null>(null);
   
   function handleClose() {
     visible = false;
   }
   
-  function handleMaskClick(event) {
+  function handleMaskClick(event: MouseEvent) {
     if (event.target === dialogRef) {
       handleClose();
     }
   }
 
-  function handleMaskKeydown(event) {
+  function handleMaskKeydown(event: KeyboardEvent) {
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
-      handleMaskClick(event);
+      handleMaskClick(event as any);
     }
   }
 </script>
@@ -42,11 +53,13 @@
         <button class="dialog-close" onclick={handleClose} type="button">×</button>
       </div>
       <div class="dialog-body">
-        <slot />
+        {#if children}
+          {@render children()}
+        {/if}
       </div>
-      {#if showFooter}
+      {#if showFooter && footer}
         <div class="dialog-footer">
-          <slot name="footer" />
+          {@render footer()}
         </div>
       {/if}
     </div>

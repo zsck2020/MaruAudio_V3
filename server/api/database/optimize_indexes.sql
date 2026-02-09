@@ -43,3 +43,5 @@ ALTER TABLE `user_login_logs` ADD INDEX IF NOT EXISTS `idx_login_ip` (`login_ip`
 -- 为 admin_operation_logs 表添加复合索引（如果表存在）
 -- ALTER TABLE `admin_operation_logs` ADD INDEX IF NOT EXISTS `idx_admin_action` (`admin_id`, `action`, `created_at`);
 
+
+

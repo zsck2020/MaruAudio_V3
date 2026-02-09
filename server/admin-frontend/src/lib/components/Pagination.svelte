@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   let {
     currentPage = $bindable(1),
     pageSize = $bindable(10),
@@ -8,22 +8,57 @@
     showSizes = true,
     onPageChange = () => {},
     onSizeChange = () => {}
+  }: {
+    currentPage?: number;
+    pageSize?: number;
+    total?: number;
+    pageSizes?: number[];
+    showTotal?: boolean;
+    showSizes?: boolean;
+    onPageChange?: (page: number) => void;
+    onSizeChange?: (size: number) => void;
   } = $props();
   
   let totalPages = $derived(Math.ceil(total / pageSize));
   
-  function handlePageChange(page) {
+  function handlePageChange(page: number) {
     if (page >= 1 && page <= totalPages) {
       currentPage = page;
       onPageChange(page);
     }
   }
   
-  function handleSizeChange(size) {
+  function handleSizeChange(size: number) {
     pageSize = size;
     currentPage = 1;
     onSizeChange(size);
   }
+
+  function getVisiblePages(): number[] {
+    const pages: number[] = [];
+    const maxVisible = 5;
+    
+    if (totalPages <= maxVisible) {
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      let start = Math.max(1, currentPage - 2);
+      let end = Math.min(totalPages, start + maxVisible - 1);
+      
+      if (end - start < maxVisible - 1) {
+        start = Math.max(1, end - maxVisible + 1);
+      }
+      
+      for (let i = start; i <= end; i++) {
+        pages.push(i);
+      }
+    }
+    
+    return pages;
+  }
+  
+  let visiblePages = $derived(getVisiblePages());
 </script>
 
 <div class="pagination">
@@ -32,7 +67,12 @@
   {/if}
   
   {#if showSizes}
-    <select class="pagination-sizes" value={pageSize} onchange={(e) => handleSizeChange(Number(e.target.value))}>
+    <select class="pagination-sizes" value={pageSize} onchange={(e) => {
+      const target = e.target as HTMLSelectElement;
+      if (target) {
+        handleSizeChange(Number(target.value));
+      }
+    }}>
       {#each pageSizes as size}
         <option value={size}>{size} 条/页</option>
       {/each}
@@ -49,17 +89,14 @@
       上一页
     </button>
     
-    {#each Array(Math.min(5, totalPages)) as _, i}
-      {@const page = i + 1}
-      {#if totalPages <= 5 || (currentPage <= 3 && page <= 5) || (currentPage >= totalPages - 2 && page >= totalPages - 4) || (page >= currentPage - 1 && page <= currentPage + 1)}
-        <button 
-          class="pagination-btn" 
-          class:active={currentPage === page}
-          onclick={() => handlePageChange(page)}
-        >
-          {page}
-        </button>
-      {/if}
+    {#each visiblePages as page}
+      <button 
+        class="pagination-btn" 
+        class:active={currentPage === page}
+        onclick={() => handlePageChange(page)}
+      >
+        {page}
+      </button>
     {/each}
     
     <button 

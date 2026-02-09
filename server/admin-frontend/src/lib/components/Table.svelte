@@ -1,10 +1,23 @@
-<script>
+<script lang="ts">
+  interface TableColumn {
+    label: string;
+    prop: string;
+    width?: string;
+    render?: (params: { row: any; index: number }) => string;
+  }
+
   let {
     data = [],
     columns = [],
     loading = false,
     stripe = false,
     border = true
+  }: {
+    data?: any[];
+    columns?: TableColumn[];
+    loading?: boolean;
+    stripe?: boolean;
+    border?: boolean;
   } = $props();
 </script>
 

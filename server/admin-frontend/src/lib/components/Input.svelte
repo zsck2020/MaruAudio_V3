@@ -1,4 +1,9 @@
-<script>
+<script lang="ts">
+  import type { Snippet } from 'svelte';
+
+  type InputType = 'text' | 'password' | 'number' | 'email' | 'tel' | 'url';
+  type InputSize = 'small' | 'medium' | 'large';
+
   let {
     value = $bindable(''),
     type = 'text',
@@ -10,6 +15,17 @@
     prefixIcon = null,
     showPassword = false,
     ...rest
+  }: {
+    value?: string;
+    type?: InputType;
+    id?: string;
+    name?: string;
+    placeholder?: string;
+    disabled?: boolean;
+    size?: InputSize;
+    prefixIcon?: Snippet | null;
+    showPassword?: boolean;
+    [key: string]: any;
   } = $props();
   
   let showPwd = $state(false);

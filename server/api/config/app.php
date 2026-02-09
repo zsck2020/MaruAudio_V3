@@ -8,7 +8,11 @@ $env = getenv('MARUAUDIO_ENV') ?: ($debug ? 'development' : 'production');
 $jwtSecret = getenv('MARUAUDIO_JWT_SECRET') ?: (getenv('JWT_SECRET') ?: 'CHANGE_ME');
 if ($env === 'production' && ($jwtSecret === 'CHANGE_ME' || $jwtSecret === '')) {
     // 生产环境必须显式配置密钥
-    throw new RuntimeException('Missing JWT secret. Set MARUAUDIO_JWT_SECRET (or JWT_SECRET).');
+    throw new RuntimeException(
+        'Missing JWT secret. Please configure via environment variable: ' .
+        'MARUAUDIO_JWT_SECRET (or JWT_SECRET). ' .
+        'Example: export MARUAUDIO_JWT_SECRET="your-secret-key-here"'
+    );
 }
 
 return [

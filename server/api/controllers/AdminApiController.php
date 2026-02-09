@@ -2195,7 +2195,15 @@ class AdminApiController {
             
         } catch (Exception $e) {
             $db->rollback();
-            Response::error('调整失败: ' . $e->getMessage(), 5001);
+            // 记录详细错误到日志
+            require_once __DIR__ . '/../lib/Logger.php';
+            Logger::error('调整用户字符余额失败', [
+                'user_id' => $userId,
+                'adjustment' => $adjustment,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            Response::error('调整失败，请稍后重试', 5001);
         }
     }
     

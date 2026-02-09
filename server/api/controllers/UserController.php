@@ -111,11 +111,19 @@ class UserController {
             Response::error('未登录或Token已过期', 4001);
         }
         
-        $cardKey = $input['card_key'] ?? '';
-        $clientProductCode = $input['product_code'] ?? 'dubbing';  // 客户端传入的产品代码
+        $cardKey = trim($input['card_key'] ?? '');
+        $clientProductCode = trim($input['product_code'] ?? 'dubbing');  // 客户端传入的产品代码
         
         if (empty($cardKey)) {
             Response::error('卡密不能为空', 1001);
+        }
+        
+        if (strlen($cardKey) > 255) {
+            Response::error('卡密长度超出限制', 1001);
+        }
+        
+        if (strlen($clientProductCode) > 50) {
+            Response::error('产品代码长度超出限制', 1001);
         }
         
         $db = Database::getInstance();
@@ -359,15 +367,27 @@ class UserController {
         }
         
         $amount = (float)($input['amount'] ?? 0);
-        $account = $input['account'] ?? '';
+        $account = trim($input['account'] ?? '');
         $accountType = $input['account_type'] ?? 'alipay';
         
         if ($amount <= 0) {
             Response::error('提现金额必须大于0', 1001);
         }
         
+        if ($amount > 100000) {
+            Response::error('单次提现金额不能超过100000', 1001);
+        }
+        
         if (empty($account)) {
             Response::error('请填写收款账号', 1001);
+        }
+        
+        if (strlen($account) > 255) {
+            Response::error('收款账号长度超出限制', 1001);
+        }
+        
+        if (!in_array($accountType, ['alipay', 'wechat', 'bank'])) {
+            Response::error('不支持的收款方式', 1001);
         }
         
         $db = Database::getInstance();
@@ -437,18 +457,23 @@ class UserController {
      * 获取用户消息
      */
     public static function getMessages($input) {
-        $user = self::checkAuth();
+        $payload = JWTAuth::getPayloadFromRequest();
+        
+        if (!$payload) {
+            Response::error('未登录或Token已过期', 4001);
+        }
         
         $db = Database::getInstance();
+        $userId = $payload['user_id'];
         
         $messages = $db->fetchAll(
             "SELECT * FROM user_messages WHERE user_id = ? ORDER BY created_at DESC LIMIT 50",
-            [$user['user_id']]
+            [$userId]
         );
         
         $unreadCount = $db->fetch(
             "SELECT COUNT(*) as count FROM user_messages WHERE user_id = ? AND is_read = 0",
-            [$user['user_id']]
+            [$userId]
         )['count'] ?? 0;
         
         Response::success([
@@ -461,17 +486,22 @@ class UserController {
      * 标记消息已读
      */
     public static function markMessageRead($input) {
-        $user = self::checkAuth();
+        $payload = JWTAuth::getPayloadFromRequest();
+        
+        if (!$payload) {
+            Response::error('未登录或Token已过期', 4001);
+        }
         
         $messageId = (int)($input['message_id'] ?? 0);
+        $userId = $payload['user_id'];
         
         $db = Database::getInstance();
         
         if ($messageId > 0) {
-            $db->update('user_messages', ['is_read' => 1], 'id = ? AND user_id = ?', [$messageId, $user['user_id']]);
+            $db->update('user_messages', ['is_read' => 1], 'id = ? AND user_id = ?', [$messageId, $userId]);
         } else {
             // 标记全部已读
-            $db->query("UPDATE user_messages SET is_read = 1 WHERE user_id = ?", [$user['user_id']]);
+            $db->query("UPDATE user_messages SET is_read = 1 WHERE user_id = ?", [$userId]);
         }
         
         Response::success(null, '已标记为已读');

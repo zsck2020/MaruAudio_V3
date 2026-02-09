@@ -54,7 +54,7 @@
         isTauriApp = false;
         // 开发模式下记录日志
         if (import.meta.env.DEV) {
-          console.log('Running in browser mode (not Tauri app)');
+          // 仅在开发模式下记录
         }
       }
     })();
@@ -83,7 +83,7 @@
       await appWindow.minimize();
     } catch (e) {
       if (import.meta.env.DEV) {
-        console.error('Failed to minimize window:', e);
+        // 开发模式下可记录错误，生产环境静默处理
       }
     }
   }
@@ -97,7 +97,7 @@
       isMaximized = await appWindow.isMaximized();
     } catch (e) {
       if (import.meta.env.DEV) {
-        console.error('Failed to toggle maximize window:', e);
+        // 开发模式下可记录错误，生产环境静默处理
       }
     }
   }
@@ -110,7 +110,7 @@
       await appWindow.close();
     } catch (e) {
       if (import.meta.env.DEV) {
-        console.error('Failed to close window:', e);
+        // 开发模式下可记录错误，生产环境静默处理
       }
     }
   }

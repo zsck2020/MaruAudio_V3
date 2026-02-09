@@ -88,6 +88,35 @@
   
   onMount(() => {
     loadData();
+    
+    // 监听WebSocket事件，实现实时数据更新
+    if (typeof window !== 'undefined') {
+      const handleStatsUpdate = () => {
+        logger.log('[Dashboard] 收到统计数据更新事件，刷新数据');
+        loadData();
+      };
+      
+      const handleUserChanged = () => {
+        logger.log('[Dashboard] 收到用户变更事件，刷新最近用户列表');
+        // 只刷新用户列表，不刷新统计数据
+        getUsers({ page: 1, page_size: 5 }).then(res => {
+          if (res.data && res.data.list) {
+            recentUsers = res.data.list;
+          }
+        }).catch(e => {
+          logger.error('刷新用户列表失败', e);
+        });
+      };
+      
+      window.addEventListener('websocket:stats_updated', handleStatsUpdate);
+      window.addEventListener('websocket:user_changed', handleUserChanged);
+      
+      // 清理事件监听器
+      return () => {
+        window.removeEventListener('websocket:stats_updated', handleStatsUpdate);
+        window.removeEventListener('websocket:user_changed', handleUserChanged);
+      };
+    }
   });
   
   const tableColumns = [

@@ -1,10 +1,13 @@
 <script>
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
   import { currentProduct, setProduct, initProduct, getProductName } from '$lib/stores/product';
   import Select from '$lib/components/Select.svelte';
   import Button from '$lib/components/Button.svelte';
+  import adminWs from '$lib/utils/websocket';
+  import logger from '$lib/utils/logger';
+  import { getStats } from '$lib/api';
   
   let mobileMenuOpen = $state(false);
   let adminInfo = $state({});
@@ -12,6 +15,7 @@
   let dropdownRef;
   let currentPath = $state('');
   let currentTitle = $state('管理后台');
+  let wsConnected = $state(false);
   
   const menuItems = [
     { path: '/dashboard', icon: 'DB', label: '控制台' },
@@ -46,8 +50,87 @@
       if (info) {
         adminInfo = JSON.parse(info);
       }
+      
+      // 初始化WebSocket连接
+      initWebSocket();
     }
   });
+  
+  onDestroy(() => {
+    // 断开WebSocket连接
+    adminWs.disconnect();
+  });
+  
+  function initWebSocket() {
+    const token = localStorage.getItem('admin_token');
+    if (!token) {
+      logger.log('[WebSocket] 未找到token，跳过连接');
+      return;
+    }
+    
+    // 注册WebSocket事件监听
+    adminWs.on('connected', () => {
+      wsConnected = true;
+      logger.log('[WebSocket] 已连接到服务器');
+    });
+    
+    adminWs.on('disconnected', () => {
+      wsConnected = false;
+      logger.log('[WebSocket] 已断开连接');
+    });
+    
+    adminWs.on('authenticated', () => {
+      logger.log('[WebSocket] 认证成功');
+    });
+    
+    adminWs.on('auth_error', (data) => {
+      logger.error('[WebSocket] 认证失败:', data);
+    });
+    
+    // 监听用户状态变更事件
+    adminWs.on('user_status_changed', (data) => {
+      logger.log('[WebSocket] 用户状态变更:', data);
+      // 触发页面刷新（如果当前在用户管理页面）
+      if (currentPath === '/users') {
+        // 通过自定义事件通知子组件刷新
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('websocket:user_changed', { detail: data }));
+        }
+      }
+    });
+    
+    // 监听配置更新事件
+    adminWs.on('config_updated', (data) => {
+      logger.log('[WebSocket] 配置已更新:', data);
+      // 触发页面刷新（如果当前在设置页面）
+      if (currentPath === '/settings') {
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('websocket:config_updated', { detail: data }));
+        }
+      }
+    });
+    
+    // 监听统计数据更新
+    adminWs.on('stats_updated', (data) => {
+      logger.log('[WebSocket] 统计数据已更新:', data);
+      // 触发页面刷新（如果当前在控制台页面）
+      if (currentPath === '/dashboard') {
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('websocket:stats_updated', { detail: data }));
+        }
+      }
+    });
+    
+    // 监听所有消息（用于调试）
+    adminWs.on('message', (data) => {
+      logger.log('[WebSocket] 收到消息:', data);
+    });
+    
+    // 连接WebSocket
+    adminWs.connect(token).catch((error) => {
+      logger.error('[WebSocket] 连接失败:', error);
+    });
+  }
 
   $effect(() => {
     // 路由变化时更新当前路径与标题（runes 模式下禁止使用 `$:`）
@@ -154,6 +237,11 @@
         <span class="page-title-text">{currentTitle}</span>
       </div>
       <div class="header-right">
+        <!-- WebSocket连接状态指示器 -->
+        <div class="ws-status" class:connected={wsConnected} title={wsConnected ? 'WebSocket已连接' : 'WebSocket未连接'}>
+          <span class="ws-dot"></span>
+        </div>
+        
         <!-- 全局产品切换 -->
         <div class="product-selector-wrapper">
           <Select
@@ -329,6 +417,26 @@
     display: flex;
     align-items: center;
     gap: 16px;
+  }
+  
+  .ws-status {
+    display: flex;
+    align-items: center;
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: default;
+  }
+  
+  .ws-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: #ff4d4f;
+    transition: background-color 0.3s;
+  }
+  
+  .ws-status.connected .ws-dot {
+    background-color: #52c41a;
   }
   
   .product-selector-wrapper {

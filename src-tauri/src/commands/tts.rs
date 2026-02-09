@@ -1,10 +1,12 @@
 use crate::services::tts::{NoopTtsProvider, TtsProvider};
 
 #[tauri::command]
-pub fn tts_health() -> &'static str {
+pub fn tts_health() -> Result<&'static str, String> {
     let provider: &dyn TtsProvider = &NoopTtsProvider;
-    let _ = provider.synthesize("health_check");
-    provider.name()
+    match provider.synthesize("health_check") {
+        Ok(_) => Ok(provider.name()),
+        Err(e) => Err(format!("TTS health check failed: {}", e))
+    }
 }
 
 

@@ -50,6 +50,8 @@ class WebSocketServer implements MessageComponentInterface
             'user_id' => null,
             'admin_id' => null,
             'authorized' => false,
+            'last_activity' => time(), // 记录最后活动时间
+            'last_ping' => time(), // 记录最后ping时间
         ]);
     }
 
@@ -64,6 +66,15 @@ class WebSocketServer implements MessageComponentInterface
             'authorized' => false,
         ];
 
+        // 消息大小限制（防止DoS攻击）
+        if (strlen($msg) > 65536) { // 64KB
+            $from->send(json_encode([
+                'type' => 'error',
+                'message' => '消息过大',
+            ], JSON_UNESCAPED_UNICODE));
+            return;
+        }
+
         $data = json_decode($msg, true);
         if (!is_array($data)) {
             // 非 JSON 消息直接忽略
@@ -71,9 +82,27 @@ class WebSocketServer implements MessageComponentInterface
         }
 
         $type = $data['type'] ?? '';
+        
+        // 验证消息类型
+        if (!is_string($type) || strlen($type) > 50) {
+            $from->send(json_encode([
+                'type' => 'error',
+                'message' => '无效的消息类型',
+            ], JSON_UNESCAPED_UNICODE));
+            return;
+        }
 
         // 认证消息：{"type":"auth","token":"..."}
-        if ($type === 'auth' && !empty($data['token'])) {
+        if ($type === 'auth') {
+            // 验证token格式
+            if (empty($data['token']) || !is_string($data['token']) || strlen($data['token']) > 2048) {
+                $from->send(json_encode([
+                    'type' => 'error',
+                    'message' => '无效的Token格式',
+                ], JSON_UNESCAPED_UNICODE));
+                return;
+            }
+            
             $payload = $this->verifyJwt($data['token']);
             if (!$payload) {
                 $from->send(json_encode([
@@ -104,6 +133,9 @@ class WebSocketServer implements MessageComponentInterface
                 return;
             }
 
+            // 更新最后活动时间
+            $meta['last_activity'] = time();
+            $meta['last_ping'] = time();
             $this->clients[$from] = $meta;
 
             $from->send(json_encode([
@@ -116,12 +148,104 @@ class WebSocketServer implements MessageComponentInterface
 
         // 心跳：{"type":"ping"}
         if ($type === 'ping') {
+            // 更新最后活动时间和ping时间
+            $meta['last_activity'] = time();
+            $meta['last_ping'] = time();
+            $this->clients[$from] = $meta;
+            
             $from->send(json_encode(['type' => 'pong', 'timestamp' => time()]));
             return;
         }
+        
+        // 心跳响应：{"type":"pong"}
+        if ($type === 'pong') {
+            // 更新最后活动时间
+            $meta['last_activity'] = time();
+            $this->clients[$from] = $meta;
+            return;
+        }
 
+        // 未认证连接只能发送auth和ping消息
+        if (empty($meta['authorized'])) {
+            $from->send(json_encode([
+                'type' => 'error',
+                'message' => '请先进行身份认证',
+            ], JSON_UNESCAPED_UNICODE));
+            return;
+        }
+
+        // 更新最后活动时间（对于所有已认证的消息）
+        $meta['last_activity'] = time();
+        $this->clients[$from] = $meta;
+        
         // 其他业务消息目前只记录，不做处理，避免对现有客户端造成影响
         // 可以按需扩展，如聊天、在线状态上报等
+    }
+    
+    /**
+     * 清理超时连接（应在定时器中调用）
+     * 连接超时时间：5分钟无活动则断开
+     */
+    public function cleanupTimeoutConnections(): void
+    {
+        $now = time();
+        $timeout = 300; // 5分钟超时
+        
+        $toRemove = [];
+        foreach ($this->clients as $conn) {
+            $meta = $this->clients[$conn];
+            $lastActivity = $meta['last_activity'] ?? 0;
+            
+            // 未认证连接：2分钟无活动则断开
+            if (empty($meta['authorized'])) {
+                if ($now - $lastActivity > 120) {
+                    $toRemove[] = $conn;
+                }
+            } else {
+                // 已认证连接：5分钟无活动则断开
+                if ($now - $lastActivity > $timeout) {
+                    $toRemove[] = $conn;
+                }
+            }
+        }
+        
+        foreach ($toRemove as $conn) {
+            try {
+                $meta = $this->clients[$conn] ?? [];
+                $this->unbindConnection($conn, $meta);
+                $this->clients->detach($conn);
+                $conn->close();
+            } catch (\Throwable $e) {
+                error_log('cleanupTimeoutConnections error: ' . $e->getMessage());
+            }
+        }
+    }
+    
+    /**
+     * 发送ping到所有连接（应在定时器中调用）
+     * 用于检测死连接
+     */
+    public function pingAllConnections(): void
+    {
+        $now = time();
+        $pingInterval = 60; // 每60秒ping一次
+        
+        foreach ($this->clients as $conn) {
+            $meta = $this->clients[$conn];
+            $lastPing = $meta['last_ping'] ?? 0;
+            
+            // 如果距离上次ping超过间隔时间，发送新的ping
+            if ($now - $lastPing >= $pingInterval) {
+                try {
+                    $conn->send(json_encode(['type' => 'ping', 'timestamp' => $now]));
+                    $meta['last_ping'] = $now;
+                    $this->clients[$conn] = $meta;
+                } catch (\Throwable $e) {
+                    // 连接已断开，将在下次清理时移除
+                    error_log('pingAllConnections error: ' . $e->getMessage());
+                }
+            }
+        }
     }
 
     /**

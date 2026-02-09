@@ -63,10 +63,21 @@ function checkReplayAttack($timestamp, $nonce) {
 }
 
 // 请求签名密钥
-// IMPORTANT: do not hardcode real secrets in repo. Configure via env in production.
-// - MARUAUDIO_API_SIGN_SECRET (preferred)
-// - API_SIGN_SECRET (compatible fallback)
-define('API_SIGN_SECRET', getenv('MARUAUDIO_API_SIGN_SECRET') ?: (getenv('API_SIGN_SECRET') ?: 'CHANGE_ME'));
+// IMPORTANT: 生产环境必须通过环境变量配置签名密钥，不要使用默认值
+// 环境变量名（按优先级）：
+//   1. MARUAUDIO_API_SIGN_SECRET (推荐)
+//   2. API_SIGN_SECRET (兼容旧配置)
+// 配置示例：
+//   export MARUAUDIO_API_SIGN_SECRET="your-secret-key-here"
+//   或在 .env 文件中：MARUAUDIO_API_SIGN_SECRET=your-secret-key-here
+$apiSignSecret = getenv('MARUAUDIO_API_SIGN_SECRET') ?: (getenv('API_SIGN_SECRET') ?: 'CHANGE_ME');
+
+// 生产环境检查：如果使用默认值，记录警告
+if ($apiSignSecret === 'CHANGE_ME' && (getenv('MARUAUDIO_ENV') === 'production' || !getenv('MARUAUDIO_DEBUG'))) {
+    error_log('WARNING: API_SIGN_SECRET is using default value. Please configure via environment variable in production!');
+}
+
+define('API_SIGN_SECRET', $apiSignSecret);
 
 // 校验请求签名
 function verifySignature($data, $timestamp, $signature) {

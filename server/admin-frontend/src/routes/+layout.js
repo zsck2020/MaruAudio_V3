@@ -33,7 +33,10 @@ async function validateToken(token) {
     }
     return false;
   } catch (error) {
-    console.error('Token验证失败:', error);
+    // 生产环境静默处理错误，开发环境可记录
+    if (import.meta.env.DEV) {
+      console.error('Token验证失败:', error);
+    }
     return false;
   }
 }

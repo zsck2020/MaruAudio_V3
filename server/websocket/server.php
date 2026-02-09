@@ -47,12 +47,19 @@ $wsServerInstance = new IoServer(
 echo "WebSocket server started on ws://0.0.0.0:{$wsPort}\n";
 
 // 内部 HTTP API（用于 PHP API 触发推送）
+// 安全：仅监听本地回环地址，不对外暴露
 $internalServer = new ReactServer("127.0.0.1:{$internalPort}", $loop);
 $httpServer = new HttpServerReact(function (ServerRequestInterface $request) use ($wsServer) {
     $path = $request->getUri()->getPath();
     
     if ($path !== '/internal') {
         return new \React\Http\Message\Response(404, [], 'Not Found');
+    }
+    
+    // 安全：验证请求来源（仅允许本地请求）
+    $remoteAddress = $request->getServerParams()['REMOTE_ADDR'] ?? '';
+    if ($remoteAddress !== '127.0.0.1' && $remoteAddress !== '::1' && $remoteAddress !== 'localhost') {
+        return new \React\Http\Message\Response(403, [], 'Forbidden: Only local requests allowed');
     }
     
     $body = (string) $request->getBody();
@@ -66,9 +73,14 @@ $httpServer = new HttpServerReact(function (ServerRequestInterface $request) use
     
     switch ($data['action']) {
         case 'push_to_user':
-            $userId = $data['user_id'] ?? 0;
-            $event = $data['event'] ?? '';
-            $eventData = $data['data'] ?? [];
+            $userId = isset($data['user_id']) ? (int)$data['user_id'] : 0;
+            $event = isset($data['event']) ? (string)$data['event'] : '';
+            $eventData = isset($data['data']) && is_array($data['data']) ? $data['data'] : [];
+            
+            // 输入验证
+            if ($userId <= 0 || empty($event) || strlen($event) > 100) {
+                return new \React\Http\Message\Response(400, [], 'Invalid parameters');
+            }
             
             $result['success'] = $wsServer->sendToUser($userId, [
                 'type' => $event,
@@ -78,8 +90,13 @@ $httpServer = new HttpServerReact(function (ServerRequestInterface $request) use
             break;
             
         case 'broadcast':
-            $event = $data['event'] ?? '';
-            $eventData = $data['data'] ?? [];
+            $event = isset($data['event']) ? (string)$data['event'] : '';
+            $eventData = isset($data['data']) && is_array($data['data']) ? $data['data'] : [];
+            
+            // 输入验证
+            if (empty($event) || strlen($event) > 100) {
+                return new \React\Http\Message\Response(400, [], 'Invalid parameters');
+            }
             
             $wsServer->broadcastToUsers([
                 'type' => $event,
@@ -90,8 +107,13 @@ $httpServer = new HttpServerReact(function (ServerRequestInterface $request) use
             break;
             
         case 'notify_admin':
-            $event = $data['event'] ?? '';
-            $eventData = $data['data'] ?? [];
+            $event = isset($data['event']) ? (string)$data['event'] : '';
+            $eventData = isset($data['data']) && is_array($data['data']) ? $data['data'] : [];
+            
+            // 输入验证
+            if (empty($event) || strlen($event) > 100) {
+                return new \React\Http\Message\Response(400, [], 'Invalid parameters');
+            }
             
             $wsServer->notifyAdmins([
                 'type' => $event,
@@ -123,7 +145,19 @@ $httpServer = new HttpServerReact(function (ServerRequestInterface $request) use
 $httpServer->listen($internalServer);
 echo "Internal API server started on http://127.0.0.1:{$internalPort}\n";
 
-echo "\nServer is running. Press Ctrl+C to stop.\n\n";
+// 设置定时器：每30秒清理一次超时连接
+$loop->addPeriodicTimer(30, function() use ($wsServer) {
+    $wsServer->cleanupTimeoutConnections();
+});
+
+// 设置定时器：每60秒ping一次所有连接
+$loop->addPeriodicTimer(60, function() use ($wsServer) {
+    $wsServer->pingAllConnections();
+});
+
+echo "\nServer is running. Press Ctrl+C to stop.\n";
+echo "Connection timeout: 5 minutes (authorized), 2 minutes (unauthorized)\n";
+echo "Ping interval: 60 seconds\n\n";
 
 // 运行事件循环
 $loop->run();

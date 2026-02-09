@@ -2,6 +2,7 @@ use tauri::Manager;
 
 mod commands;
 mod services;
+mod utils;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -74,6 +75,7 @@ pub fn run() {
             }
         })
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_store::Builder::default().build())
         .invoke_handler(tauri::generate_handler![
             commands::app::ping,
             commands::get_app_version,
@@ -82,7 +84,14 @@ pub fn run() {
             commands::file::file_health,
             commands::sample::sample_health,
             commands::tts::tts_health,
-            commands::user::user_health
+            commands::user::user_health,
+            commands::user::user_login,
+            commands::user::user_register,
+            commands::user::user_logout,
+            commands::user::user_get_info,
+            commands::user::user_refresh_token,
+            commands::user::user_sync,
+            commands::user::user_is_logged_in
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

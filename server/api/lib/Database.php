@@ -156,21 +156,60 @@ class Database {
         self::$queryTimes = [];
     }
     
+    /**
+     * 验证表名和列名是否安全（只允许字母、数字、下划线）
+     */
+    private function validateIdentifier($identifier) {
+        return preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*$/', $identifier);
+    }
+    
     public function insert($table, $data) {
-        $columns = implode(', ', array_keys($data));
-        $placeholders = implode(', ', array_fill(0, count($data), '?'));
+        // 验证表名
+        if (!$this->validateIdentifier($table)) {
+            throw new Exception("Invalid table name: {$table}");
+        }
         
-        $sql = "INSERT INTO {$table} ({$columns}) VALUES ({$placeholders})";
-        $this->query($sql, array_values($data));
+        // 验证列名
+        $columns = [];
+        $values = [];
+        foreach ($data as $key => $value) {
+            if (!$this->validateIdentifier($key)) {
+                throw new Exception("Invalid column name: {$key}");
+            }
+            $columns[] = $key;
+            $values[] = $value;
+        }
+        
+        $columnsStr = '`' . implode('`, `', $columns) . '`';
+        $placeholders = implode(', ', array_fill(0, count($columns), '?'));
+        
+        $sql = "INSERT INTO `{$table}` ({$columnsStr}) VALUES ({$placeholders})";
+        $this->query($sql, $values);
         
         return $this->pdo->lastInsertId();
     }
     
     public function update($table, $data, $where, $whereParams = []) {
-        $set = implode(' = ?, ', array_keys($data)) . ' = ?';
-        $sql = "UPDATE {$table} SET {$set} WHERE {$where}";
+        // 验证表名
+        if (!$this->validateIdentifier($table)) {
+            throw new Exception("Invalid table name: {$table}");
+        }
         
-        return $this->query($sql, array_merge(array_values($data), $whereParams))->rowCount();
+        // 验证列名
+        $setParts = [];
+        $values = [];
+        foreach ($data as $key => $value) {
+            if (!$this->validateIdentifier($key)) {
+                throw new Exception("Invalid column name: {$key}");
+            }
+            $setParts[] = "`{$key}` = ?";
+            $values[] = $value;
+        }
+        
+        $set = implode(', ', $setParts);
+        $sql = "UPDATE `{$table}` SET {$set} WHERE {$where}";
+        
+        return $this->query($sql, array_merge($values, $whereParams))->rowCount();
     }
     
     public function beginTransaction() {

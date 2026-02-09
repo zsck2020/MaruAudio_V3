@@ -118,14 +118,17 @@ class AuthController {
         if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
             Response::error('邮箱格式不正确', 1001);
         }
-        if (empty($password) || strlen($password) < 6) {
-            Response::error('密码长度至少6位', 1001);
+        if (strlen($email) > 255) {
+            Response::error('邮箱长度超出限制', 1001);
         }
-        if (empty($code)) {
-            Response::error('验证码不能为空', 1001);
+        if (empty($password) || strlen($password) < 6 || strlen($password) > 128) {
+            Response::error('密码长度必须在6-128位之间', 1001);
         }
-        if (empty($machineCode)) {
-            Response::error('机器码不能为空', 1001);
+        if (empty($code) || strlen($code) !== 6 || !ctype_digit($code)) {
+            Response::error('验证码格式不正确', 1001);
+        }
+        if (empty($machineCode) || strlen($machineCode) > 255) {
+            Response::error('机器码不能为空或长度超出限制', 1001);
         }
         
         $db = Database::getInstance();
@@ -247,8 +250,14 @@ class AuthController {
             'client_version' => $input['client_version'] ?? ($input['device_info']['client_version'] ?? null),
         ];
         
-        if (empty($email) || empty($password)) {
-            Response::error('邮箱和密码不能为空', 1001);
+        if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            Response::error('邮箱格式不正确', 1001);
+        }
+        if (strlen($email) > 255) {
+            Response::error('邮箱长度超出限制', 1001);
+        }
+        if (empty($password) || strlen($password) < 6 || strlen($password) > 128) {
+            Response::error('密码长度必须在6-128位之间', 1001);
         }
         
         $db = Database::getInstance();
@@ -426,14 +435,17 @@ class AuthController {
         if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
             Response::error('邮箱格式不正确', 1001);
         }
-        if (empty($password) || strlen($password) < 6) {
-            Response::error('密码长度至少6位', 1001);
+        if (strlen($email) > 255) {
+            Response::error('邮箱长度超出限制', 1001);
         }
-        if (empty($code)) {
-            Response::error('验证码不能为空', 1001);
+        if (empty($password) || strlen($password) < 6 || strlen($password) > 128) {
+            Response::error('密码长度必须在6-128位之间', 1001);
         }
-        if (empty($machineCode)) {
-            Response::error('机器码不能为空', 1001);
+        if (empty($code) || strlen($code) !== 6 || !ctype_digit($code)) {
+            Response::error('验证码格式不正确', 1001);
+        }
+        if (empty($machineCode) || strlen($machineCode) > 255) {
+            Response::error('机器码不能为空或长度超出限制', 1001);
         }
         
         $db = Database::getInstance();
@@ -667,8 +679,8 @@ class AuthController {
             Response::error('参数不完整', 1001);
         }
         
-        if (strlen($newPassword) < 6) {
-            Response::error('密码长度至少6位', 1001);
+        if (strlen($newPassword) < 6 || strlen($newPassword) > 128) {
+            Response::error('密码长度必须在6-128位之间', 1001);
         }
         
         $db = Database::getInstance();

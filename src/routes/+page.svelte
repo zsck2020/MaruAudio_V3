@@ -3,6 +3,8 @@
   import Tooltip from '../lib/components/Tooltip.svelte';
   import { onMount } from 'svelte';
   import { getCurrentWindow } from '@tauri-apps/api/window';
+  // @ts-ignore
+  import Carousel from 'svelte-carousel';
 
   let isMobile = false;
   let isTablet = false;
@@ -325,11 +327,16 @@
     
     <!-- 右侧内容区域 -->
     <div class="content">
-      <div class="content-body">
-        <div class="coming-soon-container">
-          <p class="content-subtitle">功能开发中，敬请期待......</p>
+      {#if activeMenu === 'home'}
+        <!-- 仅在首页显示的 Banner Carousel -->
+        <div class="carousel-container">
+          <Carousel autoplay={false} arrows={false} dots={false}>
+            <div class="carousel-item">
+              <img src="/banner-placeholder.svg" alt="Banner" class="carousel-image" />
+            </div>
+          </Carousel>
         </div>
-      </div>
+      {/if}
     </div>
   </div>
 </div>
@@ -792,41 +799,41 @@
     flex-direction: column;
   }
   
-  .content-body {
-    flex: 1;
+  .carousel-container {
+    margin-left: 20px; /* 距离左侧菜单右边20px间距 */
+    margin-right: 20px;
+    margin-top: 11px;
+    height: 225px;
+    border-radius: 5px;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+  
+  /* 移动端：菜单在底部，Banner从左边开始 */
+  @media (max-width: 768px) {
+    .carousel-container {
+      margin-left: 20px;
+    }
+  }
+  
+  .carousel-item {
+    width: 100%;
+    height: 225px;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: var(--spacing-xl);
   }
   
-  .coming-soon-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: var(--spacing-lg);
-  }
-  
-  .content-subtitle {
-    font-size: 24px;
-    color: var(--color-text-secondary);
-    margin: 0;
-    letter-spacing: 0.5px;
-    font-weight: 400;
+  .carousel-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 5px;
   }
   
   @media (max-width: 768px) {
     .content {
       padding-bottom: 120px; /* 为底部导航留出空间（主菜单+底部菜单） */
-    }
-    
-    .content-body {
-      padding: var(--spacing-lg);
-    }
-    
-    .content-subtitle {
-      font-size: 18px;
     }
   }
   

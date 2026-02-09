@@ -12,8 +12,9 @@
   },
   "dependencies": {
     "@sveltejs/kit": "^2.9.0",
+    "axios": "^1.6.0",
     "svelte": "^5.0.0",
-    "axios": "^1.6.0"
+    "svelte-carousel": "^1.0.25"
   },
   "devDependencies": {
     "@sveltejs/adapter-static": "^3.0.6",

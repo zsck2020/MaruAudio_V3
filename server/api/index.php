@@ -3,6 +3,23 @@
  * MaruAudio 服务端 API 入口
  */
 
+// 加载 .env 环境变量
+$envFile = __DIR__ . '/.env';
+if (file_exists($envFile)) {
+    $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    foreach ($lines as $line) {
+        $line = trim($line);
+        if ($line === '' || $line[0] === '#') continue;
+        if (strpos($line, '=') === false) continue;
+        list($key, $val) = explode('=', $line, 2);
+        $k = trim($key);
+        $v = trim($val);
+        putenv("$k=$v");
+        $_ENV[$k] = $v;
+        $_SERVER[$k] = $v;
+    }
+}
+
 // 错误处理
 error_reporting(E_ALL);
 ini_set('display_errors', 0);

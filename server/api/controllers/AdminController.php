@@ -31,7 +31,7 @@ class AdminController {
             "SELECT COUNT(*) AS count FROM admin_login_logs
              WHERE (username = ? OR login_ip = ?)
              AND login_result = 'failed'
-             AND created_at > ?",
+             AND login_time > ?",
             [$username, $ip, $lockCheckTime]
         );
 

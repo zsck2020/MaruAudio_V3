@@ -37,8 +37,7 @@ class ConfigController {
             'purchase_qrcode_url',
             'card_price_monthly',
             'card_price_yearly',
-            'card_price_permanent',
-            'dashscope_api_key'
+            'card_price_permanent'
         ];
         
         $placeholders = implode(',', array_fill(0, count($publicKeys), '?'));
@@ -89,8 +88,6 @@ class ConfigController {
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_TIMEOUT, 10);
         curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
         curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
         curl_setopt($ch, CURLOPT_MAXREDIRS, 3);
         

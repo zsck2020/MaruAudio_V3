@@ -1,6 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import { getOperationLogs } from '$lib/api';
+  import { escapeHtml } from '$lib/utils/escapeHtml';
   import logger from '$lib/utils/logger';
   import Card from '$lib/components/Card.svelte';
   import Table from '$lib/components/Table.svelte';
@@ -54,10 +55,10 @@
       return Object.entries(obj).map(([k, v]) => {
         const keyName = keyNames[k] || k;
         const valueName = typeNames[v] || v;
-        return `${keyName}: ${valueName}`;
+        return `${escapeHtml(keyName)}: ${escapeHtml(valueName)}`;
       }).join(' | ');
     } catch {
-      return details;
+      return escapeHtml(details);
     }
   }
   

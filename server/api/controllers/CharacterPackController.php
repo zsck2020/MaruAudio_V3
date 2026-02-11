@@ -61,8 +61,7 @@ class CharacterPackController {
     /**
      * 激活字符包
      */
-    public static function activate() {
-        global $input;
+    public static function activate($input) {
         
         $payload = JWTAuth::getPayloadFromRequest();
         
@@ -206,8 +205,7 @@ class CharacterPackController {
      * 消耗字符（生成前调用）
      * 采用预扣机制：先扣除，生成失败后退还
      */
-    public static function consume() {
-        global $input;
+    public static function consume($input) {
         
         $payload = JWTAuth::getPayloadFromRequest();
         
@@ -324,8 +322,7 @@ class CharacterPackController {
     /**
      * 退还字符（生成失败时调用）
      */
-    public static function refund() {
-        global $input;
+    public static function refund($input) {
         
         $payload = JWTAuth::getPayloadFromRequest();
         
@@ -516,8 +513,7 @@ class CharacterPackController {
     /**
      * 预估文本字符数（不扣费，仅计算）
      */
-    public static function estimate() {
-        global $input;
+    public static function estimate($input) {
         
         $text = trim($input['text'] ?? $_POST['text'] ?? '');
         
@@ -526,6 +522,7 @@ class CharacterPackController {
                 'characters' => 0,
                 'text_length' => 0
             ]);
+            return;
         }
         
         // 限制文本长度
@@ -545,8 +542,7 @@ class CharacterPackController {
      * 验证 TTS 授权码
      * 客户端在实际生成 TTS 前必须调用此接口验证授权码
      */
-    public static function verifyAuthCode() {
-        global $input;
+    public static function verifyAuthCode($input) {
         
         $payload = JWTAuth::getPayloadFromRequest();
         

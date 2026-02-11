@@ -150,4 +150,13 @@ export const updateSettings = (data) => api.post('/admin/settings', data);
 // 更新管理员信息
 export const updateAdminProfile = (data) => api.post('/admin/profile', data);
 
+// 测试邮件发送
+export const testMail = (data) => api.post('/admin/test-mail', data);
+
+// 测试 DashScope API Key
+export const testDashScopeApi = (data) => api.post('/admin/test-dashscope', data);
+
+// 上传文件
+export const uploadFile = (formData) => api.post('/admin/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+
 export default api;

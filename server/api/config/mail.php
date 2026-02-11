@@ -3,13 +3,13 @@
  * 邮件服务配置 - QQ邮箱SMTP
  */
 return [
-    'smtp_host' => 'smtp.qq.com',
-    'smtp_port' => 465,
+    'smtp_host' => getenv('MARUAUDIO_SMTP_HOST') ?: 'smtp.qq.com',
+    'smtp_port' => (int)(getenv('MARUAUDIO_SMTP_PORT') ?: 465),
     'smtp_secure' => 'ssl',
-    'smtp_user' => 'qilane@foxmail.com',
-    'smtp_pass' => 'cqjnqwuwhkebdiej', // QQ邮箱授权码
+    'smtp_user' => getenv('MARUAUDIO_SMTP_USER') ?: '',
+    'smtp_pass' => getenv('MARUAUDIO_SMTP_PASS') ?: '',
     'from_name' => '丸子配音',
-    'from_email' => 'qilane@foxmail.com',
+    'from_email' => getenv('MARUAUDIO_SMTP_USER') ?: '',
     
     // 发送频率限制
     'rate_limit' => [

@@ -18,7 +18,7 @@ class RBAC {
     const PERMISSION_SETTING_MANAGE = 'setting.manage';    // 系统设置
     const PERMISSION_WITHDRAWAL_MANAGE = 'withdrawal.manage'; // 提现管理
     const PERMISSION_BACKUP_MANAGE = 'backup.manage';      // 备份管理
-    const PERMISSION_LOG_VIEW = 'log.view';                // 鿴־
+    const PERMISSION_LOG_VIEW = 'log.view';                // 查看日志
     const PERMISSION_LOG_CLEANUP = 'log.cleanup';          // 清理日志
     const PERMISSION_VERSION_MANAGE = 'version.manage';    // 版本管理
     const PERMISSION_ADMIN_MANAGE = 'admin.manage';        // 管理员管理

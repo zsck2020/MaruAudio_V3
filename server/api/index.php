@@ -15,6 +15,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
+// 统一设置 CORS 头（仅在入口设置一次，避免每次响应重复设置）
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, Authorization');
+
 // 加载基础类库
 require_once __DIR__ . '/lib/Cache.php';
 require_once __DIR__ . '/lib/Database.php';
@@ -191,8 +196,9 @@ try {
             ]);
             break;
             
-        // 公共配置（无需登录）
+        // 公共配置（无需登录，config/settings 为兼容别名）
         case 'config':
+        case 'config/settings':
             require_once __DIR__ . '/controllers/ConfigController.php';
             ConfigController::getPublicConfig();
             break;
@@ -485,11 +491,6 @@ try {
             AdminApiController::updateCharacterPackPackages($input);
             break;
             
-        case 'config/settings':
-            require_once __DIR__ . '/controllers/ConfigController.php';
-            ConfigController::getPublicConfig();
-            break;
-            
         case 'config/release-version':
             require_once __DIR__ . '/controllers/ConfigController.php';
             ConfigController::getReleaseVersion($input);
@@ -503,17 +504,17 @@ try {
             
         case 'character-pack/activate':
             require_once __DIR__ . '/controllers/CharacterPackController.php';
-            CharacterPackController::activate();
+            CharacterPackController::activate($input);
             break;
             
         case 'character-pack/consume':
             require_once __DIR__ . '/controllers/CharacterPackController.php';
-            CharacterPackController::consume();
+            CharacterPackController::consume($input);
             break;
             
         case 'character-pack/refund':
             require_once __DIR__ . '/controllers/CharacterPackController.php';
-            CharacterPackController::refund();
+            CharacterPackController::refund($input);
             break;
             
         case 'character-pack/packages':
@@ -528,20 +529,15 @@ try {
             
         case 'character-pack/estimate':
             require_once __DIR__ . '/controllers/CharacterPackController.php';
-            CharacterPackController::estimate();
+            CharacterPackController::estimate($input);
             break;
             
         case 'character-pack/verify-auth':
             require_once __DIR__ . '/controllers/CharacterPackController.php';
-            CharacterPackController::verifyAuthCode();
+            CharacterPackController::verifyAuthCode($input);
             break;
             
-        // 管理后台 - 字符包管理
-        case 'admin/character-pack/codes':
-            require_once __DIR__ . '/controllers/AdminApiController.php';
-            AdminApiController::getCharacterPackCodes($input);
-            break;
-            
+        // 管理后台 - 字符包激活码生成/禁用/删除
         case 'admin/character-pack/codes/generate':
             require_once __DIR__ . '/controllers/AdminApiController.php';
             AdminApiController::generateCharacterPackCodes($input);
@@ -557,29 +553,9 @@ try {
             AdminApiController::deleteCharacterPackCode($input);
             break;
             
-        case 'admin/character-pack/users':
-            require_once __DIR__ . '/controllers/AdminApiController.php';
-            AdminApiController::getCharacterPackUsers($input);
-            break;
-            
         case 'admin/character-pack/users/adjust':
             require_once __DIR__ . '/controllers/AdminApiController.php';
             AdminApiController::adjustUserCharacterBalance($input);
-            break;
-            
-        case 'admin/character-pack/stats':
-            require_once __DIR__ . '/controllers/AdminApiController.php';
-            AdminApiController::getCharacterPackStats();
-            break;
-            
-        case 'admin/character-pack/packages':
-            require_once __DIR__ . '/controllers/AdminApiController.php';
-            AdminApiController::getCharacterPackPackages();
-            break;
-            
-        case 'admin/character-pack/packages/update':
-            require_once __DIR__ . '/controllers/AdminApiController.php';
-            AdminApiController::updateCharacterPackPackages($input);
             break;
             
         default:

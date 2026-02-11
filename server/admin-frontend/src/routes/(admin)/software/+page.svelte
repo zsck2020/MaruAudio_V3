@@ -1,6 +1,6 @@
 <script>
   import { onMount } from 'svelte';
-  import { getSettings, updateSettings } from '$lib/api';
+  import { getSettings, updateSettings, testDashScopeApi, uploadFile } from '$lib/api';
   import logger from '$lib/utils/logger';
   import Card from '$lib/components/Card.svelte';
   import Button from '$lib/components/Button.svelte';
@@ -200,25 +200,10 @@
     
     testingCloudApi = true;
     try {
-      const response = await fetch('/api/admin/test-dashscope', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${typeof window !== 'undefined' ? localStorage.getItem('admin_token') : ''}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          api_key: cloudApiForm.dashscope_api_key
-        })
-      });
-      
-      const result = await response.json();
-      if (result.code === 0) {
-        Message.success('API Key 验证成功');
-      } else {
-        Message.error(result.message || 'API Key 验证失败');
-      }
+      await testDashScopeApi({ api_key: cloudApiForm.dashscope_api_key });
+      Message.success('API Key 验证成功');
     } catch (e) {
-      Message.error('API 连接失败: ' + e.message);
+      // 错误已在拦截器处理
     } finally {
       testingCloudApi = false;
     }
@@ -252,25 +237,15 @@
       formData.append('file', file);
       formData.append('type', 'qrcode');
       
-      const response = await fetch('https://175.178.131.67/api/admin/upload', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${typeof window !== 'undefined' ? localStorage.getItem('admin_token') : ''}`
-        },
-        body: formData
-      });
-      
-      const result = await response.json();
-      if (result.code === 0 && result.data?.url) {
-        contentForm.support_qrcode_url = result.data.url;
+      const res = await uploadFile(formData);
+      if (res.data?.url) {
+        contentForm.support_qrcode_url = res.data.url;
         // 自动保存设置
         await saveContentSettings();
         Message.success('上传成功');
-      } else {
-        Message.error(result.message || '上传失败');
       }
     } catch (e) {
-      Message.error('上传失败: ' + e.message);
+      // 错误已在拦截器处理
     }
     
     // 清空 input

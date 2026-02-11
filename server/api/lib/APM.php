@@ -84,10 +84,10 @@ class APM {
         }
         
         $level = 'info';
-        if (self::$metrics['request_time'] > 2.0) {
-            $level = 'warning';
-        } elseif (self::$metrics['request_time'] > 5.0) {
+        if (self::$metrics['request_time'] > 5.0) {
             $level = 'error';
+        } elseif (self::$metrics['request_time'] > 2.0) {
+            $level = 'warning';
         }
         
         Logger::log($level, 'Request performance', self::$metrics);

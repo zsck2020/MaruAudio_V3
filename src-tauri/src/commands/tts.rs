@@ -8,6 +8,3 @@ pub fn tts_health() -> Result<&'static str, String> {
         Err(e) => Err(format!("TTS health check failed: {}", e))
     }
 }
-
-
-

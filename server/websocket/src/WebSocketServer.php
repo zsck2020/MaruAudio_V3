@@ -178,6 +178,32 @@ class WebSocketServer implements MessageComponentInterface
         $meta['last_activity'] = time();
         $this->clients[$from] = $meta;
         
+        // 管理员请求在线用户状态
+        if ($type === 'user_status_request' && !empty($meta['admin_id'])) {
+            $onlineUsers = [];
+            foreach ($this->userConnections as $userId => $conns) {
+                // 只统计仍有活跃连接的用户
+                $activeConns = 0;
+                foreach ($conns as $c) {
+                    if ($this->isConnectionTracked($c)) {
+                        $activeConns++;
+                    }
+                }
+                if ($activeConns > 0) {
+                    $onlineUsers[] = [
+                        'user_id' => $userId,
+                        'connections' => $activeConns,
+                    ];
+                }
+            }
+            $from->send(json_encode([
+                'type' => 'user_status',
+                'online_count' => count($onlineUsers),
+                'users' => $onlineUsers,
+            ], JSON_UNESCAPED_UNICODE));
+            return;
+        }
+
         // 其他业务消息目前只记录，不做处理，避免对现有客户端造成影响
         // 可以按需扩展，如聊天、在线状态上报等
     }

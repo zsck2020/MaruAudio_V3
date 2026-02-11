@@ -102,7 +102,9 @@ class AdminApiController {
         } catch (Exception $e) {}
         
         try {
-            $result = $db->fetch("SELECT COUNT(*) as count FROM users WHERE user_group != 'free'");
+            $result = $db->fetch(
+                "SELECT COUNT(*) as count FROM users WHERE user_group = 'permanent' OR (user_group IN ('monthly', 'yearly', 'trial') AND (expire_time IS NULL OR expire_time > NOW()))"
+            );
             $vipUsers = $result['count'] ?? 0;
         } catch (Exception $e) {}
         
@@ -421,6 +423,10 @@ class AdminApiController {
         // 处理用户分组变更
         if (isset($input['user_group'])) {
             $newUserGroup = $input['user_group'];
+            $validGroups = ['free', 'trial', 'monthly', 'yearly', 'permanent'];
+            if (!in_array($newUserGroup, $validGroups)) {
+                Response::error('无效的用户分组', 1001);
+            }
             $oldUserGroup = $currentUser['user_group'];
             $updateData['user_group'] = $newUserGroup;
             
@@ -466,6 +472,10 @@ class AdminApiController {
         }
         
         if (isset($input['status'])) {
+            $validStatuses = ['active', 'banned'];
+            if (!in_array($input['status'], $validStatuses)) {
+                Response::error('无效的用户状态', 1001);
+            }
             $updateData['status'] = $input['status'];
         }
         
@@ -496,10 +506,11 @@ class AdminApiController {
             "SELECT id, email, user_group, expire_time, register_time, register_ip, last_login_time, status, invite_code, invited_by FROM users ORDER BY id DESC"
         );
         
-        // 生成 CSV
-        $csv = "ID,邮箱,用户组,到期时间,注册时间,注册IP,最后登录时间,状态,邀请码,邀请人ID\n";
+        // 生成 CSV（使用 PHP 内置函数确保正确转义）
+        $csvStream = fopen('php://temp', 'r+');
+        fputcsv($csvStream, ['ID', '邮箱', '用户组', '到期时间', '注册时间', '注册IP', '最后登录时间', '状态', '邀请码', '邀请人ID']);
         foreach ($users as $user) {
-            $csv .= implode(',', [
+            fputcsv($csvStream, [
                 $user['id'],
                 $user['email'],
                 $user['user_group'],
@@ -510,8 +521,11 @@ class AdminApiController {
                 $user['status'],
                 $user['invite_code'] ?? '',
                 $user['invited_by'] ?? ''
-            ]) . "\n";
+            ]);
         }
+        rewind($csvStream);
+        $csv = stream_get_contents($csvStream);
+        fclose($csvStream);
         
         Response::success(['csv' => $csv, 'filename' => 'users_' . date('Ymd_His') . '.csv']);
     }
@@ -528,10 +542,11 @@ class AdminApiController {
             "SELECT id, card_key, card_type, status, created_at, used_at, used_by FROM card_keys ORDER BY id DESC"
         );
         
-        // 生成 CSV
-        $csv = "ID,卡密,类型,状态,创建时间,使用时间,使用者ID\n";
+        // 生成 CSV（使用 PHP 内置函数确保正确转义）
+        $csvStream = fopen('php://temp', 'r+');
+        fputcsv($csvStream, ['ID', '卡密', '类型', '状态', '创建时间', '使用时间', '使用者ID']);
         foreach ($cards as $card) {
-            $csv .= implode(',', [
+            fputcsv($csvStream, [
                 $card['id'],
                 $card['card_key'],
                 $card['card_type'],
@@ -539,8 +554,11 @@ class AdminApiController {
                 $card['created_at'],
                 $card['used_at'] ?? '',
                 $card['used_by'] ?? ''
-            ]) . "\n";
+            ]);
         }
+        rewind($csvStream);
+        $csv = stream_get_contents($csvStream);
+        fclose($csvStream);
         
         Response::success(['csv' => $csv, 'filename' => 'cards_' . date('Ymd_His') . '.csv']);
     }
@@ -588,6 +606,12 @@ class AdminApiController {
         
         if (empty($title) || empty($content)) {
             Response::error('标题和内容不能为空', 1001);
+        }
+        
+        // 验证公告类型
+        $validTypes = ['info', 'warning', 'success', 'error'];
+        if (!in_array($type, $validTypes)) {
+            $type = 'info';
         }
         
         $data = [
@@ -747,7 +771,8 @@ class AdminApiController {
         
         // 如果已经绑定到当前用户，则直接返回成功
         if ($existing && (int)$existing['user_id'] === $userId) {
-            Response::success(null, '绑定成功');
+            Response::success(null, '已绑定');
+            return;
         }
         
         $db->insert('machine_bindings', [
@@ -917,6 +942,12 @@ class AdminApiController {
         $durationDays = (int)($input['duration_days'] ?? 30);
         $remark = $input['remark'] ?? '';
         
+        // 验证卡密类型
+        $validCardTypes = ['monthly', 'yearly', 'permanent'];
+        if (!in_array($cardType, $validCardTypes)) {
+            Response::error('无效的卡密类型', 1001);
+        }
+        
         // 根据类型设置天数
         switch ($cardType) {
             case 'monthly':
@@ -938,7 +969,7 @@ class AdminApiController {
         $prefix = strtoupper(substr($productCode, 0, 4));
         
         for ($i = 0; $i < $count; $i++) {
-            // 生成卡密格式: DUBB-XXXX-XXXX-XXXX 鎴?COMI-XXXX-XXXX-XXXX
+            // 生成卡密格式: DUBB-XXXX-XXXX-XXXX 或 COMI-XXXX-XXXX-XXXX
             $cardKey = $prefix . '-' . 
                        strtoupper(substr(md5(uniqid(mt_rand(), true)), 0, 4)) . '-' .
                        strtoupper(substr(md5(uniqid(mt_rand(), true)), 0, 4)) . '-' .
@@ -1085,9 +1116,10 @@ class AdminApiController {
             'invite_enabled', 'invite_rules',
             'commission_enabled', 'commission_threshold', 'commission_min_level', 
             'commission_rate', 'commission_min_withdraw',
-            'user_agreement', 'privacy_policy', 'support_qrcode_url',
+            'disclaimer', 'user_agreement', 'privacy_policy', 'support_qrcode_url',
             'group_join_url', 'tutorial_url', 'donate_url',
             'card_price_monthly', 'card_price_yearly', 'card_price_permanent',
+            'comic_card_price_monthly', 'comic_card_price_yearly', 'comic_card_price_permanent',
             'purchase_url', 'purchase_qrcode_url',
             'dashscope_api_key'
         ];
@@ -1271,21 +1303,27 @@ class AdminApiController {
 
         $db = Database::getInstance();
 
-        $withdrawal = $db->fetch("SELECT * FROM withdrawals WHERE id = ?", [$withdrawalId]);
-        if (!$withdrawal) {
-            Response::error('提现申请不存在', 3001);
+        if ($action === 'reject' && empty($reason)) {
+            Response::error('请填写拒绝原因', 1001);
         }
 
-        if ($withdrawal['status'] !== 'pending') {
-            Response::error('该申请已处理', 3002);
-        }
+        // 开始事务（状态检查和更新必须在同一事务内，防止并发重复处理）
+        $db->beginTransaction();
+        
+        try {
+            // 加锁查询提现记录
+            $withdrawal = $db->fetch("SELECT * FROM withdrawals WHERE id = ? FOR UPDATE", [$withdrawalId]);
+            if (!$withdrawal) {
+                $db->rollback();
+                Response::error('提现申请不存在', 3001);
+            }
 
-        if ($action === 'approve') {
-            // 开始事务
-            $pdo = $db->getConnection();
-            $pdo->beginTransaction();
-            
-            try {
+            if ($withdrawal['status'] !== 'pending') {
+                $db->rollback();
+                Response::error('该申请已处理', 3002);
+            }
+
+            if ($action === 'approve') {
                 $db->update('withdrawals', [
                     'status' => 'completed',
                     'processed_at' => date('Y-m-d H:i:s')
@@ -1297,7 +1335,7 @@ class AdminApiController {
                     [$withdrawalId]
                 );
                 
-                $pdo->commit();
+                $db->commit();
                 
                 // 记录操作日志
                 self::logOperation('审批提现', 'withdrawal', $withdrawalId, ['action' => 'approve', 'amount' => $withdrawal['amount']]);
@@ -1306,20 +1344,7 @@ class AdminApiController {
                 self::notifyWithdrawalProcessed($withdrawal['user_id'], 'approved', $withdrawal['amount']);
                 
                 Response::success(null, '已完成打款');
-            } catch (Exception $e) {
-                $pdo->rollBack();
-                Response::error('处理失败，重试', 5001);
-            }
-        } else {
-            if (empty($reason)) {
-                Response::error('请填写拒绝原因', 1001);
-            }
-            
-            // 开始事务
-            $pdo = $db->getConnection();
-            $pdo->beginTransaction();
-            
-            try {
+            } else {
                 $db->update('withdrawals', [
                     'status' => 'rejected',
                     'reject_reason' => $reason,
@@ -1332,7 +1357,7 @@ class AdminApiController {
                     [$withdrawalId]
                 );
                 
-                $pdo->commit();
+                $db->commit();
                 
                 // 记录操作日志
                 self::logOperation('拒绝提现', 'withdrawal', $withdrawalId, ['action' => 'reject', 'reason' => $reason]);
@@ -1341,10 +1366,10 @@ class AdminApiController {
                 self::notifyWithdrawalProcessed($withdrawal['user_id'], 'rejected', $withdrawal['amount'], $reason);
                 
                 Response::success(null, '已拒绝申请，佣金已返还');
-            } catch (Exception $e) {
-                $pdo->rollBack();
-                Response::error('处理失败，重试', 5001);
             }
+        } catch (Exception $e) {
+            $db->rollback();
+            Response::error('处理失败，重试', 5001);
         }
     }
     
@@ -1446,8 +1471,9 @@ class AdminApiController {
         }
         
         // 使用更安全的方式执行备份命令
+        // 注意：使用 --password= 格式而非 -p，因为 -p 后紧跟 escapeshellarg 会导致引号成为密码的一部分
         $cmd = sprintf(
-            'mysqldump -h%s -u%s -p%s %s > %s 2>&1',
+            'mysqldump -h %s -u %s --password=%s %s > %s 2>&1',
             escapeshellarg($dbConfig['host']),
             escapeshellarg($dbConfig['username']),
             escapeshellarg($dbConfig['password']),
@@ -1494,8 +1520,7 @@ class AdminApiController {
         
         Response::success([
             'filename' => $filename,
-            'size' => $fileSize,
-            'path' => $backupPath
+            'size' => $fileSize
         ], '备份成功');
     }
     
@@ -1581,21 +1606,27 @@ class AdminApiController {
         }
         
         $file = $_FILES['file'];
-        $type = $_POST['type'] ?? 'default';
-        
-        // 验证文件类型
-        $allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-        if (!in_array($file['type'], $allowedTypes)) {
-            Response::error('只支持 JPG、PNG、GIF、WEBP 格式', 1002);
-        }
+        $type = preg_replace('/[^a-zA-Z0-9_-]/', '', $_POST['type'] ?? 'default');
         
         // 验证文件大小 (2MB)
         if ($file['size'] > 2 * 1024 * 1024) {
             Response::error('文件大小不能超过 2MB', 1003);
         }
         
-        // 生成文件名
-        $ext = pathinfo($file['name'], PATHINFO_EXTENSION);
+        // 验证文件扩展名
+        $allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+        $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+        if (!in_array($ext, $allowedExtensions)) {
+            Response::error('只支持 JPG、PNG、GIF、WEBP 格式', 1002);
+        }
+        
+        // 使用 finfo 验证实际文件内容类型（防止MIME伪造）
+        $allowedMimeTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+        $finfo = new finfo(FILEINFO_MIME_TYPE);
+        $realMime = $finfo->file($file['tmp_name']);
+        if (!in_array($realMime, $allowedMimeTypes)) {
+            Response::error('文件内容类型不合法', 1002);
+        }
         $filename = $type . '_' . date('YmdHis') . '_' . uniqid() . '.' . $ext;
         
         // 上传目录 - 使用 api/uploads 目录
@@ -1610,9 +1641,22 @@ class AdminApiController {
             Response::error('文件保存失败', 1004);
         }
         
-        // 返回文件 URL
-        $baseUrl = 'https://175.178.131.67/api/uploads/';
-        $url = $baseUrl . $filename;
+        // 返回文件 URL（从数据库配置或请求头动态获取域名，避免硬编码IP）
+        $db = Database::getInstance();
+        $apiDomain = '';
+        try {
+            $domainSetting = $db->fetch("SELECT setting_value FROM system_settings WHERE setting_key = 'api_domain'");
+            if ($domainSetting && !empty($domainSetting['setting_value'])) {
+                $apiDomain = rtrim($domainSetting['setting_value'], '/');
+            }
+        } catch (Exception $e) {}
+        
+        if (empty($apiDomain)) {
+            $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+            $host = $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? 'localhost';
+            $apiDomain = $scheme . '://' . $host;
+        }
+        $url = $apiDomain . '/api/uploads/' . $filename;
         
         // 记录操作日志
         self::logOperation('上传文件', 'file', null, [
@@ -1640,9 +1684,15 @@ class AdminApiController {
                 return;
             }
             
-            // 计算 is_vip 和 is_trial
-            $isVip = in_array($user['user_group'], ['monthly', 'yearly', 'permanent', 'trial']);
+            // 计算 is_vip 和 is_trial（需检查过期时间）
             $isTrial = $user['user_group'] === 'trial';
+            if ($user['user_group'] === 'permanent') {
+                $isVip = true;
+            } elseif (in_array($user['user_group'], ['monthly', 'yearly', 'trial'])) {
+                $isVip = empty($user['expire_time']) || strtotime($user['expire_time']) > time();
+            } else {
+                $isVip = false;
+            }
             
             // 通过 WebSocket 推送用户信息更新
             require_once __DIR__ . '/../../websocket/src/PushService.php';
@@ -1803,7 +1853,6 @@ class AdminApiController {
         curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_TIMEOUT, 30);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
         curl_setopt($ch, CURLOPT_HTTPHEADER, [
             'Authorization: Bearer ' . $apiKey,
             'Content-Type: application/json'

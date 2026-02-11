@@ -2,6 +2,18 @@ use crate::utils::config::AppConfig;
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::sync::LazyLock;
+use std::time::Duration;
+
+/// 全局共享的 HTTP 客户端（连接池复用，避免每次请求都创建新连接）
+static SHARED_CLIENT: LazyLock<reqwest::Client> = LazyLock::new(|| {
+    reqwest::Client::builder()
+        .timeout(Duration::from_secs(30))
+        .connect_timeout(Duration::from_secs(10))
+        .pool_max_idle_per_host(5)
+        .build()
+        .expect("Failed to create HTTP client")
+});
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ApiResponse<T> {
@@ -56,6 +68,10 @@ impl ApiClient {
         }
     }
 
+    fn client(&self) -> &'static reqwest::Client {
+        &SHARED_CLIENT
+    }
+
     fn get_base_url(&self) -> &str {
         &self.config.api_base_url
     }
@@ -72,7 +88,7 @@ impl ApiClient {
     {
         let url = format!("{}/{}", self.get_base_url(), path.trim_start_matches('/'));
         
-        let client = reqwest::Client::new();
+        let client = self.client();
         let mut request = match method {
             "GET" => client.get(&url),
             "POST" => client.post(&url),
@@ -111,6 +127,21 @@ impl ApiClient {
         Ok(api_response)
     }
 
+    /// 发送请求并解包 data 字段（消除 7 处重复的 ok_or_else 调用）
+    async fn request_data<T>(
+        &self,
+        method: &str,
+        path: &str,
+        body: Option<Value>,
+        token: Option<&str>,
+    ) -> Result<T>
+    where
+        T: for<'de> Deserialize<'de>,
+    {
+        let response: ApiResponse<T> = self.request(method, path, body, token).await?;
+        response.data.ok_or_else(|| anyhow::anyhow!("No data in response"))
+    }
+
     pub async fn login(&self, username: String, password: String) -> Result<LoginResponse> {
         let machine_code = Self::get_machine_code();
         let request = LoginRequest {
@@ -119,11 +150,7 @@ impl ApiClient {
             machine_code: Some(machine_code),
         };
 
-        let response: ApiResponse<LoginResponse> = self
-            .request("POST", "auth/login", Some(serde_json::to_value(request)?), None)
-            .await?;
-
-        response.data.ok_or_else(|| anyhow::anyhow!("No data in response"))
+        self.request_data("POST", "auth/login", Some(serde_json::to_value(request)?), None).await
     }
 
     pub async fn register(
@@ -144,11 +171,7 @@ impl ApiClient {
             machine_code: Some(machine_code),
         };
 
-        let response: ApiResponse<LoginResponse> = self
-            .request("POST", "auth/register", Some(serde_json::to_value(request)?), None)
-            .await?;
-
-        response.data.ok_or_else(|| anyhow::anyhow!("No data in response"))
+        self.request_data("POST", "auth/register", Some(serde_json::to_value(request)?), None).await
     }
 
     pub async fn refresh_token(&self, refresh_token: &str) -> Result<LoginResponse> {
@@ -156,46 +179,26 @@ impl ApiClient {
             "refresh_token": refresh_token
         });
 
-        let response: ApiResponse<LoginResponse> = self
-            .request("POST", "auth/refresh-token", Some(body), None)
-            .await?;
-
-        response.data.ok_or_else(|| anyhow::anyhow!("No data in response"))
+        self.request_data("POST", "auth/refresh-token", Some(body), None).await
     }
 
     #[allow(dead_code)]
     pub async fn get_user_info(&self, token: &str) -> Result<UserInfo> {
-        let response: ApiResponse<UserInfo> = self
-            .request("GET", "user/info", None, Some(token))
-            .await?;
-
-        response.data.ok_or_else(|| anyhow::anyhow!("No data in response"))
+        self.request_data("GET", "user/info", None, Some(token)).await
     }
 
     pub async fn sync_user(&self, token: &str) -> Result<UserInfo> {
-        let response: ApiResponse<UserInfo> = self
-            .request("POST", "user/sync", None, Some(token))
-            .await?;
-
-        response.data.ok_or_else(|| anyhow::anyhow!("No data in response"))
+        self.request_data("POST", "user/sync", None, Some(token)).await
     }
 
     #[allow(dead_code)]
     pub async fn get_public_config(&self) -> Result<Value> {
-        let response: ApiResponse<Value> = self
-            .request("GET", "config", None, None)
-            .await?;
-
-        response.data.ok_or_else(|| anyhow::anyhow!("No data in response"))
+        self.request_data("GET", "config", None, None).await
     }
 
     #[allow(dead_code)]
     pub async fn get_announcements(&self) -> Result<Vec<Value>> {
-        let response: ApiResponse<Vec<Value>> = self
-            .request("GET", "announcements", None, None)
-            .await?;
-
-        response.data.ok_or_else(|| anyhow::anyhow!("No data in response"))
+        self.request_data("GET", "announcements", None, None).await
     }
 
     fn get_machine_code() -> String {
@@ -203,17 +206,13 @@ impl ApiClient {
         
         #[cfg(target_os = "windows")]
         {
-            let output = Command::new("wmic")
-                .args(&["csproduct", "get", "uuid"])
+            let output = Command::new("powershell")
+                .args(&["-NoProfile", "-Command", "(Get-CimInstance -ClassName Win32_ComputerSystemProduct).UUID"])
                 .output();
             
             if let Ok(output) = output {
                 let uuid = String::from_utf8_lossy(&output.stdout);
-                let uuid = uuid.lines()
-                    .skip(1)
-                    .next()
-                    .unwrap_or("")
-                    .trim();
+                let uuid = uuid.trim();
                 if !uuid.is_empty() {
                     return uuid.to_string();
                 }

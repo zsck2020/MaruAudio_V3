@@ -9,6 +9,7 @@
   import Pagination from '$lib/components/Pagination.svelte';
   import { showMessage } from '$lib/components/Message';
   import { getCards, generateCards, disableCard as apiDisableCard, deleteCard as apiDeleteCard, getSettings, updateSettings } from '$lib/api';
+  import { escapeHtml } from '$lib/utils/escapeHtml';
   import { currentProduct } from '$lib/stores/product';
   import logger from '$lib/utils/logger';
   
@@ -221,8 +222,8 @@
         render: ({ row }) => {
           const cardKey = row.card_key || '';
           return `
-            <code style="background: #f5f5f5; padding: 2px 6px; border-radius: 4px; font-size: 12px;">${cardKey}</code>
-            <button class="copy-btn" data-card="${cardKey}" style="margin-left: 8px; background: none; border: none; color: #1890ff; cursor: pointer;">复制</button>
+            <code style="background: #f5f5f5; padding: 2px 6px; border-radius: 4px; font-size: 12px;">${escapeHtml(cardKey)}</code>
+            <button class="copy-btn" data-card="${escapeHtml(cardKey)}" style="margin-left: 8px; background: none; border: none; color: #1890ff; cursor: pointer;">复制</button>
           `;
         }
       },
@@ -247,12 +248,12 @@
       { 
         prop: 'used_by_email', 
         label: '激活用户', 
-        render: ({ row }) => row.status === 'used' && row.used_by_email ? row.used_by_email : '<span style="color: #999;">-</span>'
+        render: ({ row }) => row.status === 'used' && row.used_by_email ? escapeHtml(row.used_by_email) : '<span style="color: #999;">-</span>'
       },
       { 
         prop: 'machine_code', 
         label: '绑定机器码',
-        render: ({ row }) => row.status === 'used' && row.machine_code ? `<code style="background: #f5f5f5; padding: 2px 6px; border-radius: 4px; font-size: 11px;">${row.machine_code}</code>` : '<span style="color: #999;">-</span>'
+        render: ({ row }) => row.status === 'used' && row.machine_code ? `<code style="background: #f5f5f5; padding: 2px 6px; border-radius: 4px; font-size: 11px;">${escapeHtml(row.machine_code)}</code>` : '<span style="color: #999;">-</span>'
       },
       { prop: 'created_at', label: '创建时间', width: '165px' },
       { 
@@ -279,13 +280,9 @@
   
   
   $effect(() => {
+    // 监听产品切换和筛选条件变化，自动重新加载
+    currentProductValue;
     loadCards();
-  });
-  
-  $effect(() => {
-    if (currentProductValue) {
-      loadCards();
-    }
   });
   
   onMount(() => {

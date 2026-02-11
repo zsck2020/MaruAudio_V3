@@ -1,4 +1,4 @@
-use crate::utils::api::{ApiClient, UserInfo};
+use crate::utils::api::{ApiClient, LoginResponse, UserInfo};
 use crate::utils::storage::{AuthTokens, Storage};
 use serde::{Deserialize, Serialize};
 
@@ -14,6 +14,26 @@ pub struct LoginResult {
     pub user: UserInfo,
 }
 
+/// 将 API 登录响应持久化并转换为前端结果
+async fn persist_login(app: &tauri::AppHandle, resp: LoginResponse) -> Result<LoginResult, String> {
+    let tokens = AuthTokens {
+        token: resp.token.clone(),
+        refresh_token: resp.refresh_token.clone(),
+    };
+
+    Storage::save_tokens(app, &tokens).await
+        .map_err(|e| format!("Failed to save tokens: {}", e))?;
+
+    Storage::save_user_info(app, &resp.user).await
+        .map_err(|e| format!("Failed to save user info: {}", e))?;
+
+    Ok(LoginResult {
+        token: resp.token,
+        refresh_token: resp.refresh_token,
+        user: resp.user,
+    })
+}
+
 #[tauri::command]
 pub async fn user_login(
     app: tauri::AppHandle,
@@ -21,28 +41,9 @@ pub async fn user_login(
     password: String,
 ) -> Result<LoginResult, String> {
     let client = ApiClient::new();
-    
-    match client.login(username, password).await {
-        Ok(login_response) => {
-            let tokens = AuthTokens {
-                token: login_response.token.clone(),
-                refresh_token: login_response.refresh_token.clone(),
-            };
-            
-            Storage::save_tokens(&app, &tokens).await
-                .map_err(|e| format!("Failed to save tokens: {}", e))?;
-            
-            Storage::save_user_info(&app, &login_response.user).await
-                .map_err(|e| format!("Failed to save user info: {}", e))?;
-            
-            Ok(LoginResult {
-                token: login_response.token,
-                refresh_token: login_response.refresh_token,
-                user: login_response.user,
-            })
-        }
-        Err(e) => Err(format!("Login failed: {}", e)),
-    }
+    let resp = client.login(username, password).await
+        .map_err(|e| format!("Login failed: {}", e))?;
+    persist_login(&app, resp).await
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -60,8 +61,7 @@ pub async fn user_register(
     request: RegisterRequest,
 ) -> Result<LoginResult, String> {
     let client = ApiClient::new();
-    
-    match client
+    let resp = client
         .register(
             request.username,
             request.password,
@@ -70,27 +70,8 @@ pub async fn user_register(
             request.invite_code,
         )
         .await
-    {
-        Ok(login_response) => {
-            let tokens = AuthTokens {
-                token: login_response.token.clone(),
-                refresh_token: login_response.refresh_token.clone(),
-            };
-            
-            Storage::save_tokens(&app, &tokens).await
-                .map_err(|e| format!("Failed to save tokens: {}", e))?;
-            
-            Storage::save_user_info(&app, &login_response.user).await
-                .map_err(|e| format!("Failed to save user info: {}", e))?;
-            
-            Ok(LoginResult {
-                token: login_response.token,
-                refresh_token: login_response.refresh_token,
-                user: login_response.user,
-            })
-        }
-        Err(e) => Err(format!("Registration failed: {}", e)),
-    }
+        .map_err(|e| format!("Registration failed: {}", e))?;
+    persist_login(&app, resp).await
 }
 
 #[tauri::command]
@@ -111,28 +92,9 @@ pub async fn user_refresh_token(app: tauri::AppHandle) -> Result<LoginResult, St
         .ok_or_else(|| "No refresh token found".to_string())?;
     
     let client = ApiClient::new();
-    
-    match client.refresh_token(&tokens.refresh_token).await {
-        Ok(login_response) => {
-            let new_tokens = AuthTokens {
-                token: login_response.token.clone(),
-                refresh_token: login_response.refresh_token.clone(),
-            };
-            
-            Storage::save_tokens(&app, &new_tokens).await
-                .map_err(|e| format!("Failed to save tokens: {}", e))?;
-            
-            Storage::save_user_info(&app, &login_response.user).await
-                .map_err(|e| format!("Failed to save user info: {}", e))?;
-            
-            Ok(LoginResult {
-                token: login_response.token,
-                refresh_token: login_response.refresh_token,
-                user: login_response.user,
-            })
-        }
-        Err(e) => Err(format!("Token refresh failed: {}", e)),
-    }
+    let resp = client.refresh_token(&tokens.refresh_token).await
+        .map_err(|e| format!("Token refresh failed: {}", e))?;
+    persist_login(&app, resp).await
 }
 
 #[tauri::command]
@@ -148,7 +110,19 @@ pub async fn user_sync(app: tauri::AppHandle) -> Result<UserInfo, String> {
                 .map_err(|e| format!("Failed to save user info: {}", e))?;
             Ok(user_info)
         }
-        Err(e) => Err(format!("Sync failed: {}", e)),
+        Err(_) => {
+            // Token 可能已过期，尝试使用 refresh_token 刷新后重试
+            let resp = client.refresh_token(&tokens.refresh_token).await
+                .map_err(|e| format!("Sync failed and token refresh also failed: {}", e))?;
+            let new_result = persist_login(&app, resp).await?;
+            
+            // 用新 token 重试 sync
+            let user_info = client.sync_user(&new_result.token).await
+                .map_err(|e| format!("Sync failed after token refresh: {}", e))?;
+            Storage::save_user_info(&app, &user_info).await
+                .map_err(|e| format!("Failed to save user info: {}", e))?;
+            Ok(user_info)
+        }
     }
 }
 

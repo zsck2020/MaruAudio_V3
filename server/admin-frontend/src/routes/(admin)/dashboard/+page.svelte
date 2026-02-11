@@ -87,9 +87,8 @@
   });
   
   onMount(() => {
-    loadData();
-    
     // 监听WebSocket事件，实现实时数据更新
+    // 注意：loadData() 已由 $effect 在首次渲染和产品切换时自动调用，此处不再重复调用
     if (typeof window !== 'undefined') {
       const handleStatsUpdate = () => {
         logger.log('[Dashboard] 收到统计数据更新事件，刷新数据');

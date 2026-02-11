@@ -1,4 +1,5 @@
 <script lang="ts">
+  import '../fonts.css';
   import '../app.css';
   import { onMount } from 'svelte';
   
@@ -22,15 +23,15 @@
     display: flex;
     min-height: 100vh;
     min-width: 100vw;
-    background-color: #141414;
+    background-color: var(--color-bg-base);
     overflow: hidden;
   }
   
   .window {
     height: 100vh;
     width: 100vw;
-    background-color: #141414;
-    color: #ffffff;
+    background-color: var(--color-bg-base);
+    color: var(--color-text);
     display: flex;
     flex-direction: column;
     overflow: hidden;

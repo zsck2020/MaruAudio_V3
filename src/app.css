@@ -29,7 +29,7 @@
   --color-border-secondary: #303030;
 
   /* 字体 */
-  --font-family: 'Microsoft YaHei', 'PingFang SC', 'Hiragino Sans GB', 'Helvetica Neue', Arial, 'Noto Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-family: 'HarmonyOS Sans SC', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
   --font-size-sm: 12px;
   --font-size: 14px;
   --font-size-lg: 16px;
@@ -78,6 +78,15 @@ body {
   overflow: hidden;
   user-select: none;
   -webkit-user-select: none;
+  /* 文字渲染优化 — 抗锯齿 */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  /* 字体特性优化 — 启用连字和比例数字 */
+  font-feature-settings: 'liga' 1, 'calt' 1, 'pnum' 1;
+  /* 防止文字在缩放时模糊 */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 /* 图标渲染优化 */
@@ -92,6 +101,11 @@ svg {
   vertical-align: middle;
   /* 防止图标被拉伸 */
   flex-shrink: 0;
+  /* 防止亚像素渲染导致的模糊 */
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  /* 像素对齐 — 避免半像素偏移 */
+  image-rendering: -webkit-optimize-contrast;
 }
 
 /* 图标路径优化 */
@@ -109,4 +123,18 @@ svg path {
   align-items: center;
   justify-content: center;
   line-height: 1;
+}
+
+/* 全局文字清晰度增强 */
+input, textarea, select, button {
+  font-family: inherit;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* 标题文字优化 — 更锐利的渲染 */
+h1, h2, h3, h4, h5, h6 {
+  text-rendering: optimizeLegibility;
+  font-feature-settings: 'liga' 1, 'kern' 1;
+  letter-spacing: -0.01em;
 }

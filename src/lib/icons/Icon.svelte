@@ -91,15 +91,6 @@
       useStroke: false,
       scale: 1.15 // 放大15%以统一视觉大小
     },
-    'settings': {
-      paths: [
-        'M352.8 910.4c-43.7 0-84.4-23.5-106.3-61.3L87.4 573.3c-21.8-37.8-21.8-84.9 0-122.7l159.2-275.7c21.8-37.8 62.6-61.4 106.3-61.4h318.3c43.7 0 84.4 23.5 106.3 61.4l159.2 275.7c21.8 37.8 21.8 84.9 0 122.7L777.4 849.1c-21.8 37.8-62.6 61.3-106.3 61.3H352.8z m0-709.4c-12.6 0-24.3 6.8-30.6 17.6L163.1 494.3c-6.3 10.9-6.3 24.4 0 35.3l159.2 275.7c6.3 10.9 18 17.6 30.6 17.6h318.3c12.6 0 24.3-6.8 30.6-17.6L861 529.6c6.3-10.9 6.3-24.4 0-35.3L701.8 218.6c-6.3-10.9-18-17.6-30.6-17.6H352.8z m157.1 440.5v5.7c-75.7 0-137.3-61.6-137.3-137.3 0-75.7 61.6-137.3 137.3-137.3 48.9 0 94.5 26.3 118.9 68.7 24.5 42.4 24.5 95 0 137.3-24.4 42.3-70 68.7-118.9 68.7v-5.8z m-0.1-181.6c-27.5 0-49.9 22.4-49.9 49.9s22.4 49.9 49.9 49.9 49.9-22.4 49.9-49.9c0.1-27.5-22.3-49.9-49.9-49.9z'
-      ],
-      viewBox: '0 0 1024 1024',
-      useStroke: false,
-      scale: 1.15 // 放大15%以统一视觉大小
-    },
-
     // 项目图标（多角色配音） - 填充风格，与首页保持一致
     'project': {
       paths: [
@@ -231,7 +222,7 @@
     preserveAspectRatio="xMidYMid meet"
     fill="none"
     xmlns="http://www.w3.org/2000/svg"
-    style="display: block; vertical-align: middle; flex-shrink: 0; margin: 0 auto;"
+    style="display: block; vertical-align: middle; flex-shrink: 0; margin: 0 auto; -webkit-backface-visibility: hidden; backface-visibility: hidden;"
     aria-hidden="true"
     focusable="false"
   >
@@ -271,7 +262,7 @@
     preserveAspectRatio="xMidYMid meet"
     fill="none"
   xmlns="http://www.w3.org/2000/svg"
-    style="display: inline-block; vertical-align: middle; flex-shrink: 0;"
+    style="display: inline-block; vertical-align: middle; flex-shrink: 0; -webkit-backface-visibility: hidden; backface-visibility: hidden;"
     aria-hidden="true"
     focusable="false"
 >

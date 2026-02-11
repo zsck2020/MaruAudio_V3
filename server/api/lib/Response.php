@@ -35,9 +35,7 @@ class Response {
     
     public static function json($data, $code = 0, $message = 'success') {
         header('Content-Type: application/json; charset=utf-8');
-        header('Access-Control-Allow-Origin: *');
-        header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
-        header('Access-Control-Allow-Headers: Content-Type, Authorization');
+        // CORS 头已在 index.php 入口统一设置，此处不再重复
         
         // 记录错误日志
         if ($code !== 0) {

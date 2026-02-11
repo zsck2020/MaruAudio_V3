@@ -8,7 +8,7 @@ pub struct AppConfig {
 impl Default for AppConfig {
     fn default() -> Self {
         Self {
-            api_base_url: "http://localhost/api".to_string(),
+            api_base_url: "https://localhost/api".to_string(),
         }
     }
 }
@@ -16,7 +16,7 @@ impl Default for AppConfig {
 impl AppConfig {
     pub fn from_env() -> Self {
         let api_base_url = std::env::var("MARUAUDIO_API_URL")
-            .unwrap_or_else(|_| "http://localhost/api".to_string());
+            .unwrap_or_else(|_| "https://localhost/api".to_string());
         
         Self { api_base_url }
     }

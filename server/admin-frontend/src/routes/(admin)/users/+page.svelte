@@ -1,6 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import { getUsers, updateUser, toggleUserStatus, getUserLogs, getUserInvites, getUserCommissions, exportUsers, resetUserPassword, getUserMachines, unbindUserMachine, bindUserMachine, verifyUserMachine } from '$lib/api';
+  import { escapeHtml } from '$lib/utils/escapeHtml';
   import logger from '$lib/utils/logger';
   import Card from '$lib/components/Card.svelte';
   import Button from '$lib/components/Button.svelte';
@@ -349,7 +350,7 @@
       width: '200px',
       render: ({ row }) => {
         if (row.machine_code) {
-          return `<code style="background: #f5f5f5; padding: 2px 6px; border-radius: 4px; font-size: 11px;">${row.machine_code}</code>`;
+          return `<code style="background: #f5f5f5; padding: 2px 6px; border-radius: 4px; font-size: 11px;">${escapeHtml(row.machine_code)}</code>`;
         }
         return '<span style="color: #999;">-</span>';
       }
@@ -370,9 +371,9 @@
       render: ({ row }) => {
         return `
           <div style="display: flex; gap: 8px;">
-            <button class="btn btn-link btn-primary btn-small" onclick="window.showEditDialog && window.showEditDialog(${row.id})">编辑</button>
-            <button class="btn btn-link btn-primary btn-small" onclick="window.showLogsDialog && window.showLogsDialog(${row.id})">登录日志</button>
-            <button class="btn btn-link btn-${row.status === 'active' ? 'danger' : 'success'} btn-small" onclick="window.toggleStatus && window.toggleStatus(${row.id})">
+            <button class="btn btn-link btn-primary btn-small" data-action="edit" data-id="${row.id}">编辑</button>
+            <button class="btn btn-link btn-primary btn-small" data-action="logs" data-id="${row.id}">登录日志</button>
+            <button class="btn btn-link btn-${row.status === 'active' ? 'danger' : 'success'} btn-small" data-action="toggle" data-id="${row.id}">
               ${row.status === 'active' ? '封禁' : '解封'}
             </button>
           </div>
@@ -397,27 +398,46 @@
     }
   }
   
-  // 暴露方法给全局，供 render 函数调用
-  if (typeof window !== 'undefined') {
-    window.showEditDialog = (userId) => {
-      const user = users.find(u => u.id === userId);
-      if (user) showEditDialog(user);
-    };
-    window.showLogsDialog = (userId) => {
-      const user = users.find(u => u.id === userId);
-      if (user) showLogsDialog(user);
-    };
-    window.toggleStatus = (userId) => {
-      const user = users.find(u => u.id === userId);
-      if (user) toggleStatus(user);
-    };
-    window.unbindMachine = (machineCode) => {
-      unbindMachine(machineCode);
-    };
+  // 事件委托：通过 data-action 属性处理表格内按钮点击
+  function handleTableAction(event) {
+    const btn = event.target.closest('[data-action]');
+    if (!btn) return;
+    
+    const action = btn.dataset.action;
+    const id = btn.dataset.id ? parseInt(btn.dataset.id) : null;
+    const machineCode = btn.dataset.machine;
+    
+    switch (action) {
+      case 'edit': {
+        const user = users.find(u => u.id === id);
+        if (user) showEditDialog(user);
+        break;
+      }
+      case 'logs': {
+        const user = users.find(u => u.id === id);
+        if (user) showLogsDialog(user);
+        break;
+      }
+      case 'toggle': {
+        const user = users.find(u => u.id === id);
+        if (user) toggleStatus(user);
+        break;
+      }
+      case 'unbind': {
+        if (machineCode) unbindMachine(machineCode);
+        break;
+      }
+    }
   }
   
   onMount(() => {
     loadUsers();
+    
+    // 注册事件委托
+    document.addEventListener('click', handleTableAction);
+    return () => {
+      document.removeEventListener('click', handleTableAction);
+    };
   });
 </script>
 
@@ -758,7 +778,7 @@
                   {
                     label: '操作',
                     width: '80px',
-                    render: ({ row }) => `<button class="btn btn-link btn-danger btn-small" onclick="window.unbindMachine && window.unbindMachine('${row.machine_code}')">解绑</button>`
+                    render: ({ row }) => `<button class="btn btn-link btn-danger btn-small" data-action="unbind" data-machine="${escapeHtml(row.machine_code)}">解绑</button>`
                   }
                 ]}
                 stripe={true}

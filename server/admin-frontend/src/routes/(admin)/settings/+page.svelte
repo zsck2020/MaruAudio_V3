@@ -1,6 +1,6 @@
 <script>
   import { onMount } from 'svelte';
-  import { getSettings, updateSettings, updateAdminProfile } from '$lib/api';
+  import { getSettings, updateSettings, updateAdminProfile, testMail as testMailApi } from '$lib/api';
   import logger from '$lib/utils/logger';
   import Card from '$lib/components/Card.svelte';
   import Button from '$lib/components/Button.svelte';
@@ -20,11 +20,11 @@
   });
   
   let mailForm = $state({
-    smtp_host: 'smtp.qq.com',
+    smtp_host: '',
     smtp_port: 465,
-    smtp_user: 'qilane@foxmail.com',
+    smtp_user: '',
     smtp_pass: '',
-    from_name: '丸子配音'
+    from_name: ''
   });
   
   async function loadSettings() {
@@ -128,30 +128,10 @@
     const testEmail = adminForm.email || mailForm.smtp_user;
     
     try {
-      const response = await fetch('/api/admin/test-mail', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${typeof window !== 'undefined' ? localStorage.getItem('admin_token') : ''}`
-        },
-        body: JSON.stringify({
-          to: testEmail,
-          smtp_host: mailForm.smtp_host,
-          smtp_port: mailForm.smtp_port,
-          smtp_user: mailForm.smtp_user,
-          smtp_pass: mailForm.smtp_pass,
-          from_name: mailForm.from_name
-        })
-      });
-      
-      const result = await response.json();
-      if (result.code === 0) {
-        Message.success(`测试邮件已发送到 ${testEmail}`);
-      } else {
-        Message.error(result.message || '发送失败');
-      }
+      await testMailApi({ to: testEmail });
+      Message.success(`测试邮件已发送到 ${testEmail}`);
     } catch (e) {
-      Message.error('发送失败: ' + e.message);
+      // 错误已在拦截器处理
     }
   }
   
@@ -166,7 +146,7 @@
     <div style="background: #fff7e6; border: 1px solid #ffe58f; border-radius: 4px; padding: 12px; margin-bottom: 16px;">
       <div style="font-weight: 500; margin-bottom: 8px;">域名绑定说明</div>
       <ol style="margin: 8px 0 0 0; padding-left: 20px; line-height: 1.8;">
-        <li>先在域名服务商处将域名解析到服务器 IP: <code>175.178.131.67</code></li>
+        <li>先在域名服务商处将域名解析到服务器 IP</li>
         <li>在宝塔面板添加站点并配置 SSL 证书</li>
         <li>配置 Nginx 反向代理指向对应目录</li>
         <li>最后在此处保存域名配置</li>
@@ -348,11 +328,4 @@
     color: #52c41a;
   }
   
-  code {
-    background: #f5f5f5;
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-size: 12px;
-    font-family: 'Courier New', monospace;
-  }
 </style>

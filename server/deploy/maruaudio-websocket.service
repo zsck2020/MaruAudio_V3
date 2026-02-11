@@ -1,0 +1,19 @@
+[Unit]
+Description=MaruAudio WebSocket Server
+After=network.target mysql.service
+Wants=mysql.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory={{PROJECT_ROOT}}/websocket
+ExecStart=/www/server/php/82/bin/php server.php
+Restart=always
+RestartSec=5
+StandardOutput=append:{{WS_LOG}}
+StandardError=append:{{WS_LOG}}
+Environment=WS_PORT={{WS_PORT}}
+Environment=INTERNAL_PORT={{WS_INTERNAL_PORT}}
+
+[Install]
+WantedBy=multi-user.target

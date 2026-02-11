@@ -1,1 +1,0 @@
-import"../chunks/Bzak7iHL.js";import"../chunks/DUTL2K4h.js";import{f as p,a}from"../chunks/D6X9Dqsv.js";import{C as m}from"../chunks/0O_TjcuJ.js";var e=p("<p>分佣提现页面 - 待迁移</p>");function d(o){m(o,{title:"分佣提现",children:(r,s)=>{var t=e();a(r,t)},$$slots:{default:!0}})}export{d as component};

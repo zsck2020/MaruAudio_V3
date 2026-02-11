@@ -1,6 +1,8 @@
 import "clsx";
 import { g as goto } from "../../../chunks/client.js";
-import { o as showError, p as adminLogin, q as showSuccess } from "../../../chunks/index2.js";
+import { b as base } from "../../../chunks/server.js";
+import "@sveltejs/kit/internal/server";
+import { i as showError, j as adminLogin, k as showSuccess } from "../../../chunks/index3.js";
 import { I as Input } from "../../../chunks/Input.js";
 import { B as Button } from "../../../chunks/Button.js";
 function _page($$renderer, $$props) {
@@ -21,7 +23,7 @@ function _page($$renderer, $$props) {
           localStorage.setItem("admin_info", JSON.stringify(res.data));
         }
         showSuccess("登录成功");
-        goto("/dashboard");
+        goto(`${base}/dashboard`);
       } catch (e) {
       } finally {
         loading = false;
@@ -71,8 +73,7 @@ function _page($$renderer, $$props) {
         onClick: handleLogin,
         children: ($$renderer4) => {
           $$renderer4.push(`<!---->登录`);
-        },
-        $$slots: { default: true }
+        }
       });
       $$renderer3.push(`<!----></div></div></div></div>`);
     }

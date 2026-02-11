@@ -1,0 +1,1 @@
+import"../chunks/Bzak7iHL.js";import"../chunks/DcwqtrKM.js";import{f as p,a}from"../chunks/DHRCVGej.js";import{C as m}from"../chunks/D31GqF-Q.js";var e=p("<p>营销活动页面 - 待迁移</p>");function d(o){m(o,{title:"营销活动",children:(r,s)=>{var t=e();a(r,t)},$$slots:{default:!0}})}export{d as component};

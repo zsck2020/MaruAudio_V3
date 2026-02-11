@@ -1,4 +1,4 @@
-import { _ as attr_class, a2 as attr, a8 as clsx, a1 as slot } from "./index.js";
+import { _ as attr_class, a1 as attr, a7 as clsx } from "./index2.js";
 /* empty css                                     */
 function Button($$renderer, $$props) {
   let {
@@ -7,7 +7,8 @@ function Button($$renderer, $$props) {
     loading = false,
     disabled = false,
     onClick = () => {
-    }
+    },
+    children
   } = $$props;
   let buttonClass = `btn btn-${type} btn-${size}${loading || disabled ? " btn-disabled" : ""}`;
   $$renderer.push(`<button${attr_class(clsx(buttonClass), "svelte-18sv61c")}${attr("disabled", disabled || loading, true)} type="button">`);
@@ -16,8 +17,13 @@ function Button($$renderer, $$props) {
     $$renderer.push(`<span class="btn-loading svelte-18sv61c">加载中...</span>`);
   } else {
     $$renderer.push("<!--[!-->");
-    $$renderer.push(`<!--[-->`);
-    slot($$renderer, $$props, "default", {});
+    if (children) {
+      $$renderer.push("<!--[-->");
+      children($$renderer);
+      $$renderer.push(`<!---->`);
+    } else {
+      $$renderer.push("<!--[!-->");
+    }
     $$renderer.push(`<!--]-->`);
   }
   $$renderer.push(`<!--]--></button>`);

@@ -1,5 +1,5 @@
-import { _ as attr_class, $ as stringify } from "../../../../chunks/index.js";
-import { u as updateSettings, d as updateAdminProfile } from "../../../../chunks/index2.js";
+import { _ as attr_class, $ as stringify } from "../../../../chunks/index2.js";
+import { u as updateSettings, t as testMail, c as updateAdminProfile } from "../../../../chunks/index3.js";
 import { C as Card } from "../../../../chunks/Card.js";
 import { B as Button } from "../../../../chunks/Button.js";
 import { I as Input } from "../../../../chunks/Input.js";
@@ -15,11 +15,11 @@ function _page($$renderer, $$props) {
       confirm_password: ""
     };
     let mailForm = {
-      smtp_host: "smtp.qq.com",
+      smtp_host: "",
       smtp_port: 465,
-      smtp_user: "qilane@foxmail.com",
+      smtp_user: "",
       smtp_pass: "",
-      from_name: "丸子配音"
+      from_name: ""
     };
     async function saveDomainSettings() {
       try {
@@ -77,36 +77,16 @@ function _page($$renderer, $$props) {
         Message.error("保存失败");
       }
     }
-    async function testMail() {
+    async function testMail$1() {
       if (!mailForm.smtp_user) {
         Message.error("请先配置发件邮箱");
         return;
       }
       const testEmail = adminForm.email || mailForm.smtp_user;
       try {
-        const response = await fetch("/api/admin/test-mail", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${typeof window !== "undefined" ? localStorage.getItem("admin_token") : ""}`
-          },
-          body: JSON.stringify({
-            to: testEmail,
-            smtp_host: mailForm.smtp_host,
-            smtp_port: mailForm.smtp_port,
-            smtp_user: mailForm.smtp_user,
-            smtp_pass: mailForm.smtp_pass,
-            from_name: mailForm.from_name
-          })
-        });
-        const result = await response.json();
-        if (result.code === 0) {
-          Message.success(`测试邮件已发送到 ${testEmail}`);
-        } else {
-          Message.error(result.message || "发送失败");
-        }
+        await testMail({ to: testEmail });
+        Message.success(`测试邮件已发送到 ${testEmail}`);
       } catch (e) {
-        Message.error("发送失败: " + e.message);
       }
     }
     let $$settled = true;
@@ -115,9 +95,8 @@ function _page($$renderer, $$props) {
       $$renderer3.push(`<div>`);
       Card($$renderer3, {
         title: "域名绑定",
-        style: "margin-bottom: 20px;",
         children: ($$renderer4) => {
-          $$renderer4.push(`<div style="background: #fff7e6; border: 1px solid #ffe58f; border-radius: 4px; padding: 12px; margin-bottom: 16px;"><div style="font-weight: 500; margin-bottom: 8px;">域名绑定说明</div> <ol style="margin: 8px 0 0 0; padding-left: 20px; line-height: 1.8;"><li>先在域名服务商处将域名解析到服务器 IP: <code class="svelte-19my2un">175.178.131.67</code></li> <li>在宝塔面板添加站点并配置 SSL 证书</li> <li>配置 Nginx 反向代理指向对应目录</li> <li>最后在此处保存域名配置</li></ol></div> <div style="display: flex; flex-direction: column; gap: 16px;"><div><label for="settings-api-domain" style="display: block; margin-bottom: 8px; font-weight: 500;">API 域名</label> <div style="display: flex; align-items: center;"><span style="padding: 8px 12px; background: #f5f5f5; border: 1px solid #d9d9d9; border-right: none; border-radius: 4px 0 0 4px;">https://</span> `);
+          $$renderer4.push(`<div style="background: #fff7e6; border: 1px solid #ffe58f; border-radius: 4px; padding: 12px; margin-bottom: 16px;"><div style="font-weight: 500; margin-bottom: 8px;">域名绑定说明</div> <ol style="margin: 8px 0 0 0; padding-left: 20px; line-height: 1.8;"><li>先在域名服务商处将域名解析到服务器 IP</li> <li>在宝塔面板添加站点并配置 SSL 证书</li> <li>配置 Nginx 反向代理指向对应目录</li> <li>最后在此处保存域名配置</li></ol></div> <div style="display: flex; flex-direction: column; gap: 16px;"><div><label for="settings-api-domain" style="display: block; margin-bottom: 8px; font-weight: 500;">API 域名</label> <div style="display: flex; align-items: center;"><span style="padding: 8px 12px; background: #f5f5f5; border: 1px solid #d9d9d9; border-right: none; border-radius: 4px 0 0 4px;">https://</span> `);
           Input($$renderer4, {
             id: "settings-api-domain",
             placeholder: "如: api.maruai.cn",
@@ -149,8 +128,7 @@ function _page($$renderer, $$props) {
             onClick: saveDomainSettings,
             children: ($$renderer5) => {
               $$renderer5.push(`<!---->保存配置`);
-            },
-            $$slots: { default: true }
+            }
           });
           $$renderer4.push(`<!----> `);
           Button($$renderer4, {
@@ -158,17 +136,14 @@ function _page($$renderer, $$props) {
             disabled: !domainForm.api_domain,
             children: ($$renderer5) => {
               $$renderer5.push(`<!---->测试连接`);
-            },
-            $$slots: { default: true }
+            }
           });
           $$renderer4.push(`<!----></div></div>`);
-        },
-        $$slots: { default: true }
+        }
       });
       $$renderer3.push(`<!----> `);
       Card($$renderer3, {
         title: "发信邮箱配置",
-        style: "margin-bottom: 20px;",
         children: ($$renderer4) => {
           $$renderer4.push(`<div style="display: flex; flex-direction: column; gap: 16px;"><div><label for="settings-smtp-host" style="display: block; margin-bottom: 8px; font-weight: 500;">SMTP 服务器</label> `);
           Input($$renderer4, {
@@ -244,20 +219,17 @@ function _page($$renderer, $$props) {
             onClick: saveMailSettings,
             children: ($$renderer5) => {
               $$renderer5.push(`<!---->保存配置`);
-            },
-            $$slots: { default: true }
+            }
           });
           $$renderer4.push(`<!----> `);
           Button($$renderer4, {
-            onClick: testMail,
+            onClick: testMail$1,
             children: ($$renderer5) => {
               $$renderer5.push(`<!---->测试发送`);
-            },
-            $$slots: { default: true }
+            }
           });
           $$renderer4.push(`<!----></div></div>`);
-        },
-        $$slots: { default: true }
+        }
       });
       $$renderer3.push(`<!----> `);
       Card($$renderer3, {
@@ -322,12 +294,10 @@ function _page($$renderer, $$props) {
             onClick: saveAdminSettings,
             children: ($$renderer5) => {
               $$renderer5.push(`<!---->保存`);
-            },
-            $$slots: { default: true }
+            }
           });
           $$renderer4.push(`<!----></div></div>`);
-        },
-        $$slots: { default: true }
+        }
       });
       $$renderer3.push(`<!----></div>`);
     }

@@ -2,6 +2,7 @@
   import { onMount, onDestroy } from 'svelte';
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
+  import { base } from '$app/paths';
   import { currentProduct, setProduct, initProduct, getProductName } from '$lib/stores/product';
   import Select from '$lib/components/Select.svelte';
   import Button from '$lib/components/Button.svelte';
@@ -142,7 +143,8 @@
 
   $effect(() => {
     // 路由变化时更新当前路径与标题（runes 模式下禁止使用 `$:`）
-    currentPath = $page.url.pathname;
+    const fullPath = $page.url.pathname;
+    currentPath = fullPath.startsWith(base) ? fullPath.slice(base.length) : fullPath;
     currentTitle = pageTitles[currentPath] || '管理后台';
   });
   
@@ -153,12 +155,12 @@
         localStorage.removeItem('admin_token');
         localStorage.removeItem('admin_info');
       }
-      goto('/login');
+      goto(`${base}/login`);
     }
   }
   
   function handleProfile() {
-    goto('/settings');
+    goto(`${base}/settings`);
   }
   
   function handleMenuClick() {
@@ -166,7 +168,7 @@
   }
   
   function handleMenuItemClick(path: string) {
-    goto(path);
+    goto(`${base}${path}`);
     mobileMenuOpen = false;
   }
   

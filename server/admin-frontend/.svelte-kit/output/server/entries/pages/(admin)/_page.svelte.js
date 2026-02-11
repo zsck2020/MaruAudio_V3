@@ -1,11 +1,11 @@
-import { a0 as bind_props } from "../../../chunks/index.js";
-import { redirect } from "@sveltejs/kit";
+import "clsx";
+import "@sveltejs/kit/internal";
+import "../../../chunks/exports.js";
+import "../../../chunks/utils.js";
+import "@sveltejs/kit/internal/server";
+import "../../../chunks/state.svelte.js";
 function _page($$renderer, $$props) {
   $$renderer.component(($$renderer2) => {
-    function load() {
-      throw redirect(302, "/dashboard");
-    }
-    bind_props($$props, { load });
   });
 }
 export {

@@ -1,12 +1,12 @@
-import { _ as attr_class, a2 as attr } from "../../../../chunks/index.js";
-import { e as getUserMachines, f as getUserInvites, h as getUserCommissions, t as toggleUserStatus, i as getUserLogs, j as unbindUserMachine, k as exportUsers, l as updateUser, v as verifyUserMachine, m as bindUserMachine, r as resetUserPassword, n as getUsers } from "../../../../chunks/index2.js";
+import { _ as attr_class } from "../../../../chunks/index2.js";
+import { e as exportUsers, f as updateUser, h as getUsers } from "../../../../chunks/index3.js";
+import { P as Pagination, e as escapeHtml } from "../../../../chunks/escapeHtml.js";
 import { l as logger } from "../../../../chunks/logger.js";
 import { C as Card } from "../../../../chunks/Card.js";
 import { B as Button } from "../../../../chunks/Button.js";
 import { I as Input } from "../../../../chunks/Input.js";
 import { S as Select } from "../../../../chunks/Select.js";
 import { T as Table } from "../../../../chunks/Table.js";
-import { P as Pagination } from "../../../../chunks/Pagination.js";
 import { D as Dialog } from "../../../../chunks/Dialog.js";
 import { M as Message } from "../../../../chunks/Message.js";
 import { e as escape_html } from "../../../../chunks/context.js";
@@ -23,21 +23,8 @@ function _page($$renderer, $$props) {
     let editDialogVisible = false;
     let editForm = {};
     let editTab = "basic";
-    let durationMode = "set";
-    let customDays = 30;
-    let userMachines = [];
-    let newMachineCode = "";
-    let verifyMachineCode = "";
-    let verifyResult = null;
-    let newPassword = "";
-    let confirmPassword = "";
     let logsDialogVisible = false;
     let loginLogs = [];
-    let userInvites = [];
-    let invitesLoading = false;
-    let userCommissions = [];
-    let commissionsLoading = false;
-    let commissionStats = { total: 0, available: 0 };
     const searchTypeOptions = [
       { label: "邮箱", value: "email" },
       { label: "机器码", value: "machine_code" },
@@ -73,21 +60,6 @@ function _page($$renderer, $$props) {
         permanent: "永久会员"
       };
       return names[group] || group;
-    }
-    function formatExpireTime(time) {
-      if (!time) return "";
-      if (time instanceof Date) {
-        return time.toLocaleString("zh-CN", {
-          year: "numeric",
-          month: "2-digit",
-          day: "2-digit",
-          hour: "2-digit",
-          minute: "2-digit",
-          second: "2-digit",
-          hour12: false
-        }).replace(/\//g, "-");
-      }
-      return time;
     }
     function formatDateForSubmit(time) {
       if (!time) return null;
@@ -154,59 +126,6 @@ function _page($$renderer, $$props) {
       page = 1;
       loadUsers();
     }
-    function showEditDialog(row) {
-      editForm = { ...row };
-      editTab = "basic";
-      durationMode = "set";
-      newPassword = "";
-      confirmPassword = "";
-      newMachineCode = "";
-      verifyMachineCode = "";
-      verifyResult = null;
-      userMachines = [];
-      userInvites = [];
-      userCommissions = [];
-      commissionStats = { total: 0, available: 0 };
-      loadUserMachines(row.id);
-      loadUserInvites(row.id);
-      loadUserCommissions(row.id);
-      editDialogVisible = true;
-    }
-    async function loadUserMachines(userId) {
-      try {
-        const res = await getUserMachines(userId);
-        userMachines = res.data?.list || [];
-      } catch (e) {
-        logger.error("加载用户机器码失败", e);
-        userMachines = [];
-      }
-    }
-    async function loadUserInvites(userId) {
-      invitesLoading = true;
-      try {
-        const res = await getUserInvites(userId);
-        userInvites = res.data?.list || [];
-      } catch (e) {
-        logger.error("加载用户邀请记录失败", e);
-      } finally {
-        invitesLoading = false;
-      }
-    }
-    async function loadUserCommissions(userId) {
-      commissionsLoading = true;
-      try {
-        const res = await getUserCommissions(userId);
-        userCommissions = res.data?.list || [];
-        commissionStats = {
-          total: res.data?.total || 0,
-          available: res.data?.available || 0
-        };
-      } catch (e) {
-        logger.error("加载用户佣金记录失败", e);
-      } finally {
-        commissionsLoading = false;
-      }
-    }
     async function saveUser() {
       try {
         const submitData = {
@@ -226,27 +145,6 @@ function _page($$renderer, $$props) {
         editDialogVisible = false;
         loadUsers();
       } catch (e) {
-      }
-    }
-    async function toggleStatus(row) {
-      const action = row.status === "active" ? "封禁" : "解封";
-      if (!confirm(`确定要${action}用户 ${row.email} 吗？`)) {
-        return;
-      }
-      try {
-        await toggleUserStatus(row.id);
-        Message.success(`${action}成功`);
-        loadUsers();
-      } catch (e) {
-      }
-    }
-    async function showLogsDialog(row) {
-      try {
-        const res = await getUserLogs(row.id);
-        loginLogs = res.data || [];
-        logsDialogVisible = true;
-      } catch (e) {
-        logger.error("加载用户登录日志失败", e);
       }
     }
     function handlePageChange(newPage) {
@@ -292,7 +190,7 @@ function _page($$renderer, $$props) {
         width: "200px",
         render: ({ row }) => {
           if (row.machine_code) {
-            return `<code style="background: #f5f5f5; padding: 2px 6px; border-radius: 4px; font-size: 11px;">${row.machine_code}</code>`;
+            return `<code style="background: #f5f5f5; padding: 2px 6px; border-radius: 4px; font-size: 11px;">${escapeHtml(row.machine_code)}</code>`;
           }
           return '<span style="color: #999;">-</span>';
         }
@@ -313,9 +211,9 @@ function _page($$renderer, $$props) {
         render: ({ row }) => {
           return `
           <div style="display: flex; gap: 8px;">
-            <button class="btn btn-link btn-primary btn-small" onclick="window.showEditDialog && window.showEditDialog(${row.id})">编辑</button>
-            <button class="btn btn-link btn-primary btn-small" onclick="window.showLogsDialog && window.showLogsDialog(${row.id})">登录日志</button>
-            <button class="btn btn-link btn-${row.status === "active" ? "danger" : "success"} btn-small" onclick="window.toggleStatus && window.toggleStatus(${row.id})">
+            <button class="btn btn-link btn-primary btn-small" data-action="edit" data-id="${row.id}">编辑</button>
+            <button class="btn btn-link btn-primary btn-small" data-action="logs" data-id="${row.id}">登录日志</button>
+            <button class="btn btn-link btn-${row.status === "active" ? "danger" : "success"} btn-small" data-action="toggle" data-id="${row.id}">
               ${row.status === "active" ? "封禁" : "解封"}
             </button>
           </div>
@@ -323,34 +221,6 @@ function _page($$renderer, $$props) {
         }
       }
     ];
-    async function unbindMachine(machineCode) {
-      if (!confirm(`确定要解绑机器码 ${machineCode} 吗？`)) {
-        return;
-      }
-      try {
-        await unbindUserMachine({ user_id: editForm.id, machine_code: machineCode });
-        Message.success("解绑成功");
-        loadUserMachines(editForm.id);
-      } catch (e) {
-      }
-    }
-    if (typeof window !== "undefined") {
-      window.showEditDialog = (userId) => {
-        const user = users.find((u) => u.id === userId);
-        if (user) showEditDialog(user);
-      };
-      window.showLogsDialog = (userId) => {
-        const user = users.find((u) => u.id === userId);
-        if (user) showLogsDialog(user);
-      };
-      window.toggleStatus = (userId) => {
-        const user = users.find((u) => u.id === userId);
-        if (user) toggleStatus(user);
-      };
-      window.unbindMachine = (machineCode) => {
-        unbindMachine(machineCode);
-      };
-    }
     let $$settled = true;
     let $$inner_renderer;
     function $$render_inner($$renderer3) {
@@ -384,16 +254,14 @@ function _page($$renderer, $$props) {
         onClick: handleSearch,
         children: ($$renderer4) => {
           $$renderer4.push(`<!---->搜索`);
-        },
-        $$slots: { default: true }
+        }
       });
       $$renderer3.push(`<!----> `);
       Button($$renderer3, {
         onClick: handleClearSearch,
         children: ($$renderer4) => {
           $$renderer4.push(`<!---->清除`);
-        },
-        $$slots: { default: true }
+        }
       });
       $$renderer3.push(`<!----> `);
       Button($$renderer3, {
@@ -414,8 +282,7 @@ function _page($$renderer, $$props) {
         },
         children: ($$renderer4) => {
           $$renderer4.push(`<!---->导出数据`);
-        },
-        $$slots: { default: true }
+        }
       });
       $$renderer3.push(`<!----></div></div> `);
       if (selectedUsers.length > 0) {
@@ -446,8 +313,7 @@ function _page($$renderer, $$props) {
           },
           children: ($$renderer4) => {
             $$renderer4.push(`<!---->批量设置用户组`);
-          },
-          $$slots: { default: true }
+          }
         });
         $$renderer3.push(`<!----> `);
         Button($$renderer3, {
@@ -472,8 +338,7 @@ function _page($$renderer, $$props) {
           },
           children: ($$renderer4) => {
             $$renderer4.push(`<!---->批量封禁`);
-          },
-          $$slots: { default: true }
+          }
         });
         $$renderer3.push(`<!----> `);
         Button($$renderer3, {
@@ -498,8 +363,7 @@ function _page($$renderer, $$props) {
           },
           children: ($$renderer4) => {
             $$renderer4.push(`<!---->批量解封`);
-          },
-          $$slots: { default: true }
+          }
         });
         $$renderer3.push(`<!----> `);
         Button($$renderer3, {
@@ -507,8 +371,7 @@ function _page($$renderer, $$props) {
           onClick: () => selectedUsers = [],
           children: ($$renderer4) => {
             $$renderer4.push(`<!---->取消选择`);
-          },
-          $$slots: { default: true }
+          }
         });
         $$renderer3.push(`<!----></div>`);
       } else {
@@ -528,8 +391,7 @@ function _page($$renderer, $$props) {
             onPageSizeChange: handlePageSizeChange
           });
           $$renderer4.push(`<!---->`);
-        },
-        $$slots: { default: true }
+        }
       });
       $$renderer3.push(`<!----> `);
       Dialog($$renderer3, {
@@ -539,7 +401,7 @@ function _page($$renderer, $$props) {
         onClose: () => editDialogVisible = false,
         children: ($$renderer4) => {
           $$renderer4.push(`<div style="display: flex; flex-direction: column; gap: 16px;"><div style="display: flex; gap: 8px; border-bottom: 1px solid #e8e8e8; margin-bottom: 16px;"><button${attr_class("tab-button svelte-iqty8q", void 0, { "tab-active": editTab === "basic" })}>基本信息</button> <button${attr_class("tab-button svelte-iqty8q", void 0, { "tab-active": editTab === "duration" })}>时长管理</button> <button${attr_class("tab-button svelte-iqty8q", void 0, { "tab-active": editTab === "machine" })}>机器码</button> <button${attr_class("tab-button svelte-iqty8q", void 0, { "tab-active": editTab === "password" })}>密码重置</button> <button${attr_class("tab-button svelte-iqty8q", void 0, { "tab-active": editTab === "invites" })}>邀请记录</button> <button${attr_class("tab-button svelte-iqty8q", void 0, { "tab-active": editTab === "commissions" })}>佣金记录</button></div> `);
-          if (editTab === "basic") {
+          {
             $$renderer4.push("<!--[-->");
             $$renderer4.push(`<div style="display: flex; flex-direction: column; gap: 16px;"><div><label for="users-edit-id" style="display: block; margin-bottom: 8px; font-weight: 500;">用户ID</label> `);
             Input($$renderer4, {
@@ -590,417 +452,25 @@ function _page($$renderer, $$props) {
               }
             });
             $$renderer4.push(`<!----></div></div>`);
-          } else {
+          }
+          $$renderer4.push(`<!--]--> `);
+          {
             $$renderer4.push("<!--[!-->");
           }
           $$renderer4.push(`<!--]--> `);
-          if (editTab === "duration") {
-            $$renderer4.push("<!--[-->");
-            $$renderer4.push(`<div style="display: flex; flex-direction: column; gap: 16px;"><div><div style="display: block; margin-bottom: 8px; font-weight: 500;">当前到期时间</div> `);
-            if (editForm.user_group === "permanent") {
-              $$renderer4.push("<!--[-->");
-              $$renderer4.push(`<span class="tag tag-success svelte-iqty8q">永久会员</span>`);
-            } else {
-              $$renderer4.push("<!--[!-->");
-              if (editForm.user_group === "free") {
-                $$renderer4.push("<!--[-->");
-                $$renderer4.push(`<span class="tag tag-info svelte-iqty8q">免费用户</span>`);
-              } else {
-                $$renderer4.push("<!--[!-->");
-                if (editForm.expire_time) {
-                  $$renderer4.push("<!--[-->");
-                  $$renderer4.push(`<span>${escape_html(formatExpireTime(editForm.expire_time))}</span>`);
-                } else {
-                  $$renderer4.push("<!--[!-->");
-                  $$renderer4.push(`<span style="color: #999;">未设置到期时间</span>`);
-                }
-                $$renderer4.push(`<!--]-->`);
-              }
-              $$renderer4.push(`<!--]-->`);
-            }
-            $$renderer4.push(`<!--]--></div> `);
-            if (editForm.user_group !== "free") {
-              $$renderer4.push("<!--[-->");
-              $$renderer4.push(`<div style="height: 1px; background: #e8e8e8; margin: 16px 0;"></div> <div><div style="display: block; margin-bottom: 8px; font-weight: 500;">操作模式</div> <div style="display: flex; gap: 16px;"><label style="display: flex; align-items: center; gap: 8px;"><input type="radio" value="set"${attr("checked", durationMode === "set", true)}/> <span>设置到期时间</span></label> <label style="display: flex; align-items: center; gap: 8px;"><input type="radio" value="add"${attr("checked", durationMode === "add", true)}/> <span>延长到期时间</span></label></div></div> `);
-              if (durationMode === "set") {
-                $$renderer4.push("<!--[-->");
-                $$renderer4.push(`<div><label for="users-edit-expire-time" style="display: block; margin-bottom: 8px; font-weight: 500;">到期时间</label> `);
-                Input($$renderer4, {
-                  id: "users-edit-expire-time",
-                  type: "datetime-local",
-                  value: editForm.expire_time ? new Date(editForm.expire_time).toISOString().slice(0, 16) : "",
-                  onInput: (e) => {
-                    if (e.target.value) {
-                      editForm.expire_time = new Date(e.target.value).toISOString().replace("T", " ").slice(0, 19);
-                    } else {
-                      editForm.expire_time = null;
-                    }
-                  }
-                });
-                $$renderer4.push(`<!----></div>`);
-              } else {
-                $$renderer4.push("<!--[!-->");
-                $$renderer4.push(`<div><div style="display: block; margin-bottom: 8px; font-weight: 500;">延长天数</div> <div style="display: flex; gap: 8px; align-items: center;">`);
-                Button($$renderer4, {
-                  onClick: () => {
-                    const current = editForm.expire_time ? new Date(editForm.expire_time) : /* @__PURE__ */ new Date();
-                    if (current < /* @__PURE__ */ new Date()) current.setTime(Date.now());
-                    current.setDate(current.getDate() + 30);
-                    editForm.expire_time = current.toISOString().replace("T", " ").slice(0, 19);
-                    Message.success("已延长30天");
-                  },
-                  children: ($$renderer5) => {
-                    $$renderer5.push(`<!---->+30天`);
-                  },
-                  $$slots: { default: true }
-                });
-                $$renderer4.push(`<!----> `);
-                Button($$renderer4, {
-                  onClick: () => {
-                    const current = editForm.expire_time ? new Date(editForm.expire_time) : /* @__PURE__ */ new Date();
-                    if (current < /* @__PURE__ */ new Date()) current.setTime(Date.now());
-                    current.setDate(current.getDate() + 90);
-                    editForm.expire_time = current.toISOString().replace("T", " ").slice(0, 19);
-                    Message.success("已延长90天");
-                  },
-                  children: ($$renderer5) => {
-                    $$renderer5.push(`<!---->+90天`);
-                  },
-                  $$slots: { default: true }
-                });
-                $$renderer4.push(`<!----> `);
-                Button($$renderer4, {
-                  onClick: () => {
-                    const current = editForm.expire_time ? new Date(editForm.expire_time) : /* @__PURE__ */ new Date();
-                    if (current < /* @__PURE__ */ new Date()) current.setTime(Date.now());
-                    current.setDate(current.getDate() + 365);
-                    editForm.expire_time = current.toISOString().replace("T", " ").slice(0, 19);
-                    Message.success("已延长1年");
-                  },
-                  children: ($$renderer5) => {
-                    $$renderer5.push(`<!---->+1年`);
-                  },
-                  $$slots: { default: true }
-                });
-                $$renderer4.push(`<!----> `);
-                Button($$renderer4, {
-                  type: "success",
-                  onClick: () => {
-                    editForm.user_group = "permanent";
-                    editForm.expire_time = null;
-                    Message.success("已设置为永久会员");
-                  },
-                  children: ($$renderer5) => {
-                    $$renderer5.push(`<!---->设为永久`);
-                  },
-                  $$slots: { default: true }
-                });
-                $$renderer4.push(`<!----></div></div> <div><label for="users-edit-custom-days" style="display: block; margin-bottom: 8px; font-weight: 500;">自定义天数</label> <div style="display: flex; gap: 8px; align-items: center;">`);
-                Input($$renderer4, {
-                  id: "users-edit-custom-days",
-                  type: "number",
-                  min: "1",
-                  max: "9999",
-                  get value() {
-                    return customDays;
-                  },
-                  set value($$value) {
-                    customDays = $$value;
-                    $$settled = false;
-                  }
-                });
-                $$renderer4.push(`<!----> `);
-                Button($$renderer4, {
-                  onClick: () => {
-                    const current = editForm.expire_time ? new Date(editForm.expire_time) : /* @__PURE__ */ new Date();
-                    if (current < /* @__PURE__ */ new Date()) current.setTime(Date.now());
-                    current.setDate(current.getDate() + customDays);
-                    editForm.expire_time = current.toISOString().replace("T", " ").slice(0, 19);
-                    Message.success(`已延长${customDays}天`);
-                  },
-                  children: ($$renderer5) => {
-                    $$renderer5.push(`<!---->应用`);
-                  },
-                  $$slots: { default: true }
-                });
-                $$renderer4.push(`<!----></div></div>`);
-              }
-              $$renderer4.push(`<!--]-->`);
-            } else {
-              $$renderer4.push("<!--[!-->");
-            }
-            $$renderer4.push(`<!--]--></div>`);
-          } else {
+          {
             $$renderer4.push("<!--[!-->");
           }
           $$renderer4.push(`<!--]--> `);
-          if (editTab === "machine") {
-            $$renderer4.push("<!--[-->");
-            $$renderer4.push(`<div style="display: flex; flex-direction: column; gap: 16px;"><div><div style="display: block; margin-bottom: 8px; font-weight: 500;">已绑定机器码</div> `);
-            if (userMachines.length > 0) {
-              $$renderer4.push("<!--[-->");
-              Table($$renderer4, {
-                data: userMachines,
-                columns: [
-                  { label: "机器码", prop: "machine_code" },
-                  { label: "绑定时间", prop: "bind_time", width: "180px" },
-                  {
-                    label: "操作",
-                    width: "80px",
-                    render: ({ row }) => `<button class="btn btn-link btn-danger btn-small" onclick="window.unbindMachine && window.unbindMachine('${row.machine_code}')">解绑</button>`
-                  }
-                ],
-                stripe: true
-              });
-            } else {
-              $$renderer4.push("<!--[!-->");
-              $$renderer4.push(`<div style="padding: 20px; text-align: center; color: #999;">暂无绑定的机器码</div>`);
-            }
-            $$renderer4.push(`<!--]--></div> <div style="height: 1px; background: #e8e8e8; margin: 16px 0;"></div> <div><h5 style="margin: 0 0 12px 0;">验证机器码归属</h5> <div style="display: flex; gap: 10px; align-items: center;">`);
-            Input($$renderer4, {
-              placeholder: "请输入要验证的机器码",
-              style: "width: 350px;",
-              get value() {
-                return verifyMachineCode;
-              },
-              set value($$value) {
-                verifyMachineCode = $$value;
-                $$settled = false;
-              }
-            });
-            $$renderer4.push(`<!----> `);
-            Button($$renderer4, {
-              type: "primary",
-              onClick: async () => {
-                if (!verifyMachineCode.trim()) {
-                  Message.error("请输入要验证的机器码");
-                  return;
-                }
-                try {
-                  const res = await verifyUserMachine({ user_id: editForm.id, machine_code: verifyMachineCode.trim() });
-                  const status = res.data?.status;
-                  if (status === "self") {
-                    verifyResult = true;
-                    Message.success("验证成功：该机器码属于此用户，可以绑定");
-                  } else if (status === "other") {
-                    verifyResult = "other";
-                    Message.warning("该机器码已被其他用户绑定");
-                  } else {
-                    verifyResult = false;
-                    Message.error("该机器码未被任何用户绑定");
-                  }
-                } catch (e) {
-                  verifyResult = false;
-                }
-              },
-              children: ($$renderer5) => {
-                $$renderer5.push(`<!---->验证`);
-              },
-              $$slots: { default: true }
-            });
-            $$renderer4.push(`<!----></div> `);
-            if (verifyResult === true) {
-              $$renderer4.push("<!--[-->");
-              $$renderer4.push(`<div style="margin-top: 12px; padding: 12px; background: #f6ffed; border: 1px solid #b7eb8f; border-radius: 4px; color: #52c41a;">验证成功：该机器码属于此用户，可以绑定</div>`);
-            } else {
-              $$renderer4.push("<!--[!-->");
-              if (verifyResult === "other") {
-                $$renderer4.push("<!--[-->");
-                $$renderer4.push(`<div style="margin-top: 12px; padding: 12px; background: #fffbe6; border: 1px solid #ffe58f; border-radius: 4px; color: #faad14;">该机器码已被其他用户绑定</div>`);
-              } else {
-                $$renderer4.push("<!--[!-->");
-                if (verifyResult === false) {
-                  $$renderer4.push("<!--[-->");
-                  $$renderer4.push(`<div style="margin-top: 12px; padding: 12px; background: #fff2f0; border: 1px solid #ffccc7; border-radius: 4px; color: #ff4d4f;">该机器码未被任何用户绑定</div>`);
-                } else {
-                  $$renderer4.push("<!--[!-->");
-                }
-                $$renderer4.push(`<!--]-->`);
-              }
-              $$renderer4.push(`<!--]-->`);
-            }
-            $$renderer4.push(`<!--]--></div> <div style="height: 1px; background: #e8e8e8; margin: 16px 0;"></div> <div><h5 style="margin: 0 0 12px 0;">绑定新机器码</h5> <div style="display: flex; gap: 10px; align-items: center;">`);
-            Input($$renderer4, {
-              placeholder: "请输入要绑定的机器码",
-              style: "width: 350px;",
-              get value() {
-                return newMachineCode;
-              },
-              set value($$value) {
-                newMachineCode = $$value;
-                $$settled = false;
-              }
-            });
-            $$renderer4.push(`<!----> `);
-            Button($$renderer4, {
-              type: "primary",
-              onClick: async () => {
-                if (!newMachineCode.trim()) {
-                  Message.error("请输入要绑定的机器码");
-                  return;
-                }
-                try {
-                  await bindUserMachine({ user_id: editForm.id, machine_code: newMachineCode.trim() });
-                  Message.success("绑定成功");
-                  newMachineCode = "";
-                  loadUserMachines(editForm.id);
-                } catch (e) {
-                }
-              },
-              children: ($$renderer5) => {
-                $$renderer5.push(`<!---->绑定`);
-              },
-              $$slots: { default: true }
-            });
-            $$renderer4.push(`<!----></div></div></div>`);
-          } else {
+          {
             $$renderer4.push("<!--[!-->");
           }
           $$renderer4.push(`<!--]--> `);
-          if (editTab === "password") {
-            $$renderer4.push("<!--[-->");
-            $$renderer4.push(`<div style="display: flex; flex-direction: column; gap: 16px;"><div style="padding: 12px; background: #fffbe6; border: 1px solid #ffe58f; border-radius: 4px; color: #faad14;">重置密码后，用户将无法使用旧密码登录，请谨慎操作</div> <div><label style="display: block; margin-bottom: 8px; font-weight: 500;">新密码</label> `);
-            Input($$renderer4, {
-              type: "password",
-              placeholder: "请输入新密码",
-              showPassword: true,
-              get value() {
-                return newPassword;
-              },
-              set value($$value) {
-                newPassword = $$value;
-                $$settled = false;
-              }
-            });
-            $$renderer4.push(`<!----></div> <div><label style="display: block; margin-bottom: 8px; font-weight: 500;">确认密码</label> `);
-            Input($$renderer4, {
-              type: "password",
-              placeholder: "请再次输入新密码",
-              showPassword: true,
-              get value() {
-                return confirmPassword;
-              },
-              set value($$value) {
-                confirmPassword = $$value;
-                $$settled = false;
-              }
-            });
-            $$renderer4.push(`<!----></div> <div>`);
-            Button($$renderer4, {
-              type: "danger",
-              onClick: async () => {
-                if (!newPassword) {
-                  Message.error("请输入新密码");
-                  return;
-                }
-                if (newPassword !== confirmPassword) {
-                  Message.error("两次输入的密码不一致");
-                  return;
-                }
-                if (!confirm("确定要重置该用户的密码吗？重置后用户将无法使用旧密码登录。")) {
-                  return;
-                }
-                try {
-                  await resetUserPassword({ user_id: editForm.id, new_password: newPassword });
-                  Message.success("密码重置成功");
-                  newPassword = "";
-                  confirmPassword = "";
-                } catch (e) {
-                }
-              },
-              children: ($$renderer5) => {
-                $$renderer5.push(`<!---->重置密码`);
-              },
-              $$slots: { default: true }
-            });
-            $$renderer4.push(`<!----></div></div>`);
-          } else {
+          {
             $$renderer4.push("<!--[!-->");
           }
           $$renderer4.push(`<!--]--> `);
-          if (editTab === "invites") {
-            $$renderer4.push("<!--[-->");
-            $$renderer4.push(`<div style="display: flex; flex-direction: column; gap: 16px;"><div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;"><div style="padding: 12px; border: 1px solid #e8e8e8; border-radius: 4px;"><div style="font-size: 12px; color: #999; margin-bottom: 4px;">邀请码</div> <div style="font-size: 16px; font-weight: 500;">${escape_html(editForm.invite_code || "未设置")}</div></div> <div style="padding: 12px; border: 1px solid #e8e8e8; border-radius: 4px;"><div style="font-size: 12px; color: #999; margin-bottom: 4px;">邀请人数</div> <div style="font-size: 16px; font-weight: 500;">${escape_html(userInvites.length)} 人</div></div></div> `);
-            if (invitesLoading) {
-              $$renderer4.push("<!--[-->");
-              $$renderer4.push(`<div style="padding: 40px; text-align: center; color: #999;">加载中...</div>`);
-            } else {
-              $$renderer4.push("<!--[!-->");
-              if (userInvites.length > 0) {
-                $$renderer4.push("<!--[-->");
-                Table($$renderer4, {
-                  data: userInvites,
-                  columns: [
-                    { label: "被邀请用户", prop: "email" },
-                    {
-                      label: "用户组",
-                      prop: "user_group",
-                      width: "100px",
-                      render: ({ row }) => `<span class="tag tag-${getGroupType(row.user_group)}">${getGroupName(row.user_group)}</span>`
-                    },
-                    { label: "注册时间", prop: "register_time", width: "165px" }
-                  ],
-                  stripe: true
-                });
-              } else {
-                $$renderer4.push("<!--[!-->");
-                $$renderer4.push(`<div style="padding: 40px; text-align: center; color: #999;">暂无邀请记录</div>`);
-              }
-              $$renderer4.push(`<!--]-->`);
-            }
-            $$renderer4.push(`<!--]--></div>`);
-          } else {
-            $$renderer4.push("<!--[!-->");
-          }
-          $$renderer4.push(`<!--]--> `);
-          if (editTab === "commissions") {
-            $$renderer4.push("<!--[-->");
-            $$renderer4.push(`<div style="display: flex; flex-direction: column; gap: 16px;"><div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;"><div style="padding: 12px; border: 1px solid #e8e8e8; border-radius: 4px;"><div style="font-size: 12px; color: #999; margin-bottom: 4px;">累计佣金</div> <div style="font-size: 16px; font-weight: 500; color: #f5222d;">¥${escape_html(commissionStats.total.toFixed(2))}</div></div> <div style="padding: 12px; border: 1px solid #e8e8e8; border-radius: 4px;"><div style="font-size: 12px; color: #999; margin-bottom: 4px;">可提现佣金</div> <div style="font-size: 16px; font-weight: 500; color: #52c41a;">¥${escape_html(commissionStats.available.toFixed(2))}</div></div></div> `);
-            if (commissionsLoading) {
-              $$renderer4.push("<!--[-->");
-              $$renderer4.push(`<div style="padding: 40px; text-align: center; color: #999;">加载中...</div>`);
-            } else {
-              $$renderer4.push("<!--[!-->");
-              if (userCommissions.length > 0) {
-                $$renderer4.push("<!--[-->");
-                Table($$renderer4, {
-                  data: userCommissions,
-                  columns: [
-                    { label: "来源用户", prop: "from_email" },
-                    {
-                      label: "佣金金额",
-                      prop: "amount",
-                      width: "100px",
-                      render: ({ row }) => `<span style="color: #f5222d;">+¥${row.amount}</span>`
-                    },
-                    {
-                      label: "佣金比例",
-                      prop: "rate",
-                      width: "80px",
-                      render: ({ row }) => `${row.rate}%`
-                    },
-                    {
-                      label: "状态",
-                      prop: "status",
-                      width: "80px",
-                      render: ({ row }) => {
-                        const type = row.status === "available" ? "success" : row.status === "withdrawn" ? "info" : "warning";
-                        const text = row.status === "available" ? "可提现" : row.status === "withdrawn" ? "已提现" : "处理中";
-                        return `<span class="tag tag-${type}">${text}</span>`;
-                      }
-                    },
-                    { label: "时间", prop: "created_at", width: "165px" }
-                  ],
-                  stripe: true
-                });
-              } else {
-                $$renderer4.push("<!--[!-->");
-                $$renderer4.push(`<div style="padding: 40px; text-align: center; color: #999;">暂无佣金记录</div>`);
-              }
-              $$renderer4.push(`<!--]-->`);
-            }
-            $$renderer4.push(`<!--]--></div>`);
-          } else {
+          {
             $$renderer4.push("<!--[!-->");
           }
           $$renderer4.push(`<!--]--></div>`);
@@ -1013,8 +483,7 @@ function _page($$renderer, $$props) {
               onClick: () => editDialogVisible = false,
               children: ($$renderer5) => {
                 $$renderer5.push(`<!---->取消`);
-              },
-              $$slots: { default: true }
+              }
             });
             $$renderer4.push(`<!----> `);
             Button($$renderer4, {
@@ -1022,8 +491,7 @@ function _page($$renderer, $$props) {
               onClick: saveUser,
               children: ($$renderer5) => {
                 $$renderer5.push(`<!---->保存修改`);
-              },
-              $$slots: { default: true }
+              }
             });
             $$renderer4.push(`<!----></div>`);
           }

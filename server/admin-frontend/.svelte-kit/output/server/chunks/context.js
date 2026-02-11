@@ -1,38 +1,3 @@
-var is_array = Array.isArray;
-var index_of = Array.prototype.indexOf;
-var includes = Array.prototype.includes;
-var array_from = Array.from;
-var define_property = Object.defineProperty;
-var get_descriptor = Object.getOwnPropertyDescriptor;
-var object_prototype = Object.prototype;
-var array_prototype = Array.prototype;
-var get_prototype_of = Object.getPrototypeOf;
-var is_extensible = Object.isExtensible;
-const noop = () => {
-};
-function run_all(arr) {
-  for (var i = 0; i < arr.length; i++) {
-    arr[i]();
-  }
-}
-function deferred() {
-  var resolve;
-  var reject;
-  var promise = new Promise((res, rej) => {
-    resolve = res;
-    reject = rej;
-  });
-  return { promise, resolve, reject };
-}
-function fallback(value, fallback2, lazy = false) {
-  return value === void 0 ? lazy ? (
-    /** @type {() => V} */
-    fallback2()
-  ) : (
-    /** @type {V} */
-    fallback2
-  ) : value;
-}
 function equals(value) {
   return value === this.v;
 }
@@ -104,28 +69,14 @@ function get_parent_context(ssr_context2) {
   return null;
 }
 export {
-  array_from as a,
+  ssr_context as a,
   safe_not_equal as b,
-  deferred as c,
-  define_property as d,
+  safe_equals as c,
+  equals as d,
   escape_html as e,
-  fallback as f,
+  set_ssr_context as f,
   getContext as g,
-  safe_equals as h,
-  includes as i,
-  equals as j,
-  array_prototype as k,
-  get_descriptor as l,
-  get_prototype_of as m,
-  noop as n,
-  object_prototype as o,
-  is_array as p,
-  is_extensible as q,
-  run_all as r,
-  setContext as s,
-  index_of as t,
-  set_ssr_context as u,
-  ssr_context as v,
-  push as w,
-  pop as x
+  pop as h,
+  push as p,
+  setContext as s
 };

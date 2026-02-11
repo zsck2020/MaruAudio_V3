@@ -1,4 +1,4 @@
-import { _ as attr_class, Z as ensure_array_like, a6 as attr_style, $ as stringify, a2 as attr } from "./index.js";
+import { _ as attr_class, Z as ensure_array_like, a5 as attr_style, $ as stringify, a1 as attr } from "./index2.js";
 import { e as escape_html } from "./context.js";
 function html(value) {
   var html2 = String(value ?? "");

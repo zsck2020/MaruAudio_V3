@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { goto } from '$app/navigation';
+import { base } from '$app/paths';
 import { showError, getErrorMessage } from '../utils/errorHandler';
 
 const api = axios.create({
@@ -34,7 +35,7 @@ api.interceptors.response.use(
       if (res.code === 4001) {
         if (typeof window !== 'undefined') {
           localStorage.removeItem('admin_token');
-          goto('/login');
+          goto(`${base}/login`);
         }
       }
       return Promise.reject(new Error(res.message || getErrorMessage(res)));

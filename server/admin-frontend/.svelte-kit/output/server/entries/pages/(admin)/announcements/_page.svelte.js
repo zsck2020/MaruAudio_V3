@@ -1,6 +1,6 @@
-import { a2 as attr } from "../../../../chunks/index.js";
+import { a1 as attr } from "../../../../chunks/index2.js";
 import { e as escape_html } from "../../../../chunks/context.js";
-import { s as saveAnnouncement, g as getAnnouncements } from "../../../../chunks/index2.js";
+import { s as saveAnnouncement, g as getAnnouncements } from "../../../../chunks/index3.js";
 import { l as logger } from "../../../../chunks/logger.js";
 import { C as Card } from "../../../../chunks/Card.js";
 import { T as Table } from "../../../../chunks/Table.js";
@@ -156,8 +156,7 @@ function _page($$renderer, $$props) {
             onClick: () => showEditDialog(),
             children: ($$renderer5) => {
               $$renderer5.push(`<!---->发布公告`);
-            },
-            $$slots: { default: true }
+            }
           });
           $$renderer4.push(`<!----></div> `);
           Table($$renderer4, {
@@ -167,8 +166,7 @@ function _page($$renderer, $$props) {
             stripe: true
           });
           $$renderer4.push(`<!---->`);
-        },
-        $$slots: { default: true }
+        }
       });
       $$renderer3.push(`<!----> `);
       Dialog($$renderer3, {
@@ -233,7 +231,7 @@ function _page($$renderer, $$props) {
               $$settled = false;
             }
           });
-          $$renderer4.push(`<!----> <span style="margin-left: 10px; color: #999; font-size: 12px;">数值越大越靠前</span></div> <div style="margin-bottom: 16px;"><label style="display: block; margin-bottom: 8px; font-weight: 500;">状态</label> <label style="display: flex; align-items: center; cursor: pointer;"><input type="checkbox"${attr("checked", editForm.is_active, true)} style="margin-right: 8px; width: 16px; height: 16px; cursor: pointer;"/> <span>${escape_html(editForm.is_active ? "启用" : "禁用")}</span></label></div> <div style="margin-bottom: 16px;"><label for="announcement-start-time" style="display: block; margin-bottom: 8px; font-weight: 500;">生效时间</label> <div style="display: flex; align-items: center; gap: 8px;"><input id="announcement-start-time" type="datetime-local"${attr("value", editForm.start_time)} style="flex: 1; padding: 8px 12px; border: 1px solid #d9d9d9; border-radius: 4px; font-size: 14px;"/> <span>至</span> <input type="datetime-local"${attr("value", editForm.end_time)} aria-label="结束时间" style="flex: 1; padding: 8px 12px; border: 1px solid #d9d9d9; border-radius: 4px; font-size: 14px;"/></div></div></div>`);
+          $$renderer4.push(`<!----> <span style="margin-left: 10px; color: #999; font-size: 12px;">数值越大越靠前</span></div> <div style="margin-bottom: 16px;"><div style="display: block; margin-bottom: 8px; font-weight: 500;">状态</div> <label style="display: flex; align-items: center; cursor: pointer;"><input type="checkbox"${attr("checked", editForm.is_active, true)} style="margin-right: 8px; width: 16px; height: 16px; cursor: pointer;"/> <span>${escape_html(editForm.is_active ? "启用" : "禁用")}</span></label></div> <div style="margin-bottom: 16px;"><label for="announcement-start-time" style="display: block; margin-bottom: 8px; font-weight: 500;">生效时间</label> <div style="display: flex; align-items: center; gap: 8px;"><input id="announcement-start-time" type="datetime-local"${attr("value", editForm.start_time)} style="flex: 1; padding: 8px 12px; border: 1px solid #d9d9d9; border-radius: 4px; font-size: 14px;"/> <span>至</span> <input type="datetime-local"${attr("value", editForm.end_time)} aria-label="结束时间" style="flex: 1; padding: 8px 12px; border: 1px solid #d9d9d9; border-radius: 4px; font-size: 14px;"/></div></div></div>`);
         },
         $$slots: {
           default: true,
@@ -243,8 +241,7 @@ function _page($$renderer, $$props) {
               onClick: () => editDialogVisible = false,
               children: ($$renderer5) => {
                 $$renderer5.push(`<!---->取消`);
-              },
-              $$slots: { default: true }
+              }
             });
             $$renderer4.push(`<!----> `);
             Button($$renderer4, {
@@ -253,8 +250,7 @@ function _page($$renderer, $$props) {
               loading: saving,
               children: ($$renderer5) => {
                 $$renderer5.push(`<!---->保存`);
-              },
-              $$slots: { default: true }
+              }
             });
             $$renderer4.push(`<!----></div>`);
           }

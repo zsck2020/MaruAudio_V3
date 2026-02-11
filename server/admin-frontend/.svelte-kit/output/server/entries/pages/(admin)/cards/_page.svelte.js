@@ -1,13 +1,12 @@
-import { $ as stringify } from "../../../../chunks/index.js";
+import { $ as stringify } from "../../../../chunks/index2.js";
 import { C as Card } from "../../../../chunks/Card.js";
 import { T as Table } from "../../../../chunks/Table.js";
 import { D as Dialog } from "../../../../chunks/Dialog.js";
 import { B as Button } from "../../../../chunks/Button.js";
 import { I as Input } from "../../../../chunks/Input.js";
 import { S as Select } from "../../../../chunks/Select.js";
-import { P as Pagination } from "../../../../chunks/Pagination.js";
-import { s as showMessage } from "../../../../chunks/Message.js";
-import { a as generateCards, u as updateSettings, b as getCards } from "../../../../chunks/index2.js";
+import { P as Pagination, e as escapeHtml } from "../../../../chunks/escapeHtml.js";
+import { a as getCards } from "../../../../chunks/index3.js";
 import { e as escape_html } from "../../../../chunks/context.js";
 import "clsx";
 import { l as logger } from "../../../../chunks/logger.js";
@@ -81,74 +80,6 @@ function _page($$renderer, $$props) {
         loading = false;
       }
     }
-    function showGenerateDialog() {
-      generateForm = {
-        card_type: "monthly",
-        duration_days: 30,
-        count: 10,
-        remark: ""
-      };
-      generateDialogVisible = true;
-    }
-    async function handleGenerate() {
-      generating = true;
-      try {
-        const res = await generateCards({
-          card_type: generateForm.card_type,
-          count: generateForm.count,
-          duration_days: generateForm.card_type === "custom" ? generateForm.duration_days : void 0,
-          remark: generateForm.remark,
-          product_code: currentProductValue
-        });
-        generatedCards = res.data.cards;
-        generateDialogVisible = false;
-        resultDialogVisible = true;
-        loadCards();
-      } catch (e) {
-      } finally {
-        generating = false;
-      }
-    }
-    function copyAllCards() {
-      navigator.clipboard.writeText(generatedCards.join("\n"));
-      showMessage("已复制全部卡密", "success");
-    }
-    function showPriceDialog() {
-      priceDialogVisible = true;
-    }
-    async function savePriceSettings() {
-      savingPrice = true;
-      try {
-        const prefix = currentProductValue === "comic" ? "comic_" : "";
-        await updateSettings({
-          [`${prefix}card_price_monthly`]: String(currentPriceForm.monthly),
-          [`${prefix}card_price_yearly`]: String(currentPriceForm.yearly),
-          [`${prefix}card_price_permanent`]: String(currentPriceForm.permanent)
-        });
-        showMessage("价格设置已保存", "success");
-        priceDialogVisible = false;
-      } catch (e) {
-      } finally {
-        savingPrice = false;
-      }
-    }
-    function exportCards() {
-      const unusedCards = cards.filter((c) => c.status === "unused");
-      if (unusedCards.length === 0) {
-        showMessage("没有可导出的未使用卡密", "warning");
-        return;
-      }
-      const content = unusedCards.map((c) => `${c.card_key}	${getTypeName(c.card_type)}	${c.duration_days || "永久"}天`).join("\n");
-      const header = "卡密	类型	时长\n";
-      const blob = new Blob([header + content], { type: "text/plain;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `卡密导出_${(/* @__PURE__ */ new Date()).toISOString().slice(0, 10)}.txt`;
-      a.click();
-      URL.revokeObjectURL(url);
-      showMessage(`已导出 ${unusedCards.length} 张未使用卡密`, "success");
-    }
     function getTableColumns() {
       return [
         { prop: "id", label: "ID", width: "60px" },
@@ -159,8 +90,8 @@ function _page($$renderer, $$props) {
           render: ({ row }) => {
             const cardKey = row.card_key || "";
             return `
-            <code style="background: #f5f5f5; padding: 2px 6px; border-radius: 4px; font-size: 12px;">${cardKey}</code>
-            <button class="copy-btn" data-card="${cardKey}" style="margin-left: 8px; background: none; border: none; color: #1890ff; cursor: pointer;">复制</button>
+            <code style="background: #f5f5f5; padding: 2px 6px; border-radius: 4px; font-size: 12px;">${escapeHtml(cardKey)}</code>
+            <button class="copy-btn" data-card="${escapeHtml(cardKey)}" style="margin-left: 8px; background: none; border: none; color: #1890ff; cursor: pointer;">复制</button>
           `;
           }
         },
@@ -185,12 +116,12 @@ function _page($$renderer, $$props) {
         {
           prop: "used_by_email",
           label: "激活用户",
-          render: ({ row }) => row.status === "used" && row.used_by_email ? row.used_by_email : '<span style="color: #999;">-</span>'
+          render: ({ row }) => row.status === "used" && row.used_by_email ? escapeHtml(row.used_by_email) : '<span style="color: #999;">-</span>'
         },
         {
           prop: "machine_code",
           label: "绑定机器码",
-          render: ({ row }) => row.status === "used" && row.machine_code ? `<code style="background: #f5f5f5; padding: 2px 6px; border-radius: 4px; font-size: 11px;">${row.machine_code}</code>` : '<span style="color: #999;">-</span>'
+          render: ({ row }) => row.status === "used" && row.machine_code ? `<code style="background: #f5f5f5; padding: 2px 6px; border-radius: 4px; font-size: 11px;">${escapeHtml(row.machine_code)}</code>` : '<span style="color: #999;">-</span>'
         },
         { prop: "created_at", label: "创建时间", width: "165px" },
         {
@@ -222,28 +153,22 @@ function _page($$renderer, $$props) {
         children: ($$renderer4) => {
           $$renderer4.push(`<div class="page-header svelte-13vvtm9"><div class="action-buttons svelte-13vvtm9" style="display: flex; gap: 10px; margin-bottom: 16px;">`);
           Button($$renderer4, {
-            onclick: showPriceDialog,
             children: ($$renderer5) => {
               $$renderer5.push(`<!---->价格设置`);
-            },
-            $$slots: { default: true }
+            }
           });
           $$renderer4.push(`<!----> `);
           Button($$renderer4, {
-            onclick: exportCards,
             children: ($$renderer5) => {
               $$renderer5.push(`<!---->导出`);
-            },
-            $$slots: { default: true }
+            }
           });
           $$renderer4.push(`<!----> `);
           Button($$renderer4, {
             type: "primary",
-            onclick: showGenerateDialog,
             children: ($$renderer5) => {
               $$renderer5.push(`<!---->生成卡密`);
-            },
-            $$slots: { default: true }
+            }
           });
           $$renderer4.push(`<!----></div> <div style="margin-bottom: 16px; display: flex; gap: 10px;">`);
           Select($$renderer4, {
@@ -316,8 +241,7 @@ function _page($$renderer, $$props) {
             }
           });
           $$renderer4.push(`<!----></div>`);
-        },
-        $$slots: { default: true }
+        }
       });
       $$renderer3.push(`<!----> `);
       Dialog($$renderer3, {
@@ -402,21 +326,17 @@ function _page($$renderer, $$props) {
           footer: ($$renderer4) => {
             $$renderer4.push(`<div slot="footer" style="display: flex; gap: 10px; justify-content: flex-end;">`);
             Button($$renderer4, {
-              onclick: () => generateDialogVisible = false,
               children: ($$renderer5) => {
                 $$renderer5.push(`<!---->取消`);
-              },
-              $$slots: { default: true }
+              }
             });
             $$renderer4.push(`<!----> `);
             Button($$renderer4, {
               type: "primary",
-              onclick: handleGenerate,
               loading: generating,
               children: ($$renderer5) => {
                 $$renderer5.push(`<!---->生成卡密`);
-              },
-              $$slots: { default: true }
+              }
             });
             $$renderer4.push(`<!----></div>`);
           }
@@ -447,20 +367,16 @@ function _page($$renderer, $$props) {
           footer: ($$renderer4) => {
             $$renderer4.push(`<div slot="footer" style="display: flex; gap: 10px; justify-content: flex-end;">`);
             Button($$renderer4, {
-              onclick: copyAllCards,
               children: ($$renderer5) => {
                 $$renderer5.push(`<!---->复制全部`);
-              },
-              $$slots: { default: true }
+              }
             });
             $$renderer4.push(`<!----> `);
             Button($$renderer4, {
               type: "primary",
-              onclick: () => resultDialogVisible = false,
               children: ($$renderer5) => {
                 $$renderer5.push(`<!---->关闭`);
-              },
-              $$slots: { default: true }
+              }
             });
             $$renderer4.push(`<!----></div>`);
           }
@@ -527,21 +443,17 @@ function _page($$renderer, $$props) {
           footer: ($$renderer4) => {
             $$renderer4.push(`<div slot="footer" style="display: flex; gap: 10px; justify-content: flex-end;">`);
             Button($$renderer4, {
-              onclick: () => priceDialogVisible = false,
               children: ($$renderer5) => {
                 $$renderer5.push(`<!---->取消`);
-              },
-              $$slots: { default: true }
+              }
             });
             $$renderer4.push(`<!----> `);
             Button($$renderer4, {
               type: "primary",
-              onclick: savePriceSettings,
               loading: savingPrice,
               children: ($$renderer5) => {
                 $$renderer5.push(`<!---->保存设置`);
-              },
-              $$slots: { default: true }
+              }
             });
             $$renderer4.push(`<!----></div>`);
           }

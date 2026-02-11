@@ -1,5 +1,6 @@
 <script>
   import { goto } from '$app/navigation';
+  import { base } from '$app/paths';
   import { adminLogin } from '$lib/api';
   import { showSuccess, showError } from '$lib/utils/errorHandler';
   import Input from '$lib/components/Input.svelte';
@@ -25,7 +26,7 @@
       }
       
       showSuccess('登录成功');
-      goto('/dashboard');
+      goto(`${base}/dashboard`);
     } catch (e) {
       // 错误已在拦截器处理
     } finally {

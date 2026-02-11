@@ -1,4 +1,4 @@
-import { _ as attr_class, a7 as attributes, a0 as bind_props, $ as stringify } from "./index.js";
+import { _ as attr_class, a6 as attributes, a0 as bind_props, $ as stringify } from "./index2.js";
 import { e as escape_html } from "./context.js";
 function Input($$renderer, $$props) {
   $$renderer.component(($$renderer2) => {

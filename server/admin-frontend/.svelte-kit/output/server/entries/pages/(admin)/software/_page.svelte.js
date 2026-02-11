@@ -1,6 +1,6 @@
-import { a2 as attr } from "../../../../chunks/index.js";
+import { a1 as attr } from "../../../../chunks/index2.js";
 import { e as escape_html } from "../../../../chunks/context.js";
-import { u as updateSettings } from "../../../../chunks/index2.js";
+import { u as updateSettings, d as testDashScopeApi } from "../../../../chunks/index3.js";
 import { C as Card } from "../../../../chunks/Card.js";
 import { B as Button } from "../../../../chunks/Button.js";
 import { I as Input } from "../../../../chunks/Input.js";
@@ -162,22 +162,9 @@ function _page($$renderer, $$props) {
       }
       testingCloudApi = true;
       try {
-        const response = await fetch("/api/admin/test-dashscope", {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${typeof window !== "undefined" ? localStorage.getItem("admin_token") : ""}`,
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({ api_key: cloudApiForm.dashscope_api_key })
-        });
-        const result = await response.json();
-        if (result.code === 0) {
-          Message.success("API Key 验证成功");
-        } else {
-          Message.error(result.message || "API Key 验证失败");
-        }
+        await testDashScopeApi({ api_key: cloudApiForm.dashscope_api_key });
+        Message.success("API Key 验证成功");
       } catch (e) {
-        Message.error("API 连接失败: " + e.message);
       } finally {
         testingCloudApi = false;
       }
@@ -188,7 +175,6 @@ function _page($$renderer, $$props) {
       $$renderer3.push(`<div>`);
       Card($$renderer3, {
         title: "云端 API 配置",
-        style: "margin-bottom: 20px;",
         children: ($$renderer4) => {
           $$renderer4.push(`<div style="background: #e6f7ff; border: 1px solid #91d5ff; border-radius: 4px; padding: 12px; margin-bottom: 16px;"><div style="font-weight: 500; margin-bottom: 8px;">阿里云百炼 DashScope API</div> <p style="margin: 8px 0 0 0; line-height: 1.8;">用于云端 TTS 语音合成，获取 API Key： <a href="https://help.aliyun.com/zh/model-studio/get-api-key" target="_blank" style="color: #1890ff;">阿里云百炼控制台</a></p></div> <div style="display: flex; flex-direction: column; gap: 16px;"><div><label for="software-dashscope-api-key" style="display: block; margin-bottom: 8px; font-weight: 500;">DashScope API Key</label> `);
           Input($$renderer4, {
@@ -210,8 +196,7 @@ function _page($$renderer, $$props) {
             onClick: saveCloudApiSettings,
             children: ($$renderer5) => {
               $$renderer5.push(`<!---->保存配置`);
-            },
-            $$slots: { default: true }
+            }
           });
           $$renderer4.push(`<!----> `);
           Button($$renderer4, {
@@ -219,17 +204,14 @@ function _page($$renderer, $$props) {
             loading: testingCloudApi,
             children: ($$renderer5) => {
               $$renderer5.push(`<!---->测试连接`);
-            },
-            $$slots: { default: true }
+            }
           });
           $$renderer4.push(`<!----></div></div>`);
-        },
-        $$slots: { default: true }
+        }
       });
       $$renderer3.push(`<!----> `);
       Card($$renderer3, {
         title: "注册控制",
-        style: "margin-bottom: 20px;",
         children: ($$renderer4) => {
           $$renderer4.push(`<div style="display: flex; flex-direction: column; gap: 16px;"><div><label style="display: flex; align-items: center; gap: 8px;"><input type="checkbox"${attr("checked", registerForm.registration_enabled, true)} style="width: 16px; height: 16px; cursor: pointer;"/> <span style="font-weight: 500;">开启注册</span></label> <span style="margin-left: 24px; color: #666; font-size: 14px;">${escape_html("允许新用户注册")}</span></div> <div><label for="software-machine-code-limit" style="display: block; margin-bottom: 8px; font-weight: 500;">机器码注册限制</label> `);
           Input($$renderer4, {
@@ -297,12 +279,10 @@ function _page($$renderer, $$props) {
             onClick: saveRegisterSettings,
             children: ($$renderer5) => {
               $$renderer5.push(`<!---->保存配置`);
-            },
-            $$slots: { default: true }
+            }
           });
           $$renderer4.push(`<!----></div></div>`);
-        },
-        $$slots: { default: true }
+        }
       });
       $$renderer3.push(`<!----> `);
       Card($$renderer3, {
@@ -319,8 +299,7 @@ function _page($$renderer, $$props) {
             onClick: loadDefaultDisclaimer,
             children: ($$renderer5) => {
               $$renderer5.push(`<!---->加载客户端默认免责条款`);
-            },
-            $$slots: { default: true }
+            }
           });
           $$renderer4.push(`<!----> <span style="color: #999; font-size: 12px;">修改后客户端将同步显示此内容</span></div></div></div> <div style="height: 1px; background: #e8e8e8; margin: 16px 0;"></div> <div><div style="display: block; margin-bottom: 8px; font-weight: 500;">客服二维码</div> <div><div class="qrcode-uploader svelte-jhniiz">`);
           {
@@ -372,12 +351,10 @@ function _page($$renderer, $$props) {
             onClick: saveContentSettings,
             children: ($$renderer5) => {
               $$renderer5.push(`<!---->保存设置`);
-            },
-            $$slots: { default: true }
+            }
           });
           $$renderer4.push(`<!----></div></div>`);
-        },
-        $$slots: { default: true }
+        }
       });
       $$renderer3.push(`<!----></div>`);
     }

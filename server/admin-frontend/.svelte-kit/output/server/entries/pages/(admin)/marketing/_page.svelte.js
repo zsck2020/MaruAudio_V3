@@ -5,8 +5,7 @@ function _page($$renderer) {
     title: "营销活动",
     children: ($$renderer2) => {
       $$renderer2.push(`<p>营销活动页面 - 待迁移</p>`);
-    },
-    $$slots: { default: true }
+    }
   });
 }
 export {

@@ -7,6 +7,7 @@
   import Table from '$lib/components/Table.svelte';
   import Button from '$lib/components/Button.svelte';
   import { goto } from '$app/navigation';
+  import { base } from '$app/paths';
   
   let stats = $state({
     totalUsers: 0,
@@ -195,7 +196,7 @@
   <!-- 最近用户 -->
   <Card title="最近注册用户" style="margin-top: 20px;">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-      <Button type="primary" size="small" onClick={() => goto('/users')}>查看全部</Button>
+      <Button type="primary" size="small" onClick={() => goto(`${base}/users`)}>查看全部</Button>
     </div>
     <Table
       data={recentUsers}

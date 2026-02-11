@@ -1,5 +1,7 @@
-import { Z as ensure_array_like, _ as attr_class, $ as stringify, a0 as bind_props, a1 as slot } from "../../chunks/index.js";
-import { e as escape_html, f as fallback } from "../../chunks/context.js";
+import "clsx";
+import { Z as ensure_array_like, _ as attr_class, $ as stringify, a0 as bind_props } from "../../chunks/index2.js";
+import { f as fallback } from "../../chunks/utils2.js";
+import { e as escape_html } from "../../chunks/context.js";
 function Message($$renderer, $$props) {
   $$renderer.component(($$renderer2) => {
     let messages = fallback($$props["messages"], () => [], true);
@@ -15,9 +17,16 @@ function Message($$renderer, $$props) {
 }
 function _layout($$renderer, $$props) {
   let messages = [];
+  let { children } = $$props;
   Message($$renderer, { messages });
-  $$renderer.push(`<!----> <!--[-->`);
-  slot($$renderer, $$props, "default", {});
+  $$renderer.push(`<!----> `);
+  if (children) {
+    $$renderer.push("<!--[-->");
+    children($$renderer);
+    $$renderer.push(`<!---->`);
+  } else {
+    $$renderer.push("<!--[!-->");
+  }
   $$renderer.push(`<!--]-->`);
 }
 export {

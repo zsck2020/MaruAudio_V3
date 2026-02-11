@@ -1,4 +1,5 @@
 import { browser } from '$app/environment';
+import { base } from '$app/paths';
 import { redirect } from '@sveltejs/kit';
 
 // Token验证缓存（避免频繁验证）
@@ -53,7 +54,7 @@ export async function load({ url, route }) {
   if (isLoginPage && token) {
     const isValid = await validateToken(token);
     if (isValid) {
-      throw redirect(302, '/dashboard');
+      throw redirect(302, `${base}/dashboard`);
     } else {
       localStorage.removeItem('admin_token');
       localStorage.removeItem('admin_info');
@@ -62,7 +63,7 @@ export async function load({ url, route }) {
   
   // 需要登录的页面
   if (!isLoginPage && !token) {
-    throw redirect(302, '/login');
+    throw redirect(302, `${base}/login`);
   }
   
   if (!isLoginPage && token) {
@@ -71,7 +72,7 @@ export async function load({ url, route }) {
     if (!isValid) {
       localStorage.removeItem('admin_token');
       localStorage.removeItem('admin_info');
-      throw redirect(302, '/login');
+      throw redirect(302, `${base}/login`);
     }
   }
   

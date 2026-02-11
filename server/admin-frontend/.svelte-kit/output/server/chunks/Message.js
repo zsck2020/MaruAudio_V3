@@ -37,6 +37,5 @@ const Message = {
   }
 };
 export {
-  Message as M,
-  showMessage as s
+  Message as M
 };

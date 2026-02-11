@@ -1,9 +1,9 @@
 import "clsx";
-import { c as getOperationLogs } from "../../../../chunks/index2.js";
+import { b as getOperationLogs } from "../../../../chunks/index3.js";
+import { P as Pagination, e as escapeHtml } from "../../../../chunks/escapeHtml.js";
 import { l as logger } from "../../../../chunks/logger.js";
 import { C as Card } from "../../../../chunks/Card.js";
 import { T as Table } from "../../../../chunks/Table.js";
-import { P as Pagination } from "../../../../chunks/Pagination.js";
 function _page($$renderer, $$props) {
   $$renderer.component(($$renderer2) => {
     let loading = false;
@@ -52,10 +52,10 @@ function _page($$renderer, $$props) {
         return Object.entries(obj).map(([k, v]) => {
           const keyName = keyNames[k] || k;
           const valueName = typeNames[v] || v;
-          return `${keyName}: ${valueName}`;
+          return `${escapeHtml(keyName)}: ${escapeHtml(valueName)}`;
         }).join(" | ");
       } catch {
-        return details;
+        return escapeHtml(details);
       }
     }
     async function loadLogs() {
@@ -124,8 +124,7 @@ function _page($$renderer, $$props) {
             }
           });
           $$renderer4.push(`<!---->`);
-        },
-        $$slots: { default: true }
+        }
       });
     }
     do {

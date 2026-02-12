@@ -2,9 +2,6 @@
 /**
  * 管理后台 API 控制器
  */
-
-require_once __DIR__ . '/../lib/RBAC.php';
-
 class AdminApiController {
     
     /**
@@ -14,7 +11,6 @@ class AdminApiController {
         $payload = JWTAuth::getPayloadFromRequest();
         
         if (!$payload || !isset($payload['type']) || $payload['type'] !== 'admin') {
-            // 管理员未登录或 Token 已过期
             Response::error('未登录或Token已过期', 4001);
         }
         
@@ -52,7 +48,7 @@ class AdminApiController {
      * 获取操作日志
      */
     public static function getOperationLogs($input) {
-        RBAC::checkPermission(RBAC::PERMISSION_LOG_VIEW);
+        self::checkAdminAuth();
         
         $db = Database::getInstance();
         
@@ -62,12 +58,8 @@ class AdminApiController {
         
         $total = $db->fetch("SELECT COUNT(*) as count FROM admin_operation_logs")['count'] ?? 0;
         
-        // 安全修复：使用参数化查询防止SQL注入
-        $offset = max(0, (int)$offset);
-        $pageSize = min(100, max(1, (int)$pageSize));
         $logs = $db->fetchAll(
-            "SELECT * FROM admin_operation_logs ORDER BY created_at DESC LIMIT ?, ?",
-            [$offset, $pageSize]
+            "SELECT * FROM admin_operation_logs ORDER BY created_at DESC LIMIT {$offset}, {$pageSize}"
         );
         
         Response::success([
@@ -82,7 +74,7 @@ class AdminApiController {
      * 获取统计数据
      */
     public static function getStats() {
-        RBAC::checkPermission(RBAC::PERMISSION_LOG_VIEW);
+        self::checkAdminAuth();
         
         $db = Database::getInstance();
         
@@ -102,9 +94,7 @@ class AdminApiController {
         } catch (Exception $e) {}
         
         try {
-            $result = $db->fetch(
-                "SELECT COUNT(*) as count FROM users WHERE user_group = 'permanent' OR (user_group IN ('monthly', 'yearly', 'trial') AND (expire_time IS NULL OR expire_time > NOW()))"
-            );
+            $result = $db->fetch("SELECT COUNT(*) as count FROM users WHERE user_group != 'free'");
             $vipUsers = $result['count'] ?? 0;
         } catch (Exception $e) {}
         
@@ -202,7 +192,7 @@ class AdminApiController {
      * 获取用户列表
      */
     public static function getUsers($input) {
-        RBAC::checkPermission(RBAC::PERMISSION_USER_MANAGE);
+        self::checkAdminAuth();
         
         $db = Database::getInstance();
         
@@ -222,12 +212,18 @@ class AdminApiController {
             switch ($searchType) {
                 case 'machine_code':
                     // 按机器码搜索：存在绑定该机器码的用户
-                    $where .= " AND EXISTS (SELECT 1 FROM machine_bindings mb WHERE mb.user_id = u.id AND mb.machine_code LIKE ?)";
+                    $where .= " AND EXISTS (
+                        SELECT 1 FROM machine_bindings mb 
+                        WHERE mb.user_id = u.id AND mb.machine_code LIKE ?
+                    )";
                     $params[] = '%' . $keyword . '%';
                     break;
                 case 'card_key':
-                    // 按卡密搜索：使用过该卡密的用户
-                    $where .= " AND EXISTS (SELECT 1 FROM card_keys ck WHERE ck.used_by = u.id AND ck.card_key LIKE ?)";
+                    // 按卡密搜索：该卡密已被用户使用
+                    $where .= " AND EXISTS (
+                        SELECT 1 FROM card_keys ck 
+                        WHERE ck.used_by = u.id AND ck.card_key LIKE ?
+                    )";
                     $params[] = '%' . $keyword . '%';
                     break;
                 case 'email':
@@ -237,37 +233,22 @@ class AdminApiController {
                     break;
             }
         } elseif (!empty($email)) {
-            // 兼容旧版：仅按邮箱搜索
+            // 兼容老版仅按邮箱搜索
             $where .= " AND u.email LIKE ?";
-            $params[] = '%' . $email . '%';
+            $params[] = "%{$email}%";
         }
         
         // 获取总数
-        $totalRow = $db->fetch("SELECT COUNT(*) as count FROM users u WHERE {$where}", $params);
-        $total = $totalRow['count'] ?? 0;
+        $total = $db->fetch("SELECT COUNT(*) as count FROM users u WHERE {$where}", $params)['count'];
         
-        // 获取列表（包含邀请人数和可用佣金余额）
+        // 获取列表（包含邀请人数和佣金）
         $users = $db->fetchAll(
-            "SELECT 
-                u.id, 
-                u.email, 
-                u.avatar, 
-                u.user_group, 
-                u.expire_time, 
-                u.register_time, 
-                u.register_ip, 
-                u.last_login_time, 
-                u.last_login_ip, 
-                u.status, 
-                u.invite_code, 
-                u.invited_by,
-                (SELECT COUNT(*) FROM users WHERE invited_by = u.id) AS invite_count,
-                (SELECT COALESCE(SUM(amount), 0) FROM commissions WHERE user_id = u.id AND status = 'available') AS commission_balance
-             FROM users u 
-             WHERE {$where} 
-             ORDER BY u.id DESC 
-             LIMIT ? OFFSET ?",
-            array_merge($params, [$pageSize, $offset])
+            "SELECT u.id, u.email, u.avatar, u.user_group, u.expire_time, u.register_time, u.register_ip, 
+                    u.last_login_time, u.last_login_ip, u.status, u.invite_code, u.invited_by,
+                    (SELECT COUNT(*) FROM users WHERE invited_by = u.id) as invite_count,
+                    (SELECT COALESCE(SUM(amount), 0) FROM commissions WHERE user_id = u.id AND status = 'available') as commission_balance
+             FROM users u WHERE {$where} ORDER BY u.id DESC LIMIT {$offset}, {$pageSize}",
+            $params
         );
         
         // 获取每个用户的机器码，并检查试用会员是否过期
@@ -278,10 +259,10 @@ class AdminApiController {
             );
             $user['machine_code'] = $binding ? $binding['machine_code'] : null;
             
-            // 检查试用会员是否已过期，若过期则自动降级为免费用户
+            // 检查试用会员是否已过期，如果过期则自动降级为免费用户
             if ($user['user_group'] === 'trial' && !empty($user['expire_time'])) {
                 if (strtotime($user['expire_time']) < time()) {
-                    // 该用户已过期，降级为免费用户
+                    // 试用已过期，降级为免费用户
                     $db->update('users', [
                         'user_group' => 'free',
                         'expire_time' => null
@@ -293,7 +274,7 @@ class AdminApiController {
                 }
             }
             
-            // 标记是否为试用会员（user_group = 'trial'）
+            // 判断是否是试用会员（user_group = 'trial'）
             $user['is_trial'] = ($user['user_group'] === 'trial');
         }
         
@@ -309,7 +290,7 @@ class AdminApiController {
      * 管理员重置用户密码
      */
     public static function resetUserPassword($input) {
-        RBAC::checkPermission(RBAC::PERMISSION_USER_RESET_PASSWORD);
+        self::checkAdminAuth();
         
         $userId = (int)($input['user_id'] ?? 0);
         $newPassword = trim($input['new_password'] ?? '');
@@ -343,7 +324,7 @@ class AdminApiController {
      * 获取用户邀请记录
      */
     public static function getUserInvites($input) {
-        RBAC::checkPermission(RBAC::PERMISSION_USER_MANAGE);
+        self::checkAdminAuth();
         
         $userId = (int)($input['user_id'] ?? 0);
         if ($userId <= 0) {
@@ -364,7 +345,7 @@ class AdminApiController {
      * 获取用户佣金记录
      */
     public static function getUserCommissions($input) {
-        RBAC::checkPermission(RBAC::PERMISSION_USER_MANAGE);
+        self::checkAdminAuth();
         
         $userId = (int)($input['user_id'] ?? 0);
         if ($userId <= 0) {
@@ -403,7 +384,7 @@ class AdminApiController {
      * 更新用户
      */
     public static function updateUser($input) {
-        RBAC::checkPermission(RBAC::PERMISSION_USER_MANAGE);
+        self::checkAdminAuth();
         
         $userId = (int)($input['user_id'] ?? 0);
         if ($userId <= 0) {
@@ -420,13 +401,9 @@ class AdminApiController {
         
         $updateData = [];
         
-        // 处理用户分组变更
+        // 处理用户组变更
         if (isset($input['user_group'])) {
             $newUserGroup = $input['user_group'];
-            $validGroups = ['free', 'trial', 'monthly', 'yearly', 'permanent'];
-            if (!in_array($newUserGroup, $validGroups)) {
-                Response::error('无效的用户分组', 1001);
-            }
             $oldUserGroup = $currentUser['user_group'];
             $updateData['user_group'] = $newUserGroup;
             
@@ -434,19 +411,19 @@ class AdminApiController {
             if ($newUserGroup === 'free') {
                 $updateData['expire_time'] = null;
                 
-                // 同时解除关联的卡密（将已使用卡密状态改为 disabled，保留记录）
+                // 同时解除关联的卡密（将卡密状态改为 disabled，保留记录）
                 $db->query(
                     "UPDATE card_keys SET status = 'disabled' WHERE used_by = ? AND status = 'used'",
                     [$userId]
                 );
             }
-            // 如果设置为试用会员且未传入到期时间，则自动使用系统配置的试用时长
+            // 如果设置为试用会员，且没有传入到期时间，自动使用系统设置的试用时长
             elseif ($newUserGroup === 'trial' && !isset($input['expire_time'])) {
                 $trialDays = $db->fetch("SELECT setting_value FROM system_settings WHERE setting_key = 'trial_duration_days'");
                 $durationDays = $trialDays ? (int)$trialDays['setting_value'] : 3;
                 $updateData['expire_time'] = date('Y-m-d H:i:s', time() + $durationDays * 86400);
             }
-            // 如果从免费用户升级为包月/包年会员且未传入到期时间，则自动设置默认到期时间
+            // 如果从免费用户升级为付费会员，且没有传入到期时间，自动设置默认到期时间
             elseif ($oldUserGroup === 'free' && in_array($newUserGroup, ['monthly', 'yearly']) && !isset($input['expire_time'])) {
                 // 根据会员类型设置默认时长
                 $durationDays = $newUserGroup === 'monthly' ? 30 : 365;
@@ -458,11 +435,11 @@ class AdminApiController {
             }
         }
         
-        // 处理到期时间（仅当不是免费用户时才生效）
+        // 处理到期时间（仅当不是免费用户时）
         if (isset($input['expire_time']) && (!isset($updateData['user_group']) || $updateData['user_group'] !== 'free')) {
             $expireTime = $input['expire_time'];
             
-            // 处理空或 null 或 "永久"
+            // 处理空值或 null 或 "永久"
             if (empty($expireTime) || $expireTime === 'null' || $expireTime === null || $expireTime === '永久') {
                 $updateData['expire_time'] = null;
             } else {
@@ -472,10 +449,6 @@ class AdminApiController {
         }
         
         if (isset($input['status'])) {
-            $validStatuses = ['active', 'banned'];
-            if (!in_array($input['status'], $validStatuses)) {
-                Response::error('无效的用户状态', 1001);
-            }
             $updateData['status'] = $input['status'];
         }
         
@@ -488,7 +461,7 @@ class AdminApiController {
         // 记录操作日志
         self::logOperation('更新用户', 'user', $userId, $updateData);
         
-        // 触发 WebSocket 推送通知（保证客户端实时同步）
+        // 触发 WebSocket 推送通知（确保客户端实时同步）
         self::notifyUserUpdated($userId);
         
         Response::success(null, '更新成功');
@@ -498,7 +471,7 @@ class AdminApiController {
      * 导出用户数据
      */
     public static function exportUsers($input) {
-        RBAC::checkPermission(RBAC::PERMISSION_USER_MANAGE);
+        self::checkAdminAuth();
         
         $db = Database::getInstance();
         
@@ -506,11 +479,10 @@ class AdminApiController {
             "SELECT id, email, user_group, expire_time, register_time, register_ip, last_login_time, status, invite_code, invited_by FROM users ORDER BY id DESC"
         );
         
-        // 生成 CSV（使用 PHP 内置函数确保正确转义）
-        $csvStream = fopen('php://temp', 'r+');
-        fputcsv($csvStream, ['ID', '邮箱', '用户组', '到期时间', '注册时间', '注册IP', '最后登录时间', '状态', '邀请码', '邀请人ID']);
+        // 生成 CSV
+        $csv = "ID,邮箱,用户组,到期时间,注册时间,注册IP,最后登录,状态,邀请码,邀请人ID\n";
         foreach ($users as $user) {
-            fputcsv($csvStream, [
+            $csv .= implode(',', [
                 $user['id'],
                 $user['email'],
                 $user['user_group'],
@@ -521,11 +493,8 @@ class AdminApiController {
                 $user['status'],
                 $user['invite_code'] ?? '',
                 $user['invited_by'] ?? ''
-            ]);
+            ]) . "\n";
         }
-        rewind($csvStream);
-        $csv = stream_get_contents($csvStream);
-        fclose($csvStream);
         
         Response::success(['csv' => $csv, 'filename' => 'users_' . date('Ymd_His') . '.csv']);
     }
@@ -534,7 +503,7 @@ class AdminApiController {
      * 导出卡密数据
      */
     public static function exportCards($input) {
-        RBAC::checkPermission(RBAC::PERMISSION_CARD_MANAGE);
+        self::checkAdminAuth();
         
         $db = Database::getInstance();
         
@@ -542,11 +511,10 @@ class AdminApiController {
             "SELECT id, card_key, card_type, status, created_at, used_at, used_by FROM card_keys ORDER BY id DESC"
         );
         
-        // 生成 CSV（使用 PHP 内置函数确保正确转义）
-        $csvStream = fopen('php://temp', 'r+');
-        fputcsv($csvStream, ['ID', '卡密', '类型', '状态', '创建时间', '使用时间', '使用者ID']);
+        // 生成 CSV
+        $csv = "ID,卡密,类型,状态,创建时间,使用时间,使用者ID\n";
         foreach ($cards as $card) {
-            fputcsv($csvStream, [
+            $csv .= implode(',', [
                 $card['id'],
                 $card['card_key'],
                 $card['card_type'],
@@ -554,11 +522,8 @@ class AdminApiController {
                 $card['created_at'],
                 $card['used_at'] ?? '',
                 $card['used_by'] ?? ''
-            ]);
+            ]) . "\n";
         }
-        rewind($csvStream);
-        $csv = stream_get_contents($csvStream);
-        fclose($csvStream);
         
         Response::success(['csv' => $csv, 'filename' => 'cards_' . date('Ymd_His') . '.csv']);
     }
@@ -567,7 +532,7 @@ class AdminApiController {
      * 获取公告列表
      */
     public static function getAnnouncements($input) {
-        RBAC::checkPermission(RBAC::PERMISSION_SETTING_MANAGE);
+        self::checkAdminAuth();
         
         $db = Database::getInstance();
         
@@ -579,10 +544,10 @@ class AdminApiController {
     }
     
     /**
-     * 创建或更新公告
+     * 创建/更新公告
      */
     public static function saveAnnouncement($input) {
-        RBAC::checkPermission(RBAC::PERMISSION_SETTING_MANAGE);
+        self::checkAdminAuth();
         
         $db = Database::getInstance();
         $adminData = JWTAuth::getPayloadFromRequest();
@@ -596,7 +561,7 @@ class AdminApiController {
         $startTime = $input['start_time'] ?? null;
         $endTime = $input['end_time'] ?? null;
         
-        // 将 ISO 日期格式转换为 MySQL 格式
+        // 转换 ISO 日期格式为 MySQL 格式
         if ($startTime) {
             $startTime = date('Y-m-d H:i:s', strtotime($startTime));
         }
@@ -606,12 +571,6 @@ class AdminApiController {
         
         if (empty($title) || empty($content)) {
             Response::error('标题和内容不能为空', 1001);
-        }
-        
-        // 验证公告类型
-        $validTypes = ['info', 'warning', 'success', 'error'];
-        if (!in_array($type, $validTypes)) {
-            $type = 'info';
         }
         
         $data = [
@@ -642,7 +601,7 @@ class AdminApiController {
      * 删除公告
      */
     public static function deleteAnnouncement($input) {
-        RBAC::checkPermission(RBAC::PERMISSION_SETTING_MANAGE);
+        self::checkAdminAuth();
         
         $id = (int)($input['id'] ?? 0);
         if ($id <= 0) {
@@ -661,7 +620,7 @@ class AdminApiController {
      * 切换用户状态
      */
     public static function toggleUserStatus($input) {
-        RBAC::checkPermission(RBAC::PERMISSION_USER_MANAGE);
+        self::checkAdminAuth();
         
         $userId = (int)($input['user_id'] ?? 0);
         if ($userId <= 0) {
@@ -670,7 +629,7 @@ class AdminApiController {
         
         $db = Database::getInstance();
         
-        $user = $db->fetch("SELECT status, email FROM users WHERE id = ?", [$userId]);
+        $user = $db->fetch("SELECT status FROM users WHERE id = ?", [$userId]);
         if (!$user) {
             Response::error('用户不存在', 2001);
         }
@@ -693,7 +652,7 @@ class AdminApiController {
      * 获取用户机器码绑定列表
      */
     public static function getUserMachines($input) {
-        RBAC::checkPermission(RBAC::PERMISSION_USER_MANAGE);
+        self::checkAdminAuth();
         
         $userId = (int)($input['user_id'] ?? 0);
         if ($userId <= 0) {
@@ -715,7 +674,7 @@ class AdminApiController {
      * 解绑用户机器码
      */
     public static function unbindUserMachine($input) {
-        RBAC::checkPermission(RBAC::PERMISSION_USER_MANAGE);
+        self::checkAdminAuth();
         
         $userId = (int)($input['user_id'] ?? 0);
         $machineCode = trim($input['machine_code'] ?? '');
@@ -748,7 +707,7 @@ class AdminApiController {
      * 为用户绑定机器码
      */
     public static function bindUserMachine($input) {
-        RBAC::checkPermission(RBAC::PERMISSION_USER_MANAGE);
+        self::checkAdminAuth();
         
         $userId = (int)($input['user_id'] ?? 0);
         $machineCode = trim($input['machine_code'] ?? '');
@@ -759,7 +718,7 @@ class AdminApiController {
         
         $db = Database::getInstance();
         
-        // 查询机器码是否已绑定到其他用户
+        // 检查机器码是否已绑定到其他用户
         $existing = $db->fetch(
             "SELECT user_id FROM machine_bindings WHERE machine_code = ? LIMIT 1",
             [$machineCode]
@@ -771,8 +730,7 @@ class AdminApiController {
         
         // 如果已经绑定到当前用户，则直接返回成功
         if ($existing && (int)$existing['user_id'] === $userId) {
-            Response::success(null, '已绑定');
-            return;
+            Response::success(null, '绑定成功');
         }
         
         $db->insert('machine_bindings', [
@@ -788,10 +746,10 @@ class AdminApiController {
     }
     
     /**
-     * 验证机器码归属关系
+     * 验证机器码归属
      */
     public static function verifyUserMachine($input) {
-        RBAC::checkPermission(RBAC::PERMISSION_USER_MANAGE);
+        self::checkAdminAuth();
         
         $userId = (int)($input['user_id'] ?? 0);
         $machineCode = trim($input['machine_code'] ?? '');
@@ -844,7 +802,7 @@ class AdminApiController {
      * 获取用户登录日志
      */
     public static function getUserLogs($input) {
-        RBAC::checkPermission(RBAC::PERMISSION_USER_MANAGE);
+        self::checkAdminAuth();
         
         $userId = (int)($input['user_id'] ?? 0);
         if ($userId <= 0) {
@@ -866,7 +824,7 @@ class AdminApiController {
      * 获取卡密列表
      */
     public static function getCards($input) {
-        RBAC::checkPermission(RBAC::PERMISSION_CARD_MANAGE);
+        self::checkAdminAuth();
         
         $db = Database::getInstance();
         
@@ -895,21 +853,16 @@ class AdminApiController {
         
         $total = $db->fetch("SELECT COUNT(*) as count FROM card_keys c WHERE {$where}", $params)['count'];
         
-        // 安全修复：使用参数化查询防止SQL注入
-        $offset = max(0, (int)$offset);
-        $pageSize = min(100, max(1, (int)$pageSize));
-        $limitParams = array_merge($params, [$pageSize, $offset]);
-        
         $cards = $db->fetchAll(
             "SELECT c.id, c.card_key, c.card_type, c.duration_days, c.status, c.created_at, c.used_at, c.used_by, c.product_code, c.remark,
                     u.email as used_by_email
              FROM card_keys c
              LEFT JOIN users u ON c.used_by = u.id
-             WHERE {$where} ORDER BY c.id DESC LIMIT ? OFFSET ?",
-            $limitParams
+             WHERE {$where} ORDER BY c.id DESC LIMIT {$offset}, {$pageSize}",
+            $params
         );
         
-        // 获取已激活用户的机器码
+        // 获取激活用户的机器码
         foreach ($cards as &$card) {
             if ($card['used_by']) {
                 $binding = $db->fetch(
@@ -934,19 +887,13 @@ class AdminApiController {
      * 生成卡密
      */
     public static function generateCards($input) {
-        $payload = RBAC::checkPermission(RBAC::PERMISSION_CARD_GENERATE);
+        $payload = self::checkAdminAuth();
         
         $productCode = $input['product_code'] ?? 'dubbing';
         $cardType = $input['card_type'] ?? 'monthly';
         $count = min(100, max(1, (int)($input['count'] ?? 1)));
         $durationDays = (int)($input['duration_days'] ?? 30);
         $remark = $input['remark'] ?? '';
-        
-        // 验证卡密类型
-        $validCardTypes = ['monthly', 'yearly', 'permanent'];
-        if (!in_array($cardType, $validCardTypes)) {
-            Response::error('无效的卡密类型', 1001);
-        }
         
         // 根据类型设置天数
         switch ($cardType) {
@@ -1009,7 +956,7 @@ class AdminApiController {
      * 禁用卡密
      */
     public static function disableCard($input) {
-        RBAC::checkPermission(RBAC::PERMISSION_CARD_DELETE);
+        self::checkAdminAuth();
         
         $cardId = (int)($input['card_id'] ?? 0);
         if ($cardId <= 0) {
@@ -1039,7 +986,7 @@ class AdminApiController {
      * 删除卡密
      */
     public static function deleteCard($input) {
-        RBAC::checkPermission(RBAC::PERMISSION_CARD_DELETE);
+        self::checkAdminAuth();
         
         $cardId = (int)($input['card_id'] ?? 0);
         if ($cardId <= 0) {
@@ -1053,9 +1000,9 @@ class AdminApiController {
             Response::error('卡密不存在', 3001);
         }
         
-        // 禁止删除已激活的卡密
+        // 禁止删除已激活的卡密（卡密-机器码-用户是一体的）
         if ($card['status'] === 'used') {
-            Response::error('已激活的卡密无法删除，先将关联用户设为免费会员', 3003);
+            Response::error('已激活的卡密无法删除，请先将关联用户设为免费会员', 3003);
         }
         
         $db->query("DELETE FROM card_keys WHERE id = ?", [$cardId]);
@@ -1070,7 +1017,7 @@ class AdminApiController {
      * 获取系统设置
      */
     public static function getSettings() {
-        RBAC::checkPermission(RBAC::PERMISSION_SETTING_MANAGE);
+        self::checkAdminAuth();
         
         $db = Database::getInstance();
         
@@ -1088,7 +1035,7 @@ class AdminApiController {
             $value = $setting['setting_value'];
             
             if (in_array($key, $sensitiveKeys, true)) {
-                // 标记该配置已设置，隐藏实际值
+                // 只返回是否已配置，具体值不回传
                 $result[$key] = !empty($value) ? '******' : '';
             } else {
                 $result[$key] = $value;
@@ -1102,7 +1049,7 @@ class AdminApiController {
      * 更新系统设置
      */
     public static function updateSettings($input) {
-        RBAC::checkPermission(RBAC::PERMISSION_SETTING_MANAGE);
+        self::checkAdminAuth();
         
         $db = Database::getInstance();
         
@@ -1116,10 +1063,9 @@ class AdminApiController {
             'invite_enabled', 'invite_rules',
             'commission_enabled', 'commission_threshold', 'commission_min_level', 
             'commission_rate', 'commission_min_withdraw',
-            'disclaimer', 'user_agreement', 'privacy_policy', 'support_qrcode_url',
+            'user_agreement', 'privacy_policy', 'support_qrcode_url',
             'group_join_url', 'tutorial_url', 'donate_url',
             'card_price_monthly', 'card_price_yearly', 'card_price_permanent',
-            'comic_card_price_monthly', 'comic_card_price_yearly', 'comic_card_price_permanent',
             'purchase_url', 'purchase_qrcode_url',
             'dashscope_api_key'
         ];
@@ -1148,7 +1094,7 @@ class AdminApiController {
      * 更新管理员信息
      */
     public static function updateAdmin($input) {
-        $payload = RBAC::checkPermission(RBAC::PERMISSION_ADMIN_MANAGE);
+        $payload = self::checkAdminAuth();
         
         $db = Database::getInstance();
         
@@ -1173,11 +1119,12 @@ class AdminApiController {
         
         Response::success(null, '更新成功');
     }
+    
     /**
      * 测试邮件发送
      */
     public static function testMail($input) {
-        RBAC::checkPermission(RBAC::PERMISSION_SETTING_MANAGE);
+        self::checkAdminAuth();
         
         $to = $input['to'] ?? '';
         
@@ -1206,11 +1153,11 @@ class AdminApiController {
 </head>
 <body>
     <div class="container">
-        <div class="logo">丸子配音</div>
+        <div class="logo">🎙️ 丸子配音</div>
         <div class="title">邮件配置测试</div>
-        <div class="success">OK</div>
+        <div class="success">✓</div>
         <div class="content">
-            <p>恭喜，您的邮件配置正确。</p>
+            <p>恭喜！您的邮件配置正确。</p>
             <p>此邮件由丸子配音管理后台发送。</p>
         </div>
         <div class="footer">
@@ -1224,15 +1171,15 @@ class AdminApiController {
         if ($result) {
             Response::success(null, '测试邮件发送成功');
         } else {
-            Response::error('邮件发送失败，请检查 SMTP 配置', 5002);
+            Response::error('邮件发送失败，请检查SMTP配置', 5002);
         }
     }
 
     /**
-     * 获取提现申列表
+     * 获取提现申请列表
      */
     public static function getWithdrawals($input) {
-        RBAC::checkPermission(RBAC::PERMISSION_WITHDRAWAL_MANAGE);
+        self::checkAdminAuth();
 
         $db = Database::getInstance();
         $page = max(1, (int)($input['page'] ?? 1));
@@ -1261,7 +1208,7 @@ class AdminApiController {
 
         $withdrawals = $db->fetchAll($sql, $params);
 
-        // 获取统计信息
+        // 获取统计
         $pendingStats = $db->fetch("SELECT COUNT(*) as count, COALESCE(SUM(amount), 0) as total FROM withdrawals WHERE status = 'pending'");
         $completedStats = $db->fetch("SELECT COUNT(*) as count, COALESCE(SUM(amount), 0) as total FROM withdrawals WHERE status = 'completed'");
 
@@ -1287,7 +1234,7 @@ class AdminApiController {
      * 处理提现申请
      */
     public static function processWithdrawal($input) {
-        RBAC::checkPermission(RBAC::PERMISSION_WITHDRAWAL_MANAGE);
+        self::checkAdminAuth();
 
         $withdrawalId = (int)($input['id'] ?? 0);
         $action = $input['action'] ?? '';
@@ -1303,27 +1250,21 @@ class AdminApiController {
 
         $db = Database::getInstance();
 
-        if ($action === 'reject' && empty($reason)) {
-            Response::error('请填写拒绝原因', 1001);
+        $withdrawal = $db->fetch("SELECT * FROM withdrawals WHERE id = ?", [$withdrawalId]);
+        if (!$withdrawal) {
+            Response::error('提现申请不存在', 3001);
         }
 
-        // 开始事务（状态检查和更新必须在同一事务内，防止并发重复处理）
-        $db->beginTransaction();
-        
-        try {
-            // 加锁查询提现记录
-            $withdrawal = $db->fetch("SELECT * FROM withdrawals WHERE id = ? FOR UPDATE", [$withdrawalId]);
-            if (!$withdrawal) {
-                $db->rollback();
-                Response::error('提现申请不存在', 3001);
-            }
+        if ($withdrawal['status'] !== 'pending') {
+            Response::error('该申请已处理', 3002);
+        }
 
-            if ($withdrawal['status'] !== 'pending') {
-                $db->rollback();
-                Response::error('该申请已处理', 3002);
-            }
-
-            if ($action === 'approve') {
+        if ($action === 'approve') {
+            // 开始事务
+            $pdo = $db->getConnection();
+            $pdo->beginTransaction();
+            
+            try {
                 $db->update('withdrawals', [
                     'status' => 'completed',
                     'processed_at' => date('Y-m-d H:i:s')
@@ -1335,7 +1276,7 @@ class AdminApiController {
                     [$withdrawalId]
                 );
                 
-                $db->commit();
+                $pdo->commit();
                 
                 // 记录操作日志
                 self::logOperation('审批提现', 'withdrawal', $withdrawalId, ['action' => 'approve', 'amount' => $withdrawal['amount']]);
@@ -1344,32 +1285,45 @@ class AdminApiController {
                 self::notifyWithdrawalProcessed($withdrawal['user_id'], 'approved', $withdrawal['amount']);
                 
                 Response::success(null, '已完成打款');
-            } else {
+            } catch (Exception $e) {
+                $pdo->rollBack();
+                Response::error('处理失败，请重试', 5001);
+            }
+        } else {
+            if (empty($reason)) {
+                Response::error('请填写拒绝原因', 1001);
+            }
+            
+            // 开始事务
+            $pdo = $db->getConnection();
+            $pdo->beginTransaction();
+            
+            try {
                 $db->update('withdrawals', [
                     'status' => 'rejected',
                     'reject_reason' => $reason,
                     'processed_at' => date('Y-m-d H:i:s')
                 ], 'id = ?', [$withdrawalId]);
                 
-                // 退还被冻结的佣金（状态改回 available）
+                // 返还冻结的佣金（状态改回 available）
                 $db->query(
                     "UPDATE commissions SET status = 'available', withdrawal_id = NULL WHERE withdrawal_id = ? AND status = 'frozen'",
                     [$withdrawalId]
                 );
                 
-                $db->commit();
+                $pdo->commit();
                 
                 // 记录操作日志
                 self::logOperation('拒绝提现', 'withdrawal', $withdrawalId, ['action' => 'reject', 'reason' => $reason]);
                 
-                // 通知用户提现已被拒绝
+                // 通知用户提现被拒绝
                 self::notifyWithdrawalProcessed($withdrawal['user_id'], 'rejected', $withdrawal['amount'], $reason);
                 
-                Response::success(null, '已拒绝申请，佣金已返还');
+                Response::success(null, '已拒绝该申请，佣金已返还');
+            } catch (Exception $e) {
+                $pdo->rollBack();
+                Response::error('处理失败，请重试', 5001);
             }
-        } catch (Exception $e) {
-            $db->rollback();
-            Response::error('处理失败，重试', 5001);
         }
     }
     
@@ -1377,7 +1331,7 @@ class AdminApiController {
      * 获取版本历史
      */
     public static function getVersionHistory($input) {
-        RBAC::checkPermission(RBAC::PERMISSION_VERSION_MANAGE);
+        self::checkAdminAuth();
         
         $db = Database::getInstance();
         $productCode = $input['product_code'] ?? 'dubbing';
@@ -1394,7 +1348,7 @@ class AdminApiController {
      * 发布新版本
      */
     public static function publishVersion($input) {
-        $payload = RBAC::checkPermission(RBAC::PERMISSION_VERSION_MANAGE);
+        $payload = self::checkAdminAuth();
         
         $version = trim($input['version'] ?? '');
         $forceUpdate = isset($input['force_update']) ? ($input['force_update'] ? 1 : 0) : 0;
@@ -1409,7 +1363,7 @@ class AdminApiController {
         
         $db = Database::getInstance();
         
-        // 写入版本历史
+        // 插入版本历史
         $db->insert('version_history', [
             'product_code' => $productCode,
             'version' => $version,
@@ -1420,7 +1374,7 @@ class AdminApiController {
             'published_by' => $payload['admin_id'] ?? 0
         ]);
         
-        // 更新系统设置中的当前版本（不同产品使用不同的 key）
+        // 更新系统设置中的当前版本（根据产品使用不同的key）
         $versionKey = $productCode === 'comic' ? 'comic_current_version' : 'dubbing_current_version';
         $db->query(
             "INSERT INTO system_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = ?",
@@ -1449,14 +1403,14 @@ class AdminApiController {
         // 广播版本更新通知
         self::notifyConfigUpdated('version');
         
-        Response::success(null, '发布成功');
+        Response::success(null, '版本发布成功');
     }
     
     /**
      * 数据库备份
      */
     public static function backupDatabase($input) {
-        RBAC::checkPermission(RBAC::PERMISSION_BACKUP_MANAGE);
+        self::checkAdminAuth();
         
         // 生成备份文件名
         $filename = 'backup_' . date('Ymd_His') . '.sql';
@@ -1464,16 +1418,8 @@ class AdminApiController {
         
         // 执行备份命令
         $dbConfig = require __DIR__ . '/../config/database.php';
-        
-        // 验证数据库配置
-        if (empty($dbConfig['host']) || empty($dbConfig['username']) || empty($dbConfig['database'])) {
-            Response::error('数据库配置不完整', 5001);
-        }
-        
-        // 使用更安全的方式执行备份命令
-        // 注意：使用 --password= 格式而非 -p，因为 -p 后紧跟 escapeshellarg 会导致引号成为密码的一部分
         $cmd = sprintf(
-            'mysqldump -h %s -u %s --password=%s %s > %s 2>&1',
+            'mysqldump -h%s -u%s -p%s %s > %s 2>&1',
             escapeshellarg($dbConfig['host']),
             escapeshellarg($dbConfig['username']),
             escapeshellarg($dbConfig['password']),
@@ -1482,53 +1428,33 @@ class AdminApiController {
         );
         
         // 确保备份目录存在
-        $backupDir = '/www/wwwroot/MaruAudio/backups';
-        if (!is_dir($backupDir)) {
-            if (!mkdir($backupDir, 0755, true)) {
-                Response::error('无法创建备份目录', 5001);
-            }
+        if (!is_dir('/www/wwwroot/MaruAudio/backups')) {
+            mkdir('/www/wwwroot/MaruAudio/backups', 0755, true);
         }
         
-        // 验证备份目录可写
-        if (!is_writable($backupDir)) {
-            Response::error('备份目录不可写', 5001);
-        }
-        
-        // 执行备份命令
-        $output = [];
-        $returnCode = 0;
         exec($cmd, $output, $returnCode);
         
-        // 检查命令执行结果
-        if ($returnCode !== 0) {
-            $errorMsg = implode("\n", $output);
-            error_log("数据库备份失败: " . $errorMsg);
-            Response::error('备份失败: 命令执行错误', 5001);
+        if ($returnCode === 0 && file_exists($backupPath)) {
+            $fileSize = filesize($backupPath);
+            
+            // 记录操作日志
+            self::logOperation('数据库备份', 'backup', null, ['filename' => $filename, 'size' => $fileSize]);
+            
+            Response::success([
+                'filename' => $filename,
+                'size' => $fileSize,
+                'path' => $backupPath
+            ], '备份成功');
+        } else {
+            Response::error('备份失败', 5001);
         }
-        
-        if (!file_exists($backupPath)) {
-            Response::error('备份失败: 备份文件未生成', 5001);
-        }
-        
-        $fileSize = filesize($backupPath);
-        if ($fileSize === false || $fileSize === 0) {
-            Response::error('备份失败: 备份文件为空', 5001);
-        }
-        
-        // 记录操作日志
-        self::logOperation('数据库备份', 'backup', null, ['filename' => $filename, 'size' => $fileSize]);
-        
-        Response::success([
-            'filename' => $filename,
-            'size' => $fileSize
-        ], '备份成功');
     }
     
     /**
      * 获取备份列表
      */
     public static function getBackupList($input) {
-        RBAC::checkPermission(RBAC::PERMISSION_BACKUP_MANAGE);
+        self::checkAdminAuth();
         
         $backupDir = '/www/wwwroot/MaruAudio/backups/';
         $backups = [];
@@ -1547,7 +1473,7 @@ class AdminApiController {
             }
         }
         
-        // 按时间序
+        // 按时间倒序
         usort($backups, function($a, $b) {
             return strtotime($b['created_at']) - strtotime($a['created_at']);
         });
@@ -1559,13 +1485,13 @@ class AdminApiController {
      * 清理过期日志
      */
     public static function cleanupLogs($input) {
-        RBAC::checkPermission(RBAC::PERMISSION_LOG_CLEANUP);
+        self::checkAdminAuth();
         
         $db = Database::getInstance();
         $days = (int)($input['days'] ?? 30);
         
         if ($days < 7) {
-            Response::error('保留天数不能少于 7 天', 1001);
+            Response::error('保留天数不能少于7天', 1001);
         }
         
         $cutoffDate = date('Y-m-d H:i:s', strtotime("-{$days} days"));
@@ -1599,34 +1525,28 @@ class AdminApiController {
      * 上传文件
      */
     public static function upload() {
-        RBAC::checkPermission(RBAC::PERMISSION_SETTING_MANAGE);
+        self::checkAdminAuth();
         
         if (!isset($_FILES['file']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
             Response::error('文件上传失败', 1001);
         }
         
         $file = $_FILES['file'];
-        $type = preg_replace('/[^a-zA-Z0-9_-]/', '', $_POST['type'] ?? 'default');
+        $type = $_POST['type'] ?? 'default';
+        
+        // 验证文件类型
+        $allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+        if (!in_array($file['type'], $allowedTypes)) {
+            Response::error('只支持 JPG、PNG、GIF、WEBP 格式', 1002);
+        }
         
         // 验证文件大小 (2MB)
         if ($file['size'] > 2 * 1024 * 1024) {
             Response::error('文件大小不能超过 2MB', 1003);
         }
         
-        // 验证文件扩展名
-        $allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
-        $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-        if (!in_array($ext, $allowedExtensions)) {
-            Response::error('只支持 JPG、PNG、GIF、WEBP 格式', 1002);
-        }
-        
-        // 使用 finfo 验证实际文件内容类型（防止MIME伪造）
-        $allowedMimeTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-        $finfo = new finfo(FILEINFO_MIME_TYPE);
-        $realMime = $finfo->file($file['tmp_name']);
-        if (!in_array($realMime, $allowedMimeTypes)) {
-            Response::error('文件内容类型不合法', 1002);
-        }
+        // 生成文件名
+        $ext = pathinfo($file['name'], PATHINFO_EXTENSION);
         $filename = $type . '_' . date('YmdHis') . '_' . uniqid() . '.' . $ext;
         
         // 上传目录 - 使用 api/uploads 目录
@@ -1641,22 +1561,9 @@ class AdminApiController {
             Response::error('文件保存失败', 1004);
         }
         
-        // 返回文件 URL（从数据库配置或请求头动态获取域名，避免硬编码IP）
-        $db = Database::getInstance();
-        $apiDomain = '';
-        try {
-            $domainSetting = $db->fetch("SELECT setting_value FROM system_settings WHERE setting_key = 'api_domain'");
-            if ($domainSetting && !empty($domainSetting['setting_value'])) {
-                $apiDomain = rtrim($domainSetting['setting_value'], '/');
-            }
-        } catch (Exception $e) {}
-        
-        if (empty($apiDomain)) {
-            $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-            $host = $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? 'localhost';
-            $apiDomain = $scheme . '://' . $host;
-        }
-        $url = $apiDomain . '/api/uploads/' . $filename;
+        // 返回文件 URL
+        $baseUrl = 'https://175.178.131.67/api/uploads/';
+        $url = $baseUrl . $filename;
         
         // 记录操作日志
         self::logOperation('上传文件', 'file', null, [
@@ -1684,15 +1591,9 @@ class AdminApiController {
                 return;
             }
             
-            // 计算 is_vip 和 is_trial（需检查过期时间）
+            // 计算 is_vip 和 is_trial
+            $isVip = in_array($user['user_group'], ['monthly', 'yearly', 'permanent', 'trial']);
             $isTrial = $user['user_group'] === 'trial';
-            if ($user['user_group'] === 'permanent') {
-                $isVip = true;
-            } elseif (in_array($user['user_group'], ['monthly', 'yearly', 'trial'])) {
-                $isVip = empty($user['expire_time']) || strtotime($user['expire_time']) > time();
-            } else {
-                $isVip = false;
-            }
             
             // 通过 WebSocket 推送用户信息更新
             require_once __DIR__ . '/../../websocket/src/PushService.php';
@@ -1719,19 +1620,19 @@ class AdminApiController {
     }
     
     /**
-     * 解析日期时间字串为 MySQL 格式
+     * 解析日期时间字符串为 MySQL 格式
      */
     private static function parseDateTime($dateTime) {
         if (empty($dateTime)) {
             return null;
         }
         
-        // 如果已经是 MySQL 标准格式，直接返回
+        // 如果已经是正确的 MySQL 格式，直接返回
         if (preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $dateTime)) {
             return $dateTime;
         }
         
-        // 如果只有日期部分，则补全时间为 00:00:00
+        // 如果只有日期部分，补全时间
         if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateTime)) {
             return $dateTime . ' 00:00:00';
         }
@@ -1742,13 +1643,13 @@ class AdminApiController {
         // 移除毫秒部分 (.000, .000000 等)
         $cleanTime = preg_replace('/\.\d+/', '', $cleanTime);
         
-        // 移除 Z 后缀（UTC 时区标识）
+        // 移除Z后缀（UTC时区标识）
         $cleanTime = rtrim($cleanTime, 'Z');
         
-        // 替换 T 为空格
+        // 替换T为空格
         $cleanTime = str_replace('T', ' ', $cleanTime);
         
-        // 验证处理后的格式
+        // 验证转换后的格式
         if (preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $cleanTime)) {
             return $cleanTime;
         }
@@ -1759,7 +1660,7 @@ class AdminApiController {
             return date('Y-m-d H:i:s', $timestamp);
         }
         
-        // 尝试原格式
+        // 尝试原始格式
         $timestamp = strtotime($dateTime);
         if ($timestamp !== false) {
             return date('Y-m-d H:i:s', $timestamp);
@@ -1807,7 +1708,7 @@ class AdminApiController {
     }
     
     /**
-     * 通知用户字符余额已更新
+     * 通知用户余额已更新
      */
     private static function notifyBalanceUpdated($userId, $newBalance) {
         try {
@@ -1827,8 +1728,6 @@ class AdminApiController {
      * 测试 DashScope API Key
      */
     public static function testDashScopeApi($input) {
-        RBAC::checkPermission(RBAC::PERMISSION_SETTING_MANAGE);
-
         $apiKey = $input['api_key'] ?? '';
         
         if (empty($apiKey)) {
@@ -1853,6 +1752,7 @@ class AdminApiController {
         curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
         curl_setopt($ch, CURLOPT_HTTPHEADER, [
             'Authorization: Bearer ' . $apiKey,
             'Content-Type: application/json'
@@ -1881,10 +1781,10 @@ class AdminApiController {
     }
     
     /**
-     * 获取字包激活码列表
+     * 获取字符包激活码列表
      */
     public static function getCharacterPackCodes($input) {
-        RBAC::checkPermission(RBAC::PERMISSION_CHARACTER_PACK_MANAGE);
+        self::checkAdminAuth();
         
         $db = Database::getInstance();
         $page = max(1, intval($input['page'] ?? 1));
@@ -1941,10 +1841,10 @@ class AdminApiController {
     }
     
     /**
-     * 生成字包激活码
+     * 生成字符包激活码
      */
     public static function generateCharacterPackCodes($input) {
-        $adminData = RBAC::checkPermission(RBAC::PERMISSION_CHARACTER_PACK_MANAGE);
+        $adminData = self::checkAdminAuth();
         
         $packType = $input['pack_type'] ?? '';
         $count = max(1, min(100, intval($input['count'] ?? 1)));
@@ -1966,10 +1866,10 @@ class AdminApiController {
             Response::error('套餐配置不存在', 3002);
         }
         
-        // 生成批次 ID
+        // 生成批次ID
         $batchId = 'CP' . date('YmdHis') . rand(1000, 9999);
         
-        // 生成活码
+        // 生成激活码
         $codes = [];
         for ($i = 0; $i < $count; $i++) {
             $code = self::generateUniqueCode();
@@ -1988,7 +1888,7 @@ class AdminApiController {
             $codes[] = $code;
         }
         
-        self::logOperation('生成字包激活码', 'character_pack_codes', $batchId, [
+        self::logOperation('生成字符包激活码', 'character_pack_codes', $batchId, [
             'pack_type' => $packType,
             'count' => $count,
             'characters' => $config['characters']
@@ -2005,7 +1905,7 @@ class AdminApiController {
     }
     
     /**
-     * 生成随机激活码
+     * 生成唯一激活码
      */
     private static function generateUniqueCode() {
         $chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -2020,10 +1920,10 @@ class AdminApiController {
     }
     
     /**
-     * 禁用字包激活码
+     * 禁用字符包激活码
      */
     public static function disableCharacterPackCode($input) {
-        RBAC::checkPermission(RBAC::PERMISSION_CHARACTER_PACK_MANAGE);
+        self::checkAdminAuth();
         
         $codeId = intval($input['id'] ?? 0);
         
@@ -2050,7 +1950,7 @@ class AdminApiController {
             'status' => 'disabled'
         ], 'id = ?', [$codeId]);
         
-        self::logOperation('禁用字包激活码', 'character_pack_codes', $codeId, [
+        self::logOperation('禁用字符包激活码', 'character_pack_codes', $codeId, [
             'code' => $code['code']
         ]);
         
@@ -2058,10 +1958,10 @@ class AdminApiController {
     }
     
     /**
-     * 删除字包激活码
+     * 删除字符包激活码
      */
     public static function deleteCharacterPackCode($input) {
-        RBAC::checkPermission(RBAC::PERMISSION_CHARACTER_PACK_MANAGE);
+        self::checkAdminAuth();
         
         $codeId = intval($input['id'] ?? 0);
         
@@ -2086,7 +1986,7 @@ class AdminApiController {
         
         $db->query("DELETE FROM character_pack_codes WHERE id = ?", [$codeId]);
         
-        self::logOperation('删除字包激活码', 'character_pack_codes', $codeId, [
+        self::logOperation('删除字符包激活码', 'character_pack_codes', $codeId, [
             'code' => $code['code'],
             'pack_type' => $code['pack_type']
         ]);
@@ -2095,10 +1995,10 @@ class AdminApiController {
     }
     
     /**
-     * 获取用户字余列表
+     * 获取用户字符余额列表
      */
     public static function getCharacterPackUsers($input) {
-        RBAC::checkPermission(RBAC::PERMISSION_CHARACTER_PACK_MANAGE);
+        self::checkAdminAuth();
         
         $db = Database::getInstance();
         $page = max(1, intval($input['page'] ?? 1));
@@ -2150,7 +2050,7 @@ class AdminApiController {
      * 调整用户字符余额
      */
     public static function adjustUserCharacterBalance($input) {
-        $adminData = RBAC::checkPermission(RBAC::PERMISSION_CHARACTER_PACK_MANAGE);
+        $adminData = self::checkAdminAuth();
         
         $userId = intval($input['user_id'] ?? 0);
         $adjustment = intval($input['adjustment'] ?? 0);
@@ -2161,7 +2061,7 @@ class AdminApiController {
         }
         
         if ($adjustment === 0) {
-            Response::error('调整数量不能为 0', 3002);
+            Response::error('调整数量不能为0', 3002);
         }
         
         $db = Database::getInstance();
@@ -2175,8 +2075,8 @@ class AdminApiController {
         $db->beginTransaction();
         
         try {
-                // 获取或创建用户字符余额记录
-                $balance = $db->fetch(
+            // 获取或创建余额记录
+            $balance = $db->fetch(
                 "SELECT * FROM user_character_balance WHERE user_id = ? FOR UPDATE",
                 [$userId]
             );
@@ -2244,15 +2144,7 @@ class AdminApiController {
             
         } catch (Exception $e) {
             $db->rollback();
-            // 记录详细错误到日志
-            require_once __DIR__ . '/../lib/Logger.php';
-            Logger::error('调整用户字符余额失败', [
-                'user_id' => $userId,
-                'adjustment' => $adjustment,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
-            Response::error('调整失败，请稍后重试', 5001);
+            Response::error('调整失败：' . $e->getMessage(), 5001);
         }
     }
     
@@ -2260,7 +2152,7 @@ class AdminApiController {
      * 获取字符包统计数据
      */
     public static function getCharacterPackStats() {
-        RBAC::checkPermission(RBAC::PERMISSION_CHARACTER_PACK_MANAGE);
+        self::checkAdminAuth();
         
         $db = Database::getInstance();
         
@@ -2274,7 +2166,7 @@ class AdminApiController {
              FROM character_pack_codes"
         );
         
-        // 用户字符余额统计
+        // 用户余额统计
         $balanceStats = $db->fetch(
             "SELECT 
                 COUNT(*) as total_users,
@@ -2331,7 +2223,7 @@ class AdminApiController {
      * 获取字符包套餐配置
      */
     public static function getCharacterPackPackages() {
-        RBAC::checkPermission(RBAC::PERMISSION_CHARACTER_PACK_MANAGE);
+        self::checkAdminAuth();
         
         $db = Database::getInstance();
         
@@ -2348,7 +2240,7 @@ class AdminApiController {
      * 更新字符包套餐配置
      */
     public static function updateCharacterPackPackages($input) {
-        RBAC::checkPermission(RBAC::PERMISSION_CHARACTER_PACK_MANAGE);
+        self::checkAdminAuth();
         
         $packages = $input['packages'] ?? [];
         

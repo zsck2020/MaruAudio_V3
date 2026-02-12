@@ -87,12 +87,6 @@ class Mailer {
      * 发送邮件
      */
     public static function send($to, $subject, $body) {
-        // 防御性检查：拒绝包含 CRLF 的收件地址（防止 SMTP 命令注入）
-        if (!filter_var($to, FILTER_VALIDATE_EMAIL) || preg_match('/[\r\n]/', $to)) {
-            error_log("Mailer::send() 拒绝无效收件地址: " . substr($to, 0, 50));
-            return false;
-        }
-        
         $config = self::getConfig();
         
         $host = $config['smtp_host'];
@@ -237,10 +231,8 @@ HTML;
      */
     private static function getAdminLoginNotifyTemplate($username, $ip, $userAgent) {
         $time = date('Y-m-d H:i:s');
-        $browser = htmlspecialchars(self::parseBrowser($userAgent), ENT_QUOTES, 'UTF-8');
-        $location = htmlspecialchars(self::getIpLocation($ip), ENT_QUOTES, 'UTF-8');
-        $username = htmlspecialchars($username, ENT_QUOTES, 'UTF-8');
-        $ip = htmlspecialchars($ip, ENT_QUOTES, 'UTF-8');
+        $browser = self::parseBrowser($userAgent);
+        $location = self::getIpLocation($ip);
         
         return <<<HTML
 <!DOCTYPE html>

@@ -18,26 +18,6 @@ class AdminController {
         $db = Database::getInstance();
         $ip = $_SERVER['REMOTE_ADDR'] ?? '';
         $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? '';
-
-        // 获取登录失败锁定设置（复用用户登录逻辑的配置）
-        $failLimitSetting = $db->fetch("SELECT setting_value FROM system_settings WHERE setting_key = 'login_fail_limit'");
-        $lockDurationSetting = $db->fetch("SELECT setting_value FROM system_settings WHERE setting_key = 'login_lock_duration'");
-        $loginFailLimit = $failLimitSetting ? (int)$failLimitSetting['setting_value'] : 5;
-        $loginLockDuration = $lockDurationSetting ? (int)$lockDurationSetting['setting_value'] : 30;
-
-        // 检查是否被锁定（基于 IP 或用户名）
-        $lockCheckTime = date('Y-m-d H:i:s', time() - $loginLockDuration * 60);
-        $recentFailures = $db->fetch(
-            "SELECT COUNT(*) AS count FROM admin_login_logs
-             WHERE (username = ? OR login_ip = ?)
-             AND login_result = 'failed'
-             AND login_time > ?",
-            [$username, $ip, $lockCheckTime]
-        );
-
-        if ($recentFailures && (int)$recentFailures['count'] >= $loginFailLimit) {
-            Response::error("登录失败次数过多，请 {$loginLockDuration} 分钟后再试", 4002);
-        }
         
         // 查找管理员
         $admin = $db->fetch("SELECT * FROM admins WHERE username = ?", [$username]);
@@ -61,7 +41,7 @@ class AdminController {
             $logData['login_result'] = 'failed';
             $logData['fail_reason'] = '账号已禁用';
             $db->insert('admin_login_logs', $logData);
-            Response::error('账号已禁用', 2003);
+            Response::error('账号已被禁用', 2003);
         }
         
         if (!password_verify($password, $admin['password_hash'])) {
@@ -91,7 +71,7 @@ class AdminController {
             'type' => 'admin'
         ]);
         
-        // 异发登录提醒邮件（不阻塞登录流程）
+        // 异步发送登录提醒邮件（不阻塞登录流程）
         require_once __DIR__ . '/../lib/Mailer.php';
         Mailer::sendAdminLoginNotify($admin['email'], $admin['username'], $ip, $userAgent);
         
@@ -105,9 +85,9 @@ class AdminController {
     }
     
     /**
-     * 管理员验证接口（已弃用）
+     * 管理员登录验证码校验（已弃用，保留兼容）
      */
     public static function verify($input) {
-        Response::error('此接口已弃用，使用新的登录接口', 4001);
+        Response::error('此接口已弃用，请使用新的登录接口', 4001);
     }
 }

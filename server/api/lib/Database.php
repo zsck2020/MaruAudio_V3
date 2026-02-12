@@ -1,15 +1,12 @@
 <?php
 /**
  * 数据库连接类
- * 支持 Redis 缓存和性能监控
  */
 class Database {
     private static $instance = null;
     private $pdo;
-    private $cache = null;
     private static $queryCache = [];
     private static $cacheEnabled = true;
-    private static $queryTimes = [];
     
     private function __construct() {
         $config = require __DIR__ . '/../config/database.php';
@@ -23,10 +20,6 @@ class Database {
         ];
         
         $this->pdo = new PDO($dsn, $config['username'], $config['password'], $options);
-        
-        // 初始化缓存
-        require_once __DIR__ . '/Cache.php';
-        $this->cache = Cache::getInstance();
     }
     
     public static function getInstance() {
@@ -41,82 +34,32 @@ class Database {
     }
     
     public function query($sql, $params = []) {
-        $startTime = microtime(true);
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute($params);
-        $queryTime = microtime(true) - $startTime;
-        
-        // 记录查询时间（用于性能监控）
-        self::$queryTimes[] = [
-            'sql' => $sql,
-            'time' => $queryTime,
-            'params' => $params
-        ];
-        
-        // 记录慢查询（超过 1 秒）
-        if ($queryTime > 1.0) {
-            require_once __DIR__ . '/Logger.php';
-            Logger::warning('Slow query detected', [
-                'sql' => $sql,
-                'time' => $queryTime,
-                'params' => $params
-            ]);
-        }
-        
         return $stmt;
     }
     
-    public function fetch($sql, $params = [], $useCache = false, $cacheTtl = 3600) {
+    public function fetch($sql, $params = [], $useCache = false) {
         if ($useCache && self::$cacheEnabled) {
-            $cacheKey = 'db_query:' . md5($sql . serialize($params));
-            
-            // 尝试从 Redis/文件缓存获取
-            $cached = $this->cache->get($cacheKey);
-            if ($cached !== null) {
-                return $cached;
+            $cacheKey = md5($sql . serialize($params));
+            if (isset(self::$queryCache[$cacheKey])) {
+                return self::$queryCache[$cacheKey];
             }
-            
-            // 尝试从内存缓存获取
-            $memoryKey = md5($sql . serialize($params));
-            if (isset(self::$queryCache[$memoryKey])) {
-                return self::$queryCache[$memoryKey];
-            }
-            
-            // 执行查询
             $result = $this->query($sql, $params)->fetch();
-            
-            // 存储到缓存
-            $this->cache->set($cacheKey, $result, $cacheTtl);
-            self::$queryCache[$memoryKey] = $result;
-            
+            self::$queryCache[$cacheKey] = $result;
             return $result;
         }
         return $this->query($sql, $params)->fetch();
     }
     
-    public function fetchAll($sql, $params = [], $useCache = false, $cacheTtl = 3600) {
+    public function fetchAll($sql, $params = [], $useCache = false) {
         if ($useCache && self::$cacheEnabled) {
-            $cacheKey = 'db_query:' . md5($sql . serialize($params));
-            
-            // 尝试从 Redis/文件缓存获取
-            $cached = $this->cache->get($cacheKey);
-            if ($cached !== null) {
-                return $cached;
+            $cacheKey = md5($sql . serialize($params));
+            if (isset(self::$queryCache[$cacheKey])) {
+                return self::$queryCache[$cacheKey];
             }
-            
-            // 尝试从内存缓存获取
-            $memoryKey = md5($sql . serialize($params));
-            if (isset(self::$queryCache[$memoryKey])) {
-                return self::$queryCache[$memoryKey];
-            }
-            
-            // 执行查询
             $result = $this->query($sql, $params)->fetchAll();
-            
-            // 存储到缓存
-            $this->cache->set($cacheKey, $result, $cacheTtl);
-            self::$queryCache[$memoryKey] = $result;
-            
+            self::$queryCache[$cacheKey] = $result;
             return $result;
         }
         return $this->query($sql, $params)->fetchAll();
@@ -124,92 +67,23 @@ class Database {
     
     public static function clearCache() {
         self::$queryCache = [];
-        if (self::$instance && self::$instance->cache) {
-            self::$instance->cache->clear();
-        }
-    }
-    
-    /**
-     * 获取查询性能统计
-     */
-    public static function getQueryStats() {
-        $totalQueries = count(self::$queryTimes);
-        $totalTime = array_sum(array_column(self::$queryTimes, 'time'));
-        $avgTime = $totalQueries > 0 ? $totalTime / $totalQueries : 0;
-        $slowQueries = array_filter(self::$queryTimes, function($q) {
-            return $q['time'] > 1.0;
-        });
-        
-        return [
-            'total_queries' => $totalQueries,
-            'total_time' => $totalTime,
-            'avg_time' => $avgTime,
-            'slow_queries' => count($slowQueries),
-            'queries' => self::$queryTimes
-        ];
-    }
-    
-    /**
-     * 重置查询统计
-     */
-    public static function resetQueryStats() {
-        self::$queryTimes = [];
-    }
-    
-    /**
-     * 验证表名和列名是否安全（只允许字母、数字、下划线）
-     */
-    private function validateIdentifier($identifier) {
-        return preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*$/', $identifier);
     }
     
     public function insert($table, $data) {
-        // 验证表名
-        if (!$this->validateIdentifier($table)) {
-            throw new Exception("Invalid table name: {$table}");
-        }
+        $columns = implode(', ', array_keys($data));
+        $placeholders = implode(', ', array_fill(0, count($data), '?'));
         
-        // 验证列名
-        $columns = [];
-        $values = [];
-        foreach ($data as $key => $value) {
-            if (!$this->validateIdentifier($key)) {
-                throw new Exception("Invalid column name: {$key}");
-            }
-            $columns[] = $key;
-            $values[] = $value;
-        }
-        
-        $columnsStr = '`' . implode('`, `', $columns) . '`';
-        $placeholders = implode(', ', array_fill(0, count($columns), '?'));
-        
-        $sql = "INSERT INTO `{$table}` ({$columnsStr}) VALUES ({$placeholders})";
-        $this->query($sql, $values);
+        $sql = "INSERT INTO {$table} ({$columns}) VALUES ({$placeholders})";
+        $this->query($sql, array_values($data));
         
         return $this->pdo->lastInsertId();
     }
     
     public function update($table, $data, $where, $whereParams = []) {
-        // 验证表名
-        if (!$this->validateIdentifier($table)) {
-            throw new Exception("Invalid table name: {$table}");
-        }
+        $set = implode(' = ?, ', array_keys($data)) . ' = ?';
+        $sql = "UPDATE {$table} SET {$set} WHERE {$where}";
         
-        // 验证列名
-        $setParts = [];
-        $values = [];
-        foreach ($data as $key => $value) {
-            if (!$this->validateIdentifier($key)) {
-                throw new Exception("Invalid column name: {$key}");
-            }
-            $setParts[] = "`{$key}` = ?";
-            $values[] = $value;
-        }
-        
-        $set = implode(', ', $setParts);
-        $sql = "UPDATE `{$table}` SET {$set} WHERE {$where}";
-        
-        return $this->query($sql, array_merge($values, $whereParams))->rowCount();
+        return $this->query($sql, array_merge(array_values($data), $whereParams))->rowCount();
     }
     
     public function beginTransaction() {

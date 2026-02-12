@@ -118,17 +118,14 @@ class AuthController {
         if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
             Response::error('邮箱格式不正确', 1001);
         }
-        if (strlen($email) > 255) {
-            Response::error('邮箱长度超出限制', 1001);
+        if (empty($password) || strlen($password) < 6) {
+            Response::error('密码长度至少6位', 1001);
         }
-        if (empty($password) || strlen($password) < 6 || strlen($password) > 128) {
-            Response::error('密码长度必须在6-128位之间', 1001);
+        if (empty($code)) {
+            Response::error('验证码不能为空', 1001);
         }
-        if (empty($code) || strlen($code) !== 6 || !ctype_digit($code)) {
-            Response::error('验证码格式不正确', 1001);
-        }
-        if (empty($machineCode) || strlen($machineCode) > 255) {
-            Response::error('机器码不能为空或长度超出限制', 1001);
+        if (empty($machineCode)) {
+            Response::error('机器码不能为空', 1001);
         }
         
         $db = Database::getInstance();
@@ -185,87 +182,45 @@ class AuthController {
             $expireTime = date('Y-m-d H:i:s', time() + $days * 86400);
         }
         
-        // 开启事务（防止部分插入导致数据不一致）
-        $db->beginTransaction();
-        
-        try {
-            // 创建用户
-            $passwordHash = password_hash($password, PASSWORD_BCRYPT);
-            $userId = $db->insert('users', [
-                'email' => $email,
-                'password_hash' => $passwordHash,
-                'user_group' => $userGroup,
-                'expire_time' => $expireTime,
-                'invite_code' => $userInviteCode,
-                'invited_by' => $inviterId,
-                'register_ip' => $ip,
-                'register_machine_code' => $machineCode
-            ]);
-            
-            // 记录机器码
-            $db->insert('machine_registrations', [
-                'machine_code' => $machineCode,
-                'user_id' => $userId,
-                'register_ip' => $ip,
-                'hardware_info' => json_encode($deviceInfo)
-            ]);
-            
-            // 绑定机器码
-            $db->insert('machine_bindings', [
-                'user_id' => $userId,
-                'machine_code' => $machineCode
-            ]);
-            
-            // 标记验证码已使用
-            $db->update('register_codes', ['used' => 1], 'id = ?', [$codeRecord['id']]);
-            
-            // 生成唯一的 session_id 用于单设备在线控制
-            $sessionId = bin2hex(random_bytes(32));
-            
-            // 更新用户的当前 session
-            $db->update('users', [
-                'current_session_id' => $sessionId,
-                'current_machine_code' => $machineCode,
-                'last_login_time' => date('Y-m-d H:i:s'),
-                'last_login_ip' => $ip
-            ], 'id = ?', [$userId]);
-            
-            $db->commit();
-            
-        } catch (Exception $e) {
-            $db->rollback();
-            // 检查是否为唯一约束冲突（邮箱已注册）
-            if (strpos($e->getMessage(), 'Duplicate') !== false) {
-                Response::error('该邮箱已注册', 2004);
-            }
-            require_once __DIR__ . '/../lib/Logger.php';
-            Logger::error('用户注册失败', [
-                'email' => $email,
-                'error' => $e->getMessage()
-            ]);
-            Response::error('注册失败，请稍后重试', 5001);
-        }
-        
-        // 生成 Token（包含 session_id，与 login 保持一致）
-        $token = JWTAuth::generate([
-            'user_id' => $userId,
+        // 创建用户
+        $passwordHash = password_hash($password, PASSWORD_BCRYPT);
+        $userId = $db->insert('users', [
             'email' => $email,
-            'session_id' => $sessionId
+            'password_hash' => $passwordHash,
+            'user_group' => $userGroup,
+            'expire_time' => $expireTime,
+            'invite_code' => $userInviteCode,
+            'invited_by' => $inviterId,
+            'register_ip' => $ip,
+            'register_machine_code' => $machineCode
         ]);
         
-        // 生成 Refresh Token（与 login 保持一致）
-        require_once __DIR__ . '/../lib/SecurityHelper.php';
-        $refreshToken = SecurityHelper::generateRefreshToken($userId);
+        // 记录机器码
+        $db->insert('machine_registrations', [
+            'machine_code' => $machineCode,
+            'user_id' => $userId,
+            'register_ip' => $ip,
+            'hardware_info' => json_encode($deviceInfo)
+        ]);
         
-        // 计算 is_trial 和 is_vip（需检查过期时间）
+        // 绑定机器码
+        $db->insert('machine_bindings', [
+            'user_id' => $userId,
+            'machine_code' => $machineCode
+        ]);
+        
+        // 标记验证码已使用
+        $db->update('register_codes', ['used' => 1], 'id = ?', [$codeRecord['id']]);
+        
+        // 生成 Token
+        $token = JWTAuth::generate([
+            'user_id' => $userId,
+            'email' => $email
+        ]);
+        
+        // 计算 is_trial 和 is_vip
         $isTrial = ($userGroup === 'trial');
-        if ($userGroup === 'permanent') {
-            $isVip = true;
-        } elseif (in_array($userGroup, ['monthly', 'yearly', 'trial'])) {
-            $isVip = empty($expireTime) || strtotime($expireTime) > time();
-        } else {
-            $isVip = false;
-        }
+        $isVip = in_array($userGroup, ['trial', 'monthly', 'yearly', 'permanent']);
         
         Response::success([
             'user_id' => $userId,
@@ -273,7 +228,6 @@ class AuthController {
             'user_group' => $userGroup,
             'expire_time' => $expireTime,
             'token' => $token,
-            'refresh_token' => $refreshToken,
             'is_trial' => $isTrial,
             'is_vip' => $isVip
         ], '注册成功');
@@ -293,14 +247,8 @@ class AuthController {
             'client_version' => $input['client_version'] ?? ($input['device_info']['client_version'] ?? null),
         ];
         
-        if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            Response::error('邮箱格式不正确', 1001);
-        }
-        if (strlen($email) > 255) {
-            Response::error('邮箱长度超出限制', 1001);
-        }
-        if (empty($password) || strlen($password) < 6 || strlen($password) > 128) {
-            Response::error('密码长度必须在6-128位之间', 1001);
+        if (empty($email) || empty($password)) {
+            Response::error('邮箱和密码不能为空', 1001);
         }
         
         $db = Database::getInstance();
@@ -437,15 +385,9 @@ class AuthController {
             }
         }
         
-        // 计算 is_trial 和 is_vip（需检查过期时间）
+        // 计算 is_trial 和 is_vip
         $isTrial = ($user['user_group'] === 'trial');
-        if ($user['user_group'] === 'permanent') {
-            $isVip = true;
-        } elseif (in_array($user['user_group'], ['monthly', 'yearly', 'trial'])) {
-            $isVip = empty($user['expire_time']) || strtotime($user['expire_time']) > time();
-        } else {
-            $isVip = false;
-        }
+        $isVip = in_array($user['user_group'], ['trial', 'monthly', 'yearly', 'permanent']);
         
         // 生成 Refresh Token
         require_once __DIR__ . '/../lib/SecurityHelper.php';
@@ -456,7 +398,6 @@ class AuthController {
             'email' => $user['email'],
             'user_group' => $user['user_group'],
             'expire_time' => $user['expire_time'],
-            'register_time' => $user['register_time'],
             'token' => $token,
             'refresh_token' => $refreshToken,
             'is_trial' => $isTrial,
@@ -484,17 +425,14 @@ class AuthController {
         if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
             Response::error('邮箱格式不正确', 1001);
         }
-        if (strlen($email) > 255) {
-            Response::error('邮箱长度超出限制', 1001);
+        if (empty($password) || strlen($password) < 6) {
+            Response::error('密码长度至少6位', 1001);
         }
-        if (empty($password) || strlen($password) < 6 || strlen($password) > 128) {
-            Response::error('密码长度必须在6-128位之间', 1001);
+        if (empty($code)) {
+            Response::error('验证码不能为空', 1001);
         }
-        if (empty($code) || strlen($code) !== 6 || !ctype_digit($code)) {
-            Response::error('验证码格式不正确', 1001);
-        }
-        if (empty($machineCode) || strlen($machineCode) > 255) {
-            Response::error('机器码不能为空或长度超出限制', 1001);
+        if (empty($machineCode)) {
+            Response::error('机器码不能为空', 1001);
         }
         
         $db = Database::getInstance();
@@ -589,15 +527,9 @@ class AuthController {
                 }
             }
             
-            // 计算 is_trial 和 is_vip（需检查过期时间）
+            // 计算 is_trial 和 is_vip
             $isTrial = ($user['user_group'] === 'trial');
-            if ($user['user_group'] === 'permanent') {
-                $isVip = true;
-            } elseif (in_array($user['user_group'], ['monthly', 'yearly', 'trial'])) {
-                $isVip = empty($user['expire_time']) || strtotime($user['expire_time']) > time();
-            } else {
-                $isVip = false;
-            }
+            $isVip = in_array($user['user_group'], ['trial', 'monthly', 'yearly', 'permanent']);
             
             // 生成 Refresh Token
             require_once __DIR__ . '/../lib/SecurityHelper.php';
@@ -608,7 +540,6 @@ class AuthController {
                 'email' => $user['email'],
                 'user_group' => $user['user_group'],
                 'expire_time' => $user['expire_time'],
-                'register_time' => $user['register_time'],
                 'token' => $token,
                 'refresh_token' => $refreshToken,
                 'is_new_user' => false,
@@ -657,60 +588,41 @@ class AuthController {
                 $expireTime = date('Y-m-d H:i:s', time() + $days * 86400);
             }
             
-            // 开启事务（防止部分插入导致数据不一致）
-            $db->beginTransaction();
+            // 创建用户
+            $passwordHash = password_hash($password, PASSWORD_BCRYPT);
+            $sessionId = bin2hex(random_bytes(32));
             
-            try {
-                // 创建用户
-                $passwordHash = password_hash($password, PASSWORD_BCRYPT);
-                $sessionId = bin2hex(random_bytes(32));
-                
-                $userId = $db->insert('users', [
-                    'email' => $email,
-                    'password_hash' => $passwordHash,
-                    'user_group' => $userGroup,
-                    'expire_time' => $expireTime,
-                    'invite_code' => $userInviteCode,
-                    'invited_by' => $inviterId,
-                    'register_ip' => $ip,
-                    'register_machine_code' => $machineCode,
-                    'current_session_id' => $sessionId,
-                    'current_machine_code' => $machineCode,
-                    'last_login_time' => date('Y-m-d H:i:s'),
-                    'last_login_ip' => $ip
-                ]);
-                
-                // 记录机器码注册
-                $db->insert('machine_registrations', [
-                    'machine_code' => $machineCode,
-                    'user_id' => $userId,
-                    'register_ip' => $ip,
-                    'hardware_info' => json_encode($deviceInfo)
-                ]);
-                
-                // 绑定机器码
-                $db->insert('machine_bindings', [
-                    'user_id' => $userId,
-                    'machine_code' => $machineCode
-                ]);
-                
-                // 标记验证码已使用
-                $db->update('register_codes', ['used' => 1], 'id = ?', [$codeRecord['id']]);
-                
-                $db->commit();
-                
-            } catch (Exception $e) {
-                $db->rollback();
-                if (strpos($e->getMessage(), 'Duplicate') !== false) {
-                    Response::error('该邮箱已注册', 2004);
-                }
-                require_once __DIR__ . '/../lib/Logger.php';
-                Logger::error('智能登录注册失败', [
-                    'email' => $email,
-                    'error' => $e->getMessage()
-                ]);
-                Response::error('注册失败，请稍后重试', 5001);
-            }
+            $userId = $db->insert('users', [
+                'email' => $email,
+                'password_hash' => $passwordHash,
+                'user_group' => $userGroup,
+                'expire_time' => $expireTime,
+                'invite_code' => $userInviteCode,
+                'invited_by' => $inviterId,
+                'register_ip' => $ip,
+                'register_machine_code' => $machineCode,
+                'current_session_id' => $sessionId,
+                'current_machine_code' => $machineCode,
+                'last_login_time' => date('Y-m-d H:i:s'),
+                'last_login_ip' => $ip
+            ]);
+            
+            // 记录机器码注册
+            $db->insert('machine_registrations', [
+                'machine_code' => $machineCode,
+                'user_id' => $userId,
+                'register_ip' => $ip,
+                'hardware_info' => json_encode($deviceInfo)
+            ]);
+            
+            // 绑定机器码
+            $db->insert('machine_bindings', [
+                'user_id' => $userId,
+                'machine_code' => $machineCode
+            ]);
+            
+            // 标记验证码已使用
+            $db->update('register_codes', ['used' => 1], 'id = ?', [$codeRecord['id']]);
             
             // 生成 Token
             $token = JWTAuth::generate([
@@ -719,15 +631,9 @@ class AuthController {
                 'session_id' => $sessionId
             ]);
             
-            // 计算 is_trial 和 is_vip（需检查过期时间）
+            // 计算 is_trial 和 is_vip
             $isTrial = ($userGroup === 'trial');
-            if ($userGroup === 'permanent') {
-                $isVip = true;
-            } elseif (in_array($userGroup, ['monthly', 'yearly', 'trial'])) {
-                $isVip = empty($expireTime) || strtotime($expireTime) > time();
-            } else {
-                $isVip = false;
-            }
+            $isVip = in_array($userGroup, ['trial', 'monthly', 'yearly', 'permanent']);
             
             // 生成 Refresh Token
             require_once __DIR__ . '/../lib/SecurityHelper.php';
@@ -759,8 +665,8 @@ class AuthController {
             Response::error('参数不完整', 1001);
         }
         
-        if (strlen($newPassword) < 6 || strlen($newPassword) > 128) {
-            Response::error('密码长度必须在6-128位之间', 1001);
+        if (strlen($newPassword) < 6) {
+            Response::error('密码长度至少6位', 1001);
         }
         
         $db = Database::getInstance();
@@ -822,14 +728,10 @@ class AuthController {
             Response::error('账号已被封禁', 2003);
         }
         
-        // 获取用户当前 session_id（保持单设备在线控制一致性）
-        $fullUser = $db->fetch("SELECT current_session_id FROM users WHERE id = ?", [$userId]);
-        
-        // 生成新的 Access Token（2小时有效，包含 session_id）
+        // 生成新的 Access Token（2小时有效）
         $newToken = JWTAuth::generateToken([
             'user_id' => $user['id'],
-            'email' => $user['email'],
-            'session_id' => $fullUser['current_session_id'] ?? null
+            'email' => $user['email']
         ], 7200); // 2小时
         
         // 生成新的 Refresh Token

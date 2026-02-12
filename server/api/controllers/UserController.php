@@ -111,146 +111,117 @@ class UserController {
             Response::error('未登录或Token已过期', 4001);
         }
         
-        $cardKey = trim($input['card_key'] ?? '');
-        $clientProductCode = trim($input['product_code'] ?? 'dubbing');  // 客户端传入的产品代码
+        $cardKey = $input['card_key'] ?? '';
+        $clientProductCode = $input['product_code'] ?? 'dubbing';  // 客户端传入的产品代码
         
         if (empty($cardKey)) {
             Response::error('卡密不能为空', 1001);
         }
         
-        if (strlen($cardKey) > 255) {
-            Response::error('卡密长度超出限制', 1001);
-        }
-        
-        if (strlen($clientProductCode) > 50) {
-            Response::error('产品代码长度超出限制', 1001);
-        }
-        
         $db = Database::getInstance();
         
-        // 开启事务（防止并发双重激活）
-        $db->beginTransaction();
+        // 查找卡密
+        $card = $db->fetch(
+            "SELECT * FROM card_keys WHERE card_key = ?",
+            [$cardKey]
+        );
         
-        try {
-            // 查找卡密（加锁防止并发）
-            $card = $db->fetch(
-                "SELECT * FROM card_keys WHERE card_key = ? FOR UPDATE",
-                [$cardKey]
-            );
-            
-            if (!$card) {
-                $db->rollback();
-                Response::error('卡密不存在', 3001);
-            }
-            
-            if ($card['status'] === 'used') {
-                $db->rollback();
-                Response::error('卡密已被使用', 3002);
-            }
-            
-            if ($card['status'] === 'disabled') {
-                $db->rollback();
-                Response::error('卡密已被禁用', 3002);
-            }
-            
-            // 校验产品代码（卡密必须与当前产品匹配）
-            $cardProductCode = $card['product_code'] ?? 'dubbing';
-            if ($cardProductCode !== $clientProductCode) {
-                $db->rollback();
-                Response::error('该卡密不适用于当前产品', 3004);
-            }
-            
-            // 获取用户信息
-            $user = $db->fetch("SELECT * FROM users WHERE id = ? FOR UPDATE", [$payload['user_id']]);
-            
-            // 计算新的到期时间
-            $currentExpire = $user['expire_time'];
-            $durationDays = $card['duration_days'];
-            
-            if ($card['card_type'] === 'permanent') {
-                $newExpireTime = null;
-                $newUserGroup = 'permanent';
-            } else {
-                // 如果当前有会员且未过期，从当前到期时间开始计算
-                if ($currentExpire && strtotime($currentExpire) > time()) {
-                    $baseTime = strtotime($currentExpire);
-                } else {
-                    $baseTime = time();
-                }
-                
-                $newExpireTime = date('Y-m-d H:i:s', $baseTime + $durationDays * 86400);
-                $newUserGroup = $card['card_type'];
-            }
-            
-            // 更新用户
-            $updateData = ['user_group' => $newUserGroup];
-            if ($newExpireTime) {
-                $updateData['expire_time'] = $newExpireTime;
-            } else {
-                // 永久会员清除到期时间
-                $updateData['expire_time'] = null;
-            }
-            
-            // 注意：数据库表中没有 trial_expire_time 字段，所以不需要清除
-            // 试用会员的逻辑通过 user_group 字段来判断
-            
-            $db->update('users', $updateData, 'id = ?', [$user['id']]);
-            
-            // 更新卡密状态
-            $db->update('card_keys', [
-                'status' => 'used',
-                'used_at' => date('Y-m-d H:i:s'),
-                'used_by' => $user['id']
-            ], 'id = ?', [$card['id']]);
-            
-            // 计算邀请人佣金
-            if (!empty($user['invited_by'])) {
-                $commissionEnabled = $db->fetch("SELECT setting_value FROM system_settings WHERE setting_key = 'commission_enabled'");
-                if ($commissionEnabled && $commissionEnabled['setting_value'] === '1') {
-                    $commissionRate = $db->fetch("SELECT setting_value FROM system_settings WHERE setting_key = 'commission_rate'");
-                    $rate = $commissionRate ? (float)$commissionRate['setting_value'] : 10;
-                    
-                    // 从数据库获取卡密价格
-                    $priceMonthly = $db->fetch("SELECT setting_value FROM system_settings WHERE setting_key = 'card_price_monthly'");
-                    $priceYearly = $db->fetch("SELECT setting_value FROM system_settings WHERE setting_key = 'card_price_yearly'");
-                    $pricePermanent = $db->fetch("SELECT setting_value FROM system_settings WHERE setting_key = 'card_price_permanent'");
-                    
-                    $cardPrices = [
-                        'monthly' => $priceMonthly ? (float)$priceMonthly['setting_value'] : 29.9,
-                        'yearly' => $priceYearly ? (float)$priceYearly['setting_value'] : 199,
-                        'permanent' => $pricePermanent ? (float)$pricePermanent['setting_value'] : 399
-                    ];
-                    $cardPrice = $cardPrices[$card['card_type']] ?? 0;
-                    
-                    if ($cardPrice > 0) {
-                        $commissionAmount = $cardPrice * $rate / 100;
-                        
-                        // 创建佣金记录
-                        $db->insert('commissions', [
-                            'user_id' => $user['invited_by'],
-                            'from_user_id' => $user['id'],
-                            'amount' => $commissionAmount,
-                            'rate' => $rate,
-                            'status' => 'available'
-                        ]);
-                    }
-                }
-            }
-            
-            $db->commit();
-            
-        } catch (Exception $e) {
-            $db->rollback();
-            require_once __DIR__ . '/../lib/Logger.php';
-            Logger::error('卡密激活失败', [
-                'user_id' => $payload['user_id'],
-                'card_key' => $cardKey,
-                'error' => $e->getMessage()
-            ]);
-            Response::error('激活失败，请稍后重试', 5001);
+        if (!$card) {
+            Response::error('卡密不存在', 3001);
         }
         
-        // 通知用户会员状态已更新（事务提交后再推送）
+        if ($card['status'] === 'used') {
+            Response::error('卡密已被使用', 3002);
+        }
+        
+        if ($card['status'] === 'disabled') {
+            Response::error('卡密已被禁用', 3002);
+        }
+        
+        // 校验产品代码（卡密必须与当前产品匹配）
+        $cardProductCode = $card['product_code'] ?? 'dubbing';
+        if ($cardProductCode !== $clientProductCode) {
+            Response::error('该卡密不适用于当前产品', 3004);
+        }
+        
+        // 获取用户信息
+        $user = $db->fetch("SELECT * FROM users WHERE id = ?", [$payload['user_id']]);
+        
+        // 计算新的到期时间
+        $currentExpire = $user['expire_time'];
+        $durationDays = $card['duration_days'];
+        
+        if ($card['card_type'] === 'permanent') {
+            $newExpireTime = null;
+            $newUserGroup = 'permanent';
+        } else {
+            // 如果当前有会员且未过期，从当前到期时间开始计算
+            if ($currentExpire && strtotime($currentExpire) > time()) {
+                $baseTime = strtotime($currentExpire);
+            } else {
+                $baseTime = time();
+            }
+            
+            $newExpireTime = date('Y-m-d H:i:s', $baseTime + $durationDays * 86400);
+            $newUserGroup = $card['card_type'];
+        }
+        
+        // 更新用户
+        $updateData = ['user_group' => $newUserGroup];
+        if ($newExpireTime) {
+            $updateData['expire_time'] = $newExpireTime;
+        } else {
+            // 永久会员清除到期时间
+            $updateData['expire_time'] = null;
+        }
+        
+        // 注意：数据库表中没有 trial_expire_time 字段，所以不需要清除
+        // 试用会员的逻辑通过 user_group 字段来判断
+        
+        $db->update('users', $updateData, 'id = ?', [$user['id']]);
+        
+        // 更新卡密状态
+        $db->update('card_keys', [
+            'status' => 'used',
+            'used_at' => date('Y-m-d H:i:s'),
+            'used_by' => $user['id']
+        ], 'id = ?', [$card['id']]);
+        
+        // 计算邀请人佣金
+        if (!empty($user['invited_by'])) {
+            $commissionEnabled = $db->fetch("SELECT setting_value FROM system_settings WHERE setting_key = 'commission_enabled'");
+            if ($commissionEnabled && $commissionEnabled['setting_value'] === '1') {
+                $commissionRate = $db->fetch("SELECT setting_value FROM system_settings WHERE setting_key = 'commission_rate'");
+                $rate = $commissionRate ? (float)$commissionRate['setting_value'] : 10;
+                
+                // 从数据库获取卡密价格
+                $priceMonthly = $db->fetch("SELECT setting_value FROM system_settings WHERE setting_key = 'card_price_monthly'");
+                $priceYearly = $db->fetch("SELECT setting_value FROM system_settings WHERE setting_key = 'card_price_yearly'");
+                $pricePermanent = $db->fetch("SELECT setting_value FROM system_settings WHERE setting_key = 'card_price_permanent'");
+                
+                $cardPrices = [
+                    'monthly' => $priceMonthly ? (float)$priceMonthly['setting_value'] : 29.9,
+                    'yearly' => $priceYearly ? (float)$priceYearly['setting_value'] : 199,
+                    'permanent' => $pricePermanent ? (float)$pricePermanent['setting_value'] : 399
+                ];
+                $cardPrice = $cardPrices[$card['card_type']] ?? 0;
+                
+                if ($cardPrice > 0) {
+                    $commissionAmount = $cardPrice * $rate / 100;
+                    
+                    // 创建佣金记录
+                    $db->insert('commissions', [
+                        'user_id' => $user['invited_by'],
+                        'from_user_id' => $user['id'],
+                        'amount' => $commissionAmount,
+                        'rate' => $rate,
+                        'status' => 'available'
+                    ]);
+                }
+            }
+        }
+        
+        // 通知用户会员状态已更新
         self::notifyMembershipChanged($user['id'], $newUserGroup, $newExpireTime);
         
         Response::success([
@@ -268,19 +239,10 @@ class UserController {
             require_once __DIR__ . '/../../websocket/src/PushService.php';
             $pushService = new \MaruAudio\WebSocket\PushService();
             
-            // 计算 is_vip（需检查过期时间）
-            if ($userGroup === 'permanent') {
-                $isVip = true;
-            } elseif (in_array($userGroup, ['monthly', 'yearly', 'trial'])) {
-                $isVip = empty($expireTime) || strtotime($expireTime) > time();
-            } else {
-                $isVip = false;
-            }
-            
             $pushService->pushToUser($userId, 'membership_changed', [
                 'user_group' => $userGroup,
                 'expire_time' => $expireTime,
-                'is_vip' => $isVip,
+                'is_vip' => $userGroup !== 'free',
                 'timestamp' => time()
             ]);
         } catch (\Exception $e) {
@@ -397,27 +359,15 @@ class UserController {
         }
         
         $amount = (float)($input['amount'] ?? 0);
-        $account = trim($input['account'] ?? '');
+        $account = $input['account'] ?? '';
         $accountType = $input['account_type'] ?? 'alipay';
         
         if ($amount <= 0) {
             Response::error('提现金额必须大于0', 1001);
         }
         
-        if ($amount > 100000) {
-            Response::error('单次提现金额不能超过100000', 1001);
-        }
-        
         if (empty($account)) {
             Response::error('请填写收款账号', 1001);
-        }
-        
-        if (strlen($account) > 255) {
-            Response::error('收款账号长度超出限制', 1001);
-        }
-        
-        if (!in_array($accountType, ['alipay', 'wechat', 'bank'])) {
-            Response::error('不支持的收款方式', 1001);
         }
         
         $db = Database::getInstance();
@@ -431,27 +381,21 @@ class UserController {
             Response::error("最低提现金额为 ¥{$minAmount}", 1001);
         }
         
-        // 开始事务（余额检查和冻结必须在同一事务内，防止并发超额提现）
-        $db->beginTransaction();
+        // 获取可用佣金余额
+        $balance = $db->fetch(
+            "SELECT COALESCE(SUM(amount), 0) as total FROM commissions WHERE user_id = ? AND status = 'available'",
+            [$userId]
+        )['total'];
+        
+        if ($amount > $balance) {
+            Response::error('余额不足', 1001);
+        }
+        
+        // 开始事务
+        $pdo = $db->getConnection();
+        $pdo->beginTransaction();
         
         try {
-            // 锁定用户的可用佣金记录（防止并发提现竞态）
-            $commissions = $db->fetchAll(
-                "SELECT id, amount FROM commissions WHERE user_id = ? AND status = 'available' ORDER BY created_at ASC FOR UPDATE",
-                [$userId]
-            );
-            
-            // 计算可用余额
-            $balance = 0;
-            foreach ($commissions as $c) {
-                $balance += (float)$c['amount'];
-            }
-            
-            if ($amount > $balance) {
-                $db->rollback();
-                Response::error('余额不足', 1001);
-            }
-            
             // 创建提现申请
             $withdrawalId = $db->insert('withdrawals', [
                 'user_id' => $userId,
@@ -465,6 +409,10 @@ class UserController {
             // 冻结对应金额的佣金
             // 按时间顺序冻结佣金记录，直到达到提现金额
             $remainingAmount = $amount;
+            $commissions = $db->fetchAll(
+                "SELECT id, amount FROM commissions WHERE user_id = ? AND status = 'available' ORDER BY created_at ASC",
+                [$userId]
+            );
             
             foreach ($commissions as $commission) {
                 if ($remainingAmount <= 0) break;
@@ -477,10 +425,10 @@ class UserController {
                 $remainingAmount -= $commission['amount'];
             }
             
-            $db->commit();
+            $pdo->commit();
             Response::success(null, '提现申请已提交，请等待审核');
         } catch (Exception $e) {
-            $db->rollback();
+            $pdo->rollBack();
             Response::error('提现申请失败，请稍后重试', 5001);
         }
     }
@@ -489,23 +437,18 @@ class UserController {
      * 获取用户消息
      */
     public static function getMessages($input) {
-        $payload = JWTAuth::getPayloadFromRequest();
-        
-        if (!$payload) {
-            Response::error('未登录或Token已过期', 4001);
-        }
+        $user = self::checkAuth();
         
         $db = Database::getInstance();
-        $userId = $payload['user_id'];
         
         $messages = $db->fetchAll(
             "SELECT * FROM user_messages WHERE user_id = ? ORDER BY created_at DESC LIMIT 50",
-            [$userId]
+            [$user['user_id']]
         );
         
         $unreadCount = $db->fetch(
             "SELECT COUNT(*) as count FROM user_messages WHERE user_id = ? AND is_read = 0",
-            [$userId]
+            [$user['user_id']]
         )['count'] ?? 0;
         
         Response::success([
@@ -518,22 +461,17 @@ class UserController {
      * 标记消息已读
      */
     public static function markMessageRead($input) {
-        $payload = JWTAuth::getPayloadFromRequest();
-        
-        if (!$payload) {
-            Response::error('未登录或Token已过期', 4001);
-        }
+        $user = self::checkAuth();
         
         $messageId = (int)($input['message_id'] ?? 0);
-        $userId = $payload['user_id'];
         
         $db = Database::getInstance();
         
         if ($messageId > 0) {
-            $db->update('user_messages', ['is_read' => 1], 'id = ? AND user_id = ?', [$messageId, $userId]);
+            $db->update('user_messages', ['is_read' => 1], 'id = ? AND user_id = ?', [$messageId, $user['user_id']]);
         } else {
             // 标记全部已读
-            $db->query("UPDATE user_messages SET is_read = 1 WHERE user_id = ?", [$userId]);
+            $db->query("UPDATE user_messages SET is_read = 1 WHERE user_id = ?", [$user['user_id']]);
         }
         
         Response::success(null, '已标记为已读');
@@ -541,7 +479,7 @@ class UserController {
     
     /**
      * 同步用户状态（轻量级轮询端点，替代 WebSocket）
-     * 用于检查关键状态和版本信息，客户端通过版本判断是否有新变化
+     * 返回用户关键状态和版本号，客户端对比版本号决定是否刷新完整信息
      */
     public static function sync() {
         $payload = JWTAuth::getPayloadFromRequest();

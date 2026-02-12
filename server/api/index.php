@@ -1,24 +1,7 @@
 <?php
 /**
- * MaruAudio 服务端 API 入口
+ * 丸子配音 API 入口
  */
-
-// 加载 .env 环境变量
-$envFile = __DIR__ . '/.env';
-if (file_exists($envFile)) {
-    $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-    foreach ($lines as $line) {
-        $line = trim($line);
-        if ($line === '' || $line[0] === '#') continue;
-        if (strpos($line, '=') === false) continue;
-        list($key, $val) = explode('=', $line, 2);
-        $k = trim($key);
-        $v = trim($val);
-        putenv("$k=$v");
-        $_ENV[$k] = $v;
-        $_SERVER[$k] = $v;
-    }
-}
 
 // 错误处理
 error_reporting(E_ALL);
@@ -32,23 +15,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
-// 统一设置 CORS 头（仅在入口设置一次，避免每次响应重复设置）
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization');
-
-// 加载基础类库
-require_once __DIR__ . '/lib/Cache.php';
+// 加载类库
 require_once __DIR__ . '/lib/Database.php';
 require_once __DIR__ . '/lib/Response.php';
 require_once __DIR__ . '/lib/JWTAuth.php';
-require_once __DIR__ . '/lib/Logger.php';
-require_once __DIR__ . '/lib/APM.php';
 
-// 开始性能监控
-APM::start();
-
-// 重放攻击检测（基于时间戳和 nonce）
+// 防重放攻击检查（基于时间戳和 nonce）
 function checkReplayAttack($timestamp, $nonce) {
     // 时间戳检查：请求必须在 5 分钟内
     $now = time();
@@ -56,7 +28,7 @@ function checkReplayAttack($timestamp, $nonce) {
         return false;
     }
     
-    // Nonce 检查：防止重复请求
+    // Nonce 检查：防止重放
     $cacheDir = sys_get_temp_dir() . '/maruaudio_nonce';
     if (!is_dir($cacheDir)) {
         @mkdir($cacheDir, 0755, true);
@@ -64,14 +36,13 @@ function checkReplayAttack($timestamp, $nonce) {
     
     $nonceFile = $cacheDir . '/' . md5($nonce) . '.txt';
     if (file_exists($nonceFile)) {
-        // nonce 已被使用，判定为重放
-        return false;
+        return false; // nonce 已使用
     }
     
-    // 记录 nonce，5 分钟后视为过期
+    // 记录 nonce，5 分钟后自动过期
     file_put_contents($nonceFile, $now);
     
-    // 清理过期的 nonce 文件（每 100 次请求触发一次清理）
+    // 清理过期的 nonce 文件（每 100 次请求清理一次）
     if (rand(1, 100) === 1) {
         $files = glob($cacheDir . '/*.txt');
         foreach ($files as $file) {
@@ -84,30 +55,16 @@ function checkReplayAttack($timestamp, $nonce) {
     return true;
 }
 
-// 请求签名密钥
-// IMPORTANT: 生产环境必须通过环境变量配置签名密钥，不要使用默认值
-// 环境变量名（按优先级）：
-//   1. MARUAUDIO_API_SIGN_SECRET (推荐)
-//   2. API_SIGN_SECRET (兼容旧配置)
-// 配置示例：
-//   export MARUAUDIO_API_SIGN_SECRET="your-secret-key-here"
-//   或在 .env 文件中：MARUAUDIO_API_SIGN_SECRET=your-secret-key-here
-$apiSignSecret = getenv('MARUAUDIO_API_SIGN_SECRET') ?: (getenv('API_SIGN_SECRET') ?: 'CHANGE_ME');
+// 请求签名密钥（与客户端保持一致）
+define('API_SIGN_SECRET', 'MaruAudio_2024_SecretKey_v1');
 
-// 生产环境检查：如果使用默认值，记录警告
-if ($apiSignSecret === 'CHANGE_ME' && (getenv('MARUAUDIO_ENV') === 'production' || !getenv('MARUAUDIO_DEBUG'))) {
-    error_log('WARNING: API_SIGN_SECRET is using default value. Please configure via environment variable in production!');
-}
-
-define('API_SIGN_SECRET', $apiSignSecret);
-
-// 校验请求签名
+// 验证请求签名
 function verifySignature($data, $timestamp, $signature) {
-    // 按键名排序后序列化（与客户端保持一致）
+    // 按键排序后序列化（与客户端保持一致）
     if ($data) {
         ksort($data);
         $sortedData = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-        // 移除多余空格，保持与 Python 的 separators=(',', ':') 一致
+        // 移除空格（与 Python 的 separators=(',', ':') 保持一致）
         $sortedData = str_replace([': ', ', '], [':', ','], $sortedData);
     } else {
         $sortedData = "";
@@ -118,32 +75,28 @@ function verifySignature($data, $timestamp, $signature) {
     return hash_equals($expectedSig, $signature);
 }
 
-// 对敏感接口进行请求签名校验
+// 验证请求签名（中间件）
 function checkRequestSignature($input) {
-    // 未配置签名密钥时，视为验证失败（避免误以为已开启保护）
-    if (API_SIGN_SECRET === 'CHANGE_ME') {
-        return false;
-    }
-    // 获取签名相关请求头
+    // 获取签名头
     $timestamp = $_SERVER['HTTP_X_TIMESTAMP'] ?? '';
     $signature = $_SERVER['HTTP_X_SIGNATURE'] ?? '';
     
-    // 缺少签名头时直接视为验证失败（更安全的默认行为）
+    // 缺少签名头时直接视为验证失败（对声明为敏感的接口更严格保护）
     if (empty($timestamp) || empty($signature)) {
         return false;
     }
     
-    // 检查时间戳是否在允许范围内（单位：秒）
+    // 检查时间戳（5分钟内有效）
     $now = time();
     if (abs($now - intval($timestamp)) > 300) {
         return false;
     }
     
-    // 校验签名是否正确
+    // 验证签名
     return verifySignature($input, $timestamp, $signature);
 }
 
-// 简单的基于文件的请求频率限制
+// 简单的请求频率限制
 function checkRateLimit($ip, $limit = 60, $window = 60) {
     $cacheDir = sys_get_temp_dir() . '/maruaudio_rate_limit';
     if (!is_dir($cacheDir)) {
@@ -158,7 +111,7 @@ function checkRateLimit($ip, $limit = 60, $window = 60) {
         $data = json_decode(file_get_contents($cacheFile), true) ?: $data;
     }
     
-    // 重置时间窗口
+    // 重置窗口
     if ($now >= $data['reset']) {
         $data = ['count' => 0, 'reset' => $now + $window];
     }
@@ -171,7 +124,7 @@ function checkRateLimit($ip, $limit = 60, $window = 60) {
 
 $clientIp = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
 if (!checkRateLimit($clientIp, 120, 60)) {
-    Response::error('请求过于频繁，请稍后重试', 4029);
+    Response::error('请求过于频繁，请稍后再试', 4029);
 }
 
 // 获取请求路径
@@ -183,11 +136,11 @@ $path = trim($path, '/');
 // 获取请求方法
 $method = $_SERVER['REQUEST_METHOD'];
 
-// 获取请求数据（合并 GET / POST / JSON Body）
+// 获取请求数据
 $input = json_decode(file_get_contents('php://input'), true) ?? [];
 $input = array_merge($_GET, $_POST, $input);
 
-// 对部分敏感接口启用请求签名校验
+// 验证请求签名（对敏感接口）
 $signatureRequiredPaths = [
     'user/info',
     'user/activate',
@@ -196,11 +149,11 @@ $signatureRequiredPaths = [
 ];
 if (in_array($path, $signatureRequiredPaths)) {
     if (!checkRequestSignature($input)) {
-        Response::error('请求签名校验失败', 4030);
+        Response::error('请求签名验证失败', 4030);
     }
 }
 
-// 路由分发
+// 路由
 try {
     switch ($path) {
         // 健康检查
@@ -213,9 +166,8 @@ try {
             ]);
             break;
             
-        // 公共配置（无需登录，config/settings 为兼容别名）
+        // 公共配置（无需登录）
         case 'config':
-        case 'config/settings':
             require_once __DIR__ . '/controllers/ConfigController.php';
             ConfigController::getPublicConfig();
             break;
@@ -298,7 +250,7 @@ try {
             UserController::sync();
             break;
             
-        // 管理员登录相关
+        // 管理员相关
         case 'admin/login':
             require_once __DIR__ . '/controllers/AdminController.php';
             AdminController::login($input);
@@ -482,7 +434,7 @@ try {
             AdminApiController::testDashScopeApi($input);
             break;
         
-        // 管理后台 - 字符包统计相关
+        // 管理后台 - 字符包相关
         case 'admin/character-pack/stats':
             require_once __DIR__ . '/controllers/AdminApiController.php';
             AdminApiController::getCharacterPackStats();
@@ -508,12 +460,17 @@ try {
             AdminApiController::updateCharacterPackPackages($input);
             break;
             
+        case 'config/settings':
+            require_once __DIR__ . '/controllers/ConfigController.php';
+            ConfigController::getPublicConfig();
+            break;
+            
         case 'config/release-version':
             require_once __DIR__ . '/controllers/ConfigController.php';
             ConfigController::getReleaseVersion($input);
             break;
             
-        // 字符包业务接口（客户端）
+        // 字符包相关
         case 'character-pack/balance':
             require_once __DIR__ . '/controllers/CharacterPackController.php';
             CharacterPackController::getBalance();
@@ -521,17 +478,17 @@ try {
             
         case 'character-pack/activate':
             require_once __DIR__ . '/controllers/CharacterPackController.php';
-            CharacterPackController::activate($input);
+            CharacterPackController::activate();
             break;
             
         case 'character-pack/consume':
             require_once __DIR__ . '/controllers/CharacterPackController.php';
-            CharacterPackController::consume($input);
+            CharacterPackController::consume();
             break;
             
         case 'character-pack/refund':
             require_once __DIR__ . '/controllers/CharacterPackController.php';
-            CharacterPackController::refund($input);
+            CharacterPackController::refund();
             break;
             
         case 'character-pack/packages':
@@ -546,15 +503,20 @@ try {
             
         case 'character-pack/estimate':
             require_once __DIR__ . '/controllers/CharacterPackController.php';
-            CharacterPackController::estimate($input);
+            CharacterPackController::estimate();
             break;
             
         case 'character-pack/verify-auth':
             require_once __DIR__ . '/controllers/CharacterPackController.php';
-            CharacterPackController::verifyAuthCode($input);
+            CharacterPackController::verifyAuthCode();
             break;
             
-        // 管理后台 - 字符包激活码生成/禁用/删除
+        // 管理后台 - 字符包管理
+        case 'admin/character-pack/codes':
+            require_once __DIR__ . '/controllers/AdminApiController.php';
+            AdminApiController::getCharacterPackCodes($input);
+            break;
+            
         case 'admin/character-pack/codes/generate':
             require_once __DIR__ . '/controllers/AdminApiController.php';
             AdminApiController::generateCharacterPackCodes($input);
@@ -570,23 +532,34 @@ try {
             AdminApiController::deleteCharacterPackCode($input);
             break;
             
+        case 'admin/character-pack/users':
+            require_once __DIR__ . '/controllers/AdminApiController.php';
+            AdminApiController::getCharacterPackUsers($input);
+            break;
+            
         case 'admin/character-pack/users/adjust':
             require_once __DIR__ . '/controllers/AdminApiController.php';
             AdminApiController::adjustUserCharacterBalance($input);
+            break;
+            
+        case 'admin/character-pack/stats':
+            require_once __DIR__ . '/controllers/AdminApiController.php';
+            AdminApiController::getCharacterPackStats();
+            break;
+            
+        case 'admin/character-pack/packages':
+            require_once __DIR__ . '/controllers/AdminApiController.php';
+            AdminApiController::getCharacterPackPackages();
+            break;
+            
+        case 'admin/character-pack/packages/update':
+            require_once __DIR__ . '/controllers/AdminApiController.php';
+            AdminApiController::updateCharacterPackPackages($input);
             break;
             
         default:
             Response::error('接口不存在', 404);
     }
 } catch (Exception $e) {
-    Logger::error('Unhandled exception', [
-        'message' => $e->getMessage(),
-        'file' => $e->getFile(),
-        'line' => $e->getLine(),
-        'trace' => $e->getTraceAsString()
-    ]);
     Response::error($e->getMessage(), 5001);
-} finally {
-    // 结束性能监控
-    APM::end();
 }

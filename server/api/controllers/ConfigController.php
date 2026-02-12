@@ -37,7 +37,8 @@ class ConfigController {
             'purchase_qrcode_url',
             'card_price_monthly',
             'card_price_yearly',
-            'card_price_permanent'
+            'card_price_permanent',
+            'dashscope_api_key'
         ];
         
         $placeholders = implode(',', array_fill(0, count($publicKeys), '?'));
@@ -87,19 +88,11 @@ class ConfigController {
         curl_setopt($ch, CURLOPT_URL, $cnbUrl);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_TIMEOUT, 10);
-        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
-        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-        curl_setopt($ch, CURLOPT_MAXREDIRS, 3);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
         
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $curlError = curl_error($ch);
         curl_close($ch);
-        
-        if ($curlError) {
-            error_log("CURL错误: " . $curlError);
-            Response::error('获取版本信息失败: 网络错误', 5001);
-        }
         
         if ($httpCode === 200 && $response) {
             $data = json_decode($response, true);

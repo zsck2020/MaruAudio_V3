@@ -61,7 +61,8 @@ class CharacterPackController {
     /**
      * 激活字符包
      */
-    public static function activate($input) {
+    public static function activate() {
+        global $input;
         
         $payload = JWTAuth::getPayloadFromRequest();
         
@@ -74,10 +75,6 @@ class CharacterPackController {
         
         if (empty($code)) {
             Response::error('请输入激活码', 3001);
-        }
-        
-        if (strlen($code) > 255) {
-            Response::error('激活码长度超出限制', 3001);
         }
         
         $db = Database::getInstance();
@@ -189,15 +186,7 @@ class CharacterPackController {
             
         } catch (Exception $e) {
             $db->rollback();
-            // 记录详细错误到日志
-            require_once __DIR__ . '/../lib/Logger.php';
-            Logger::error('字符包激活失败', [
-                'user_id' => $userId,
-                'code' => $code,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
-            Response::error('激活失败，请稍后重试', 5001);
+            Response::error('激活失败：' . $e->getMessage(), 5001);
         }
     }
     
@@ -205,7 +194,8 @@ class CharacterPackController {
      * 消耗字符（生成前调用）
      * 采用预扣机制：先扣除，生成失败后退还
      */
-    public static function consume($input) {
+    public static function consume() {
+        global $input;
         
         $payload = JWTAuth::getPayloadFromRequest();
         
@@ -214,20 +204,11 @@ class CharacterPackController {
         }
         
         $userId = $payload['user_id'];
-        $text = trim($input['text'] ?? $_POST['text'] ?? '');
-        $machineCode = trim($input['machine_code'] ?? $_POST['machine_code'] ?? '');
+        $text = $input['text'] ?? $_POST['text'] ?? '';
+        $machineCode = $input['machine_code'] ?? $_POST['machine_code'] ?? '';
         
         if (empty($text)) {
             Response::error('文本不能为空', 3001);
-        }
-        
-        // 限制文本长度（防止过长的文本导致性能问题）
-        if (mb_strlen($text, 'UTF-8') > 100000) {
-            Response::error('文本长度不能超过100000字符', 3001);
-        }
-        
-        if (strlen($machineCode) > 255) {
-            Response::error('机器码长度超出限制', 3001);
         }
         
         // 计算字符数
@@ -307,22 +288,15 @@ class CharacterPackController {
             
         } catch (Exception $e) {
             $db->rollback();
-            // 记录详细错误到日志
-            require_once __DIR__ . '/../lib/Logger.php';
-            Logger::error('字符扣费失败', [
-                'user_id' => $userId,
-                'characters' => $characters,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
-            Response::error('扣费失败，请稍后重试', 5001);
+            Response::error('扣费失败：' . $e->getMessage(), 5001);
         }
     }
     
     /**
      * 退还字符（生成失败时调用）
      */
-    public static function refund($input) {
+    public static function refund() {
+        global $input;
         
         $payload = JWTAuth::getPayloadFromRequest();
         
@@ -412,15 +386,7 @@ class CharacterPackController {
             
         } catch (Exception $e) {
             $db->rollback();
-            // 记录详细错误到日志
-            require_once __DIR__ . '/../lib/Logger.php';
-            Logger::error('字符退还失败', [
-                'user_id' => $userId,
-                'log_id' => $logId,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
-            Response::error('退还失败，请稍后重试', 5001);
+            Response::error('退还失败：' . $e->getMessage(), 5001);
         }
     }
     
@@ -513,21 +479,16 @@ class CharacterPackController {
     /**
      * 预估文本字符数（不扣费，仅计算）
      */
-    public static function estimate($input) {
+    public static function estimate() {
+        global $input;
         
-        $text = trim($input['text'] ?? $_POST['text'] ?? '');
+        $text = $input['text'] ?? $_POST['text'] ?? '';
         
         if (empty($text)) {
             Response::success([
                 'characters' => 0,
                 'text_length' => 0
             ]);
-            return;
-        }
-        
-        // 限制文本长度
-        if (mb_strlen($text, 'UTF-8') > 100000) {
-            Response::error('文本长度不能超过100000字符', 3001);
         }
         
         $characters = self::calculateCharacters($text);
@@ -542,7 +503,8 @@ class CharacterPackController {
      * 验证 TTS 授权码
      * 客户端在实际生成 TTS 前必须调用此接口验证授权码
      */
-    public static function verifyAuthCode($input) {
+    public static function verifyAuthCode() {
+        global $input;
         
         $payload = JWTAuth::getPayloadFromRequest();
         

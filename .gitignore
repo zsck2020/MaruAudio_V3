@@ -8,5 +8,12 @@ node_modules
 !.env.example
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# 构建输出
+server/admin-frontend/dist/
+
+# Rust/Tauri 构建输出
+src-tauri/target/
+
 # 禁止提交服务器敏感信息文件
 项目开发文档/服务器信息.txt

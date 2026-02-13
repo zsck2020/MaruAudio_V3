@@ -62,17 +62,6 @@ class Mailer {
     }
     
     /**
-     * 发送管理员登录验证码（已弃用）
-     */
-    public static function sendAdminLoginCode($to, $code) {
-        $subject = '【丸子智能】管理后台登录验证码';
-        
-        $body = self::getAdminLoginEmailTemplate($code);
-        
-        return self::send($to, $subject, $body);
-    }
-    
-    /**
      * 发送管理员登录提醒邮件
      */
     public static function sendAdminLoginNotify($to, $username, $ip, $userAgent) {
@@ -332,43 +321,4 @@ HTML;
         return '未知地区';
     }
     
-    /**
-     * 获取管理员登录验证码邮件模板（已弃用）
-     */
-    private static function getAdminLoginEmailTemplate($code) {
-        return <<<HTML
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <style>
-        body { font-family: 'Microsoft YaHei', Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 20px; }
-        .container { max-width: 500px; margin: 0 auto; background: #fff; border-radius: 8px; padding: 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .logo { text-align: center; margin-bottom: 20px; font-size: 24px; color: #1890ff; font-weight: bold; }
-        .title { text-align: center; font-size: 18px; color: #333; margin-bottom: 20px; }
-        .code { text-align: center; font-size: 32px; font-weight: bold; color: #1890ff; letter-spacing: 8px; padding: 20px; background: #e6f7ff; border-radius: 8px; margin: 20px 0; }
-        .hint { color: #666; font-size: 14px; line-height: 1.8; }
-        .warning { color: #ff4d4f; font-size: 13px; margin-top: 15px; padding: 10px; background: #fff2f0; border-radius: 4px; }
-        .footer { text-align: center; color: #999; font-size: 12px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="logo">🖥️ 丸子智能</div>
-        <div class="title">管理后台登录验证码</div>
-        <div class="code">{$code}</div>
-        <div class="hint">
-            <p>您正在登录管理后台，验证码有效期为 <strong>5 分钟</strong>。</p>
-        </div>
-        <div class="warning">
-            ⚠️ 如果这不是您本人的操作，说明您的账号密码可能已泄露，请立即修改密码！
-        </div>
-        <div class="footer">
-            © 2025 丸子智能 - 多产品管理平台
-        </div>
-    </div>
-</body>
-</html>
-HTML;
-    }
 }

@@ -6,14 +6,15 @@
     <!-- 侧边栏 -->
     <aside class="layout-aside" :class="{ 'mobile-visible': mobileMenuOpen }">
       <div class="sidebar-logo">
-        <el-icon style="font-size: 24px; margin-right: 8px;"><Platform /></el-icon>
+        <div class="sidebar-logo-icon">丸</div>
         <h2>丸子智能</h2>
       </div>
+      <div class="sidebar-menu-wrapper">
       <el-menu
         :default-active="$route.path"
-        background-color="#304156"
-        text-color="#bfcbd9"
-        active-text-color="#409EFF"
+        background-color="#001529"
+        text-color="rgba(255,255,255,0.65)"
+        active-text-color="#ffffff"
         router
       >
         <el-menu-item index="/dashboard">
@@ -76,6 +77,10 @@
           </el-menu-item>
         </el-menu-item-group>
       </el-menu>
+      </div>
+      <div class="sidebar-footer">
+        <span>© 2025 丸子智能</span>
+      </div>
     </aside>
     
     <!-- 主内容区 -->
@@ -133,7 +138,11 @@
       
       <!-- 内容区 -->
       <main class="layout-content">
-        <router-view />
+        <router-view v-slot="{ Component }">
+          <transition name="fade-slide" mode="out-in">
+            <component :is="Component" />
+          </transition>
+        </router-view>
       </main>
     </div>
   </div>

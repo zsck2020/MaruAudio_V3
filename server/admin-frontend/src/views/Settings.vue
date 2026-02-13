@@ -1,7 +1,7 @@
 <template>
   <div>
     <div class="page-header">
-      <h3 class="page-title">系统设置</h3>
+      <h3 class="page-title">邮箱与账号</h3>
     </div>
     
     <el-row :gutter="20">

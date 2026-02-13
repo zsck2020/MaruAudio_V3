@@ -134,54 +134,7 @@ html, body {
 
 /* 菜单样式优化 */
 .el-menu {
-  --el-menu-item-height: 48px;
-}
-
-/* 登录页面样式 - Ant Design 风格 */
-.login-container {
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(135deg, #1890ff 0%, #722ed1 100%);
-  position: relative;
-}
-
-.login-container::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
-}
-
-.login-card {
-  width: 400px;
-  padding: 40px;
-  background: white;
-  border-radius: var(--border-radius-lg);
-  box-shadow: 0 6px 16px 0 rgba(0, 0, 0, 0.08), 0 3px 6px -4px rgba(0, 0, 0, 0.12), 0 9px 28px 8px rgba(0, 0, 0, 0.05);
-  position: relative;
-  z-index: 1;
-}
-
-.login-title {
-  text-align: center;
-  margin-bottom: 30px;
-  color: var(--text-primary);
-}
-
-.login-title h1 {
-  font-size: 24px;
-  margin: 0 0 8px 0;
-}
-
-.login-title p {
-  font-size: 14px;
-  color: var(--text-secondary);
-  margin: 0;
+  --el-menu-item-height: 44px;
 }
 
 /* 布局样式 - Ant Design Pro 风格 */
@@ -195,6 +148,8 @@ html, body {
   background-color: #001529;
   color: white;
   box-shadow: 2px 0 8px 0 rgba(29, 35, 41, 0.05);
+  display: flex;
+  flex-direction: column;
 }
 
 .layout-main {
@@ -230,7 +185,23 @@ html, body {
   align-items: center;
   justify-content: center;
   background-color: #002140;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.sidebar-logo-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #1890ff 0%, #722ed1 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0;
 }
 
 .sidebar-logo h2 {
@@ -241,15 +212,57 @@ html, body {
   letter-spacing: 0.5px;
 }
 
+.sidebar-menu-wrapper {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.sidebar-menu-wrapper::-webkit-scrollbar {
+  width: 4px;
+}
+
+.sidebar-menu-wrapper::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 2px;
+}
+
+.sidebar-footer {
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+}
+
+.sidebar-footer span {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.3);
+}
+
 .el-menu {
   border-right: none !important;
   background-color: #001529 !important;
 }
 
+/* 分组标题样式 */
+.el-menu-item-group__title {
+  padding: 12px 0 6px 20px !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  color: rgba(255, 255, 255, 0.35) !important;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  line-height: 1 !important;
+}
+
 .el-menu-item {
-  margin: 4px 8px;
+  margin: 2px 8px;
   border-radius: var(--border-radius-base);
   color: rgba(255, 255, 255, 0.65) !important;
+  height: 44px !important;
+  line-height: 44px !important;
 }
 
 .el-menu-item:hover {
@@ -261,10 +274,12 @@ html, body {
   background-color: var(--primary-color) !important;
   color: #ffffff !important;
   font-weight: 500;
+  box-shadow: 0 2px 8px rgba(24, 144, 255, 0.4);
 }
 
 .el-menu-item .el-icon {
   color: inherit !important;
+  font-size: 18px !important;
 }
 
 /* 页面头部 - Ant Design 风格 */
@@ -676,6 +691,41 @@ html, body {
   animation: fadeIn 0.3s ease-out;
 }
 
+/* 路由过渡动画 */
+.fade-slide-enter-active {
+  transition: all 0.25s ease-out;
+}
+
+.fade-slide-leave-active {
+  transition: all 0.15s ease-in;
+}
+
+.fade-slide-enter-from {
+  opacity: 0;
+  transform: translateY(12px);
+}
+
+.fade-slide-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+
+/* 区块标题样式 */
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 16px 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.section-title .el-icon {
+  color: var(--primary-color);
+  font-size: 18px;
+}
+
 /* 滚动条美化 */
 ::-webkit-scrollbar {
   width: 6px;
@@ -841,16 +891,6 @@ html, body {
     display: none;
   }
   
-  /* 登录卡片适配 */
-  .login-card {
-    width: 90%;
-    max-width: 400px;
-    padding: 24px;
-  }
-  
-  .login-title h1 {
-    font-size: 20px;
-  }
 }
 
 /* 超小屏幕 (480px 以下) */

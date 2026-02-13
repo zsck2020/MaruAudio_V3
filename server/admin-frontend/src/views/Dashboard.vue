@@ -1,6 +1,7 @@
 <template>
   <div>
-    <!-- 统计卡片 -->
+    <!-- 用户统计 -->
+    <h4 class="section-title"><el-icon><DataLine /></el-icon>用户概览</h4>
     <div class="stat-cards">
       <div class="stat-card">
         <div class="stat-icon primary">
@@ -41,9 +42,10 @@
     </div>
     
     <!-- 销售额统计 -->
-    <div class="stat-cards" style="margin-top: 20px;">
+    <h4 class="section-title" style="margin-top: 24px;"><el-icon><TrendCharts /></el-icon>销售概览</h4>
+    <div class="stat-cards">
       <div class="stat-card">
-        <div class="stat-icon" style="background: #667eea;">
+        <div class="stat-icon" style="background: rgba(102, 126, 234, 0.1); color: #667eea;">
           <el-icon><Money /></el-icon>
         </div>
         <div class="stat-info">
@@ -52,7 +54,7 @@
         </div>
       </div>
       <div class="stat-card">
-        <div class="stat-icon" style="background: #f5576c;">
+        <div class="stat-icon" style="background: rgba(245, 87, 108, 0.1); color: #f5576c;">
           <el-icon><TrendCharts /></el-icon>
         </div>
         <div class="stat-info">
@@ -61,7 +63,7 @@
         </div>
       </div>
       <div class="stat-card">
-        <div class="stat-icon" style="background: #4facfe;">
+        <div class="stat-icon" style="background: rgba(79, 172, 254, 0.1); color: #4facfe;">
           <el-icon><Coin /></el-icon>
         </div>
         <div class="stat-info">
@@ -70,7 +72,7 @@
         </div>
       </div>
       <div class="stat-card">
-        <div class="stat-icon" style="background: #43e97b;">
+        <div class="stat-icon" style="background: rgba(67, 233, 123, 0.1); color: #43e97b;">
           <el-icon><Goods /></el-icon>
         </div>
         <div class="stat-info">
@@ -81,9 +83,9 @@
     </div>
     
     <!-- 最近用户 -->
-    <div class="table-card" style="margin-top: 20px;">
+    <div class="table-card" style="margin-top: 24px;">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-        <h4 style="margin: 0; font-size: 16px; font-weight: 600;">最近注册用户</h4>
+        <h4 class="section-title" style="margin: 0;"><el-icon><User /></el-icon>最近注册用户</h4>
         <el-button type="primary" size="small" @click="$router.push('/users')">查看全部</el-button>
       </div>
       <el-table :data="recentUsers" stripe table-layout="fixed">
@@ -109,6 +111,7 @@
 
 <script setup>
 import { ref, onMounted, watch } from 'vue'
+import { DataLine, TrendCharts } from '@element-plus/icons-vue'
 import { getStats, getUsers } from '../api'
 import { useProductStore } from '../stores/product'
 

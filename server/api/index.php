@@ -511,12 +511,6 @@ try {
             CharacterPackController::verifyAuthCode();
             break;
             
-        // 管理后台 - 字符包管理
-        case 'admin/character-pack/codes':
-            require_once __DIR__ . '/controllers/AdminApiController.php';
-            AdminApiController::getCharacterPackCodes($input);
-            break;
-            
         case 'admin/character-pack/codes/generate':
             require_once __DIR__ . '/controllers/AdminApiController.php';
             AdminApiController::generateCharacterPackCodes($input);
@@ -532,29 +526,9 @@ try {
             AdminApiController::deleteCharacterPackCode($input);
             break;
             
-        case 'admin/character-pack/users':
-            require_once __DIR__ . '/controllers/AdminApiController.php';
-            AdminApiController::getCharacterPackUsers($input);
-            break;
-            
         case 'admin/character-pack/users/adjust':
             require_once __DIR__ . '/controllers/AdminApiController.php';
             AdminApiController::adjustUserCharacterBalance($input);
-            break;
-            
-        case 'admin/character-pack/stats':
-            require_once __DIR__ . '/controllers/AdminApiController.php';
-            AdminApiController::getCharacterPackStats();
-            break;
-            
-        case 'admin/character-pack/packages':
-            require_once __DIR__ . '/controllers/AdminApiController.php';
-            AdminApiController::getCharacterPackPackages();
-            break;
-            
-        case 'admin/character-pack/packages/update':
-            require_once __DIR__ . '/controllers/AdminApiController.php';
-            AdminApiController::updateCharacterPackPackages($input);
             break;
             
         default:

@@ -59,7 +59,8 @@ class AdminApiController {
         $total = $db->fetch("SELECT COUNT(*) as count FROM admin_operation_logs")['count'] ?? 0;
         
         $logs = $db->fetchAll(
-            "SELECT * FROM admin_operation_logs ORDER BY created_at DESC LIMIT {$offset}, {$pageSize}"
+            "SELECT * FROM admin_operation_logs ORDER BY created_at DESC LIMIT ?, ?",
+            [$offset, $pageSize]
         );
         
         Response::success([
@@ -242,13 +243,14 @@ class AdminApiController {
         $total = $db->fetch("SELECT COUNT(*) as count FROM users u WHERE {$where}", $params)['count'];
         
         // 获取列表（包含邀请人数和佣金）
+        $userParams = array_merge($params, [$offset, $pageSize]);
         $users = $db->fetchAll(
             "SELECT u.id, u.email, u.avatar, u.user_group, u.expire_time, u.register_time, u.register_ip, 
                     u.last_login_time, u.last_login_ip, u.status, u.invite_code, u.invited_by,
                     (SELECT COUNT(*) FROM users WHERE invited_by = u.id) as invite_count,
                     (SELECT COALESCE(SUM(amount), 0) FROM commissions WHERE user_id = u.id AND status = 'available') as commission_balance
-             FROM users u WHERE {$where} ORDER BY u.id DESC LIMIT {$offset}, {$pageSize}",
-            $params
+             FROM users u WHERE {$where} ORDER BY u.id DESC LIMIT ?, ?",
+            $userParams
         );
         
         // 获取每个用户的机器码，并检查试用会员是否过期
@@ -629,7 +631,7 @@ class AdminApiController {
         
         $db = Database::getInstance();
         
-        $user = $db->fetch("SELECT status FROM users WHERE id = ?", [$userId]);
+        $user = $db->fetch("SELECT status, email FROM users WHERE id = ?", [$userId]);
         if (!$user) {
             Response::error('用户不存在', 2001);
         }
@@ -853,13 +855,14 @@ class AdminApiController {
         
         $total = $db->fetch("SELECT COUNT(*) as count FROM card_keys c WHERE {$where}", $params)['count'];
         
+        $cardParams = array_merge($params, [$offset, $pageSize]);
         $cards = $db->fetchAll(
             "SELECT c.id, c.card_key, c.card_type, c.duration_days, c.status, c.created_at, c.used_at, c.used_by, c.product_code, c.remark,
                     u.email as used_by_email
              FROM card_keys c
              LEFT JOIN users u ON c.used_by = u.id
-             WHERE {$where} ORDER BY c.id DESC LIMIT {$offset}, {$pageSize}",
-            $params
+             WHERE {$where} ORDER BY c.id DESC LIMIT ?, ?",
+            $cardParams
         );
         
         // 获取激活用户的机器码
@@ -1056,7 +1059,6 @@ class AdminApiController {
         $allowedKeys = [
             'registration_enabled', 'machine_code_limit', 'machine_change_cooldown', 
             'login_fail_limit', 'login_lock_duration',
-            'api_domain', 'admin_domain',
             'smtp_host', 'smtp_port', 'smtp_user', 'smtp_pass', 'from_name',
             'current_version', 'force_update', 'update_changelog', 'update_download_url',
             'trial_enabled', 'trial_duration_days',
@@ -1414,7 +1416,8 @@ class AdminApiController {
         
         // 生成备份文件名
         $filename = 'backup_' . date('Ymd_His') . '.sql';
-        $backupPath = '/www/wwwroot/MaruAudio/backups/' . $filename;
+        $backupDir = '/www/wwwroot/auth.wzagent.cn/backups/';
+        $backupPath = $backupDir . $filename;
         
         // 执行备份命令
         $dbConfig = require __DIR__ . '/../config/database.php';
@@ -1428,8 +1431,8 @@ class AdminApiController {
         );
         
         // 确保备份目录存在
-        if (!is_dir('/www/wwwroot/MaruAudio/backups')) {
-            mkdir('/www/wwwroot/MaruAudio/backups', 0755, true);
+        if (!is_dir($backupDir)) {
+            mkdir($backupDir, 0755, true);
         }
         
         exec($cmd, $output, $returnCode);
@@ -1456,7 +1459,7 @@ class AdminApiController {
     public static function getBackupList($input) {
         self::checkAdminAuth();
         
-        $backupDir = '/www/wwwroot/MaruAudio/backups/';
+        $backupDir = '/www/wwwroot/auth.wzagent.cn/backups/';
         $backups = [];
         
         if (is_dir($backupDir)) {
@@ -1561,9 +1564,8 @@ class AdminApiController {
             Response::error('文件保存失败', 1004);
         }
         
-        // 返回文件 URL
-        $baseUrl = 'https://175.178.131.67/api/uploads/';
-        $url = $baseUrl . $filename;
+        // 返回文件 URL（使用相对路径，兼容任何域名）
+        $url = '/api/uploads/' . $filename;
         
         // 记录操作日志
         self::logOperation('上传文件', 'file', null, [
@@ -1728,6 +1730,8 @@ class AdminApiController {
      * 测试 DashScope API Key
      */
     public static function testDashScopeApi($input) {
+        self::checkAdminAuth();
+        
         $apiKey = $input['api_key'] ?? '';
         
         if (empty($apiKey)) {

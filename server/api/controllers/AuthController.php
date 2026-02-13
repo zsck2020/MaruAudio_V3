@@ -728,11 +728,11 @@ class AuthController {
             Response::error('账号已被封禁', 2003);
         }
         
-        // 生成新的 Access Token（2小时有效）
-        $newToken = JWTAuth::generateToken([
+        // 生成新的 Access Token
+        $newToken = JWTAuth::generate([
             'user_id' => $user['id'],
             'email' => $user['email']
-        ], 7200); // 2小时
+        ]);
         
         // 生成新的 Refresh Token
         $newRefreshToken = SecurityHelper::generateRefreshToken($user['id']);

@@ -205,4 +205,3 @@ export const updateSettings = (data) => api.post('/admin/settings', data)
 export const updateAdminProfile = (data) => api.post('/admin/profile', data)
 
 export default api
-

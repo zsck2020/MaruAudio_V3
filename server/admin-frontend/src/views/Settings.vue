@@ -5,45 +5,6 @@
     </div>
     
     <el-row :gutter="20">
-      <!-- 域名设置 -->
-      <el-col :span="24" style="margin-bottom: 20px;">
-        <div class="table-card">
-          <h4 style="margin-top: 0;">
-            <el-icon><Link /></el-icon> 域名绑定
-          </h4>
-          <el-alert type="warning" :closable="false" style="margin-bottom: 15px;">
-            <template #title>域名绑定说明</template>
-            <ol style="margin: 8px 0 0 0; padding-left: 20px; line-height: 1.8;">
-              <li>先在域名服务商处将域名解析到服务器 IP: <code>175.178.131.67</code></li>
-              <li>在宝塔面板添加站点并配置 SSL 证书</li>
-              <li>配置 Nginx 反向代理指向对应目录</li>
-              <li>最后在此处保存域名配置</li>
-            </ol>
-          </el-alert>
-          <el-form :model="domainForm" label-width="130px">
-            <el-form-item label="API 域名">
-              <el-input v-model="domainForm.api_domain" placeholder="如: api.maruai.cn" style="width: 320px;">
-                <template #prepend>https://</template>
-              </el-input>
-            </el-form-item>
-            <el-form-item label="管理后台域名">
-              <el-input v-model="domainForm.admin_domain" placeholder="如: admin.maruai.cn" style="width: 320px;">
-                <template #prepend>https://</template>
-              </el-input>
-            </el-form-item>
-            <el-form-item label="当前状态">
-              <el-tag :type="domainForm.api_domain ? 'success' : 'info'">
-                {{ domainForm.api_domain ? '已配置域名' : '使用IP访问' }}
-              </el-tag>
-            </el-form-item>
-            <el-form-item>
-              <el-button type="primary" @click="saveDomainSettings">保存配置</el-button>
-              <el-button @click="testDomain" :disabled="!domainForm.api_domain">测试连接</el-button>
-            </el-form-item>
-          </el-form>
-        </div>
-      </el-col>
-      
       <!-- 发信邮箱配置 -->
       <el-col :span="24" style="margin-bottom: 20px;">
         <div class="table-card">
@@ -107,11 +68,6 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getSettings, updateSettings, updateAdminProfile } from '../api'
 
-const domainForm = reactive({
-  api_domain: '',
-  admin_domain: ''
-})
-
 const adminForm = reactive({
   username: '',
   email: '',
@@ -153,9 +109,6 @@ const loadSettings = async () => {
       systemForm.machine_change_cooldown = parseInt(res.data.machine_change_cooldown) || 30
       systemForm.login_fail_limit = parseInt(res.data.login_fail_limit) || 5
       systemForm.login_lock_duration = parseInt(res.data.login_lock_duration) || 30
-      // 域名设置
-      domainForm.api_domain = res.data.api_domain || ''
-      domainForm.admin_domain = res.data.admin_domain || ''
       // 邮件设置
       mailForm.smtp_host = res.data.smtp_host || 'smtp.qq.com'
       mailForm.smtp_port = parseInt(res.data.smtp_port) || 465
@@ -165,35 +118,6 @@ const loadSettings = async () => {
     }
   } catch (e) {
     console.error('加载设置失败', e)
-  }
-}
-
-const saveDomainSettings = async () => {
-  try {
-    await updateSettings({
-      api_domain: domainForm.api_domain,
-      admin_domain: domainForm.admin_domain
-    })
-    ElMessage.success('域名配置已保存')
-  } catch (e) {
-    // 错误已在拦截器处理
-  }
-}
-
-const testDomain = async () => {
-  if (!domainForm.api_domain) {
-    ElMessage.error('请先配置API域名')
-    return
-  }
-  try {
-    const response = await fetch(`https://${domainForm.api_domain}/api/health`)
-    if (response.ok) {
-      ElMessage.success('域名连接测试成功')
-    } else {
-      ElMessage.error('域名连接失败，请检查配置')
-    }
-  } catch (e) {
-    ElMessage.error('域名连接失败: ' + e.message)
   }
 }
 

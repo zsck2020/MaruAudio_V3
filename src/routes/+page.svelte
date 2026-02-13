@@ -65,6 +65,7 @@
           <Carousel
             autoplay
             autoplayDuration={5000}
+            autoplayDirection="prev"
             pauseOnFocus
             arrows={false}
             dots={true}

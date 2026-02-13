@@ -65,7 +65,6 @@
           <Carousel
             autoplay
             autoplayDuration={5000}
-            autoplayProgressVisible
             pauseOnFocus
             arrows={false}
             dots={true}
@@ -145,12 +144,6 @@
     background-color: rgba(255, 255, 255, 0.9);
     width: 20px;
     border-radius: 4px;
-  }
-
-  /* 自动播放进度条样式 */
-  .carousel-container :global(.sc-carousel-progress__indicator) {
-    background-color: var(--color-primary, #1677ff);
-    height: 2px;
   }
 
   @media (max-width: 768px) {

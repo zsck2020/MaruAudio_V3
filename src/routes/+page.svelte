@@ -25,6 +25,50 @@
     activeMenu = menuKey;
   }
 
+  // Banner 数据
+  interface BannerItem {
+    id: number;
+    title: string;
+    image_url: string;
+    link_url: string;
+    link_type: 'none' | 'url' | 'page';
+  }
+
+  const fallbackBanners: BannerItem[] = [
+    { id: 1, title: '丸子配音 · 智能语音创作平台', image_url: '/banner-1.svg', link_url: '', link_type: 'none' },
+    { id: 2, title: '多角色配音 · 一键生成对话', image_url: '/banner-2.svg', link_url: '', link_type: 'none' },
+    { id: 3, title: '智能字幕 · 精准对轴', image_url: '/banner-3.svg', link_url: '', link_type: 'none' },
+  ];
+
+  let banners: BannerItem[] = $state(fallbackBanners);
+
+  async function loadBanners() {
+    try {
+      const apiUrl = 'https://auth.wzagent.cn/api/banners?product_code=dubbing';
+      const response = await fetch(apiUrl);
+      const result = await response.json();
+      if (result.code === 0 && Array.isArray(result.data) && result.data.length > 0) {
+        banners = result.data.map((b: any) => ({
+          id: b.id,
+          title: b.title,
+          image_url: b.image_url.startsWith('http') ? b.image_url : `https://auth.wzagent.cn${b.image_url}`,
+          link_url: b.link_url || '',
+          link_type: b.link_type || 'none',
+        }));
+      }
+    } catch (e) {
+      console.warn('加载远程Banner失败，使用本地默认Banner', e);
+    }
+  }
+
+  function handleBannerClick(banner: BannerItem) {
+    if (banner.link_type === 'url' && banner.link_url) {
+      window.open(banner.link_url, '_blank');
+    } else if (banner.link_type === 'page' && banner.link_url) {
+      activeMenu = banner.link_url as MenuKey;
+    }
+  }
+
   onMount(() => {
     const checkScreenSize = () => {
       const width = window.innerWidth;
@@ -34,6 +78,8 @@
 
     checkScreenSize();
     window.addEventListener('resize', checkScreenSize);
+
+    loadBanners();
 
     return () => {
       window.removeEventListener('resize', checkScreenSize);
@@ -68,19 +114,22 @@
             autoplayDirection="prev"
             pauseOnFocus
             arrows={false}
-            dots={true}
+            dots={banners.length > 1}
             swiping={true}
             duration={500}
           >
-            <div class="carousel-item">
-              <img src="/banner-1.svg" alt="丸子配音 · 智能语音创作平台" class="carousel-image" />
-            </div>
-            <div class="carousel-item">
-              <img src="/banner-2.svg" alt="多角色配音 · 一键生成对话" class="carousel-image" />
-            </div>
-            <div class="carousel-item">
-              <img src="/banner-3.svg" alt="智能字幕 · 精准对轴" class="carousel-image" />
-            </div>
+            {#each banners as banner (banner.id)}
+              <div
+                class="carousel-item"
+                class:clickable={banner.link_type !== 'none'}
+                role={banner.link_type !== 'none' ? 'button' : undefined}
+                tabindex={banner.link_type !== 'none' ? 0 : undefined}
+                onclick={() => handleBannerClick(banner)}
+                onkeydown={(e) => e.key === 'Enter' && handleBannerClick(banner)}
+              >
+                <img src={banner.image_url} alt={banner.title} class="carousel-image" />
+              </div>
+            {/each}
           </Carousel>
         </div>
       {/if}
@@ -167,6 +216,10 @@
     .carousel-item {
       height: 160px;
     }
+  }
+
+  .carousel-item.clickable {
+    cursor: pointer;
   }
 
   .carousel-image {

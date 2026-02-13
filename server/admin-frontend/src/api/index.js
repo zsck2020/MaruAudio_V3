@@ -204,4 +204,12 @@ export const updateSettings = (data) => api.post('/admin/settings', data)
 // 更新管理员信息
 export const updateAdminProfile = (data) => api.post('/admin/profile', data)
 
+// Banner 管理
+export const getBanners = (params) => api.get('/admin/banners', { params })
+export const createBanner = (data) => api.post('/admin/banners/create', data)
+export const updateBanner = (data) => api.post('/admin/banners/update', data)
+export const deleteBanner = (id) => api.post('/admin/banners/delete', { id })
+export const toggleBanner = (id) => api.post('/admin/banners/toggle', { id })
+export const sortBanners = (items) => api.post('/admin/banners/sort', { items })
+
 export default api

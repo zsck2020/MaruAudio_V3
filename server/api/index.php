@@ -178,6 +178,12 @@ try {
             ConfigController::getActiveAnnouncements();
             break;
             
+        // 获取启用的Banner列表（公共接口，无需登录）
+        case 'banners':
+            require_once __DIR__ . '/controllers/BannerController.php';
+            BannerController::getActiveBanners($input);
+            break;
+            
         // 认证相关
         case 'auth/register':
             require_once __DIR__ . '/controllers/AuthController.php';
@@ -427,6 +433,37 @@ try {
         case 'admin/upload':
             require_once __DIR__ . '/controllers/AdminApiController.php';
             AdminApiController::upload();
+            break;
+            
+        // 管理后台 - Banner管理
+        case 'admin/banners':
+            require_once __DIR__ . '/controllers/BannerController.php';
+            BannerController::list($input);
+            break;
+            
+        case 'admin/banners/create':
+            require_once __DIR__ . '/controllers/BannerController.php';
+            BannerController::create($input);
+            break;
+            
+        case 'admin/banners/update':
+            require_once __DIR__ . '/controllers/BannerController.php';
+            BannerController::update($input);
+            break;
+            
+        case 'admin/banners/delete':
+            require_once __DIR__ . '/controllers/BannerController.php';
+            BannerController::delete($input);
+            break;
+            
+        case 'admin/banners/toggle':
+            require_once __DIR__ . '/controllers/BannerController.php';
+            BannerController::toggle($input);
+            break;
+            
+        case 'admin/banners/sort':
+            require_once __DIR__ . '/controllers/BannerController.php';
+            BannerController::updateSort($input);
             break;
             
         case 'admin/test-dashscope':

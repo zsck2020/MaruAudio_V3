@@ -15,6 +15,7 @@
 
   let visible = $state(false);
   let timeout: ReturnType<typeof setTimeout> | null = null;
+  let isHovering = $state(false);
 
   function show() {
     timeout = setTimeout(() => {
@@ -29,15 +30,39 @@
     }
     visible = false;
   }
+
+  function handleMouseEnter() {
+    isHovering = true;
+    show();
+  }
+
+  function handleMouseLeave() {
+    isHovering = false;
+    hide();
+  }
+
+  function handleFocusIn(e: FocusEvent) {
+    // 仅在键盘导航（Tab）聚焦时显示，避免鼠标点击或窗口激活误触发
+    const target = e.target as HTMLElement;
+    if (target && target.matches(':focus-visible')) {
+      show();
+    }
+  }
+
+  function handleFocusOut() {
+    if (!isHovering) {
+      hide();
+    }
+  }
 </script>
 
 <div
   class="tooltip-wrapper"
   role="group"
-  onmouseenter={show}
-  onmouseleave={hide}
-  onfocusin={show}
-  onfocusout={hide}
+  onmouseenter={handleMouseEnter}
+  onmouseleave={handleMouseLeave}
+  onfocusin={handleFocusIn}
+  onfocusout={handleFocusOut}
 >
   {@render children()}
   {#if visible}

@@ -1,0 +1,34 @@
+<svg width="1200" height="225" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1a2e"/>
+      <stop offset="50%" style="stop-color:#16213e"/>
+      <stop offset="100%" style="stop-color:#0f3460"/>
+    </linearGradient>
+    <linearGradient id="accent1" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#4096ff"/>
+      <stop offset="100%" style="stop-color:#1677ff"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="225" fill="url(#bg1)"/>
+  <!-- 装饰圆 -->
+  <circle cx="1050" cy="112" r="120" fill="#1677ff" opacity="0.08"/>
+  <circle cx="1100" cy="60" r="60" fill="#4096ff" opacity="0.06"/>
+  <circle cx="150" cy="180" r="80" fill="#1677ff" opacity="0.05"/>
+  <!-- 波浪装饰 -->
+  <path d="M0 180 Q300 140 600 170 T1200 150 V225 H0 Z" fill="#1677ff" opacity="0.04"/>
+  <!-- 图标 - 麦克风 -->
+  <g transform="translate(80, 65)">
+    <circle cx="45" cy="45" r="42" fill="#1677ff" opacity="0.15"/>
+    <path d="M45 15 C35 15 27 23 27 33 V55 C27 65 35 73 45 73 C55 73 63 65 63 55 V33 C63 23 55 15 45 15Z" fill="none" stroke="#4096ff" stroke-width="2.5"/>
+    <path d="M20 50 C20 65 31 78 45 78 C59 78 70 65 70 50" fill="none" stroke="#4096ff" stroke-width="2.5" stroke-linecap="round"/>
+    <line x1="45" y1="78" x2="45" y2="88" stroke="#4096ff" stroke-width="2.5" stroke-linecap="round"/>
+    <line x1="35" y1="88" x2="55" y2="88" stroke="#4096ff" stroke-width="2.5" stroke-linecap="round"/>
+  </g>
+  <!-- 文字 -->
+  <text x="200" y="90" font-family="'HarmonyOS Sans SC', Arial, sans-serif" font-size="28" fill="#ffffff" font-weight="600" opacity="0.95">丸子配音 · 智能语音创作平台</text>
+  <text x="200" y="125" font-family="'HarmonyOS Sans SC', Arial, sans-serif" font-size="15" fill="#ffffff" opacity="0.55">高品质 AI 配音 · 多角色对话 · 字幕生成 · 音频对轴</text>
+  <!-- CTA 按钮 -->
+  <rect x="200" y="145" width="120" height="36" rx="18" fill="url(#accent1)" opacity="0.9"/>
+  <text x="260" y="168" font-family="'HarmonyOS Sans SC', Arial, sans-serif" font-size="13" fill="#ffffff" text-anchor="middle" font-weight="500">立即体验</text>
+</svg>

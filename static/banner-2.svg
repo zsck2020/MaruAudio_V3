@@ -1,0 +1,33 @@
+<svg width="1200" height="225" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1a2e"/>
+      <stop offset="50%" style="stop-color:#1b2838"/>
+      <stop offset="100%" style="stop-color:#172a3a"/>
+    </linearGradient>
+    <linearGradient id="accent2" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#52c41a"/>
+      <stop offset="100%" style="stop-color:#389e0d"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="225" fill="url(#bg2)"/>
+  <!-- 装饰 -->
+  <circle cx="1080" cy="100" r="130" fill="#52c41a" opacity="0.06"/>
+  <circle cx="1000" cy="180" r="70" fill="#52c41a" opacity="0.04"/>
+  <circle cx="100" cy="30" r="60" fill="#52c41a" opacity="0.05"/>
+  <path d="M0 200 Q200 160 400 185 T800 165 T1200 180 V225 H0 Z" fill="#52c41a" opacity="0.03"/>
+  <!-- 图标 - 多角色 -->
+  <g transform="translate(80, 60)">
+    <circle cx="45" cy="45" r="42" fill="#52c41a" opacity="0.15"/>
+    <circle cx="35" cy="35" r="12" fill="none" stroke="#73d13d" stroke-width="2"/>
+    <path d="M20 60 C20 50 27 45 35 45 C43 45 50 50 50 60" fill="none" stroke="#73d13d" stroke-width="2" stroke-linecap="round"/>
+    <circle cx="58" cy="30" r="10" fill="none" stroke="#95de64" stroke-width="2"/>
+    <path d="M46 52 C46 44 51 40 58 40 C65 40 70 44 70 52" fill="none" stroke="#95de64" stroke-width="2" stroke-linecap="round"/>
+  </g>
+  <!-- 文字 -->
+  <text x="200" y="90" font-family="'HarmonyOS Sans SC', Arial, sans-serif" font-size="28" fill="#ffffff" font-weight="600" opacity="0.95">多角色配音 · 一键生成对话</text>
+  <text x="200" y="125" font-family="'HarmonyOS Sans SC', Arial, sans-serif" font-size="15" fill="#ffffff" opacity="0.55">支持多角色分配 · 智能断句 · 情感控制 · 批量导出</text>
+  <!-- CTA 按钮 -->
+  <rect x="200" y="145" width="120" height="36" rx="18" fill="url(#accent2)" opacity="0.9"/>
+  <text x="260" y="168" font-family="'HarmonyOS Sans SC', Arial, sans-serif" font-size="13" fill="#ffffff" text-anchor="middle" font-weight="500">开始创作</text>
+</svg>

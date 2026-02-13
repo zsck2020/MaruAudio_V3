@@ -1,0 +1,33 @@
+<svg width="1200" height="225" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg3" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1a2e"/>
+      <stop offset="50%" style="stop-color:#2a1b3d"/>
+      <stop offset="100%" style="stop-color:#1f1147"/>
+    </linearGradient>
+    <linearGradient id="accent3" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#b37feb"/>
+      <stop offset="100%" style="stop-color:#722ed1"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="225" fill="url(#bg3)"/>
+  <!-- 装饰 -->
+  <circle cx="1060" cy="90" r="110" fill="#722ed1" opacity="0.07"/>
+  <circle cx="1120" cy="170" r="50" fill="#b37feb" opacity="0.05"/>
+  <circle cx="120" cy="200" r="70" fill="#722ed1" opacity="0.04"/>
+  <path d="M0 190 Q250 155 500 175 T1000 160 T1200 170 V225 H0 Z" fill="#722ed1" opacity="0.04"/>
+  <!-- 图标 - 字幕/文字 -->
+  <g transform="translate(80, 60)">
+    <circle cx="45" cy="45" r="42" fill="#722ed1" opacity="0.15"/>
+    <rect x="22" y="25" width="46" height="40" rx="4" fill="none" stroke="#b37feb" stroke-width="2"/>
+    <line x1="30" y1="35" x2="60" y2="35" stroke="#b37feb" stroke-width="2" stroke-linecap="round"/>
+    <line x1="30" y1="45" x2="55" y2="45" stroke="#b37feb" stroke-width="2" stroke-linecap="round"/>
+    <line x1="30" y1="55" x2="50" y2="55" stroke="#b37feb" stroke-width="2" stroke-linecap="round"/>
+  </g>
+  <!-- 文字 -->
+  <text x="200" y="90" font-family="'HarmonyOS Sans SC', Arial, sans-serif" font-size="28" fill="#ffffff" font-weight="600" opacity="0.95">智能字幕 · 精准对轴</text>
+  <text x="200" y="125" font-family="'HarmonyOS Sans SC', Arial, sans-serif" font-size="15" fill="#ffffff" opacity="0.55">AI 语音识别 · 自动时间轴 · 字幕编辑 · 多格式导出</text>
+  <!-- CTA 按钮 -->
+  <rect x="200" y="145" width="120" height="36" rx="18" fill="url(#accent3)" opacity="0.9"/>
+  <text x="260" y="168" font-family="'HarmonyOS Sans SC', Arial, sans-serif" font-size="13" fill="#ffffff" text-anchor="middle" font-weight="500">了解更多</text>
+</svg>

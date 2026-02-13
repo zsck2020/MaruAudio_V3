@@ -62,9 +62,24 @@
       {#if activeMenu === 'home'}
         <!-- 仅在首页显示的 Banner Carousel -->
         <div class="carousel-container">
-          <Carousel autoplay={false} arrows={false} dots={false}>
+          <Carousel
+            autoplay
+            autoplayDuration={5000}
+            autoplayProgressVisible
+            pauseOnFocus
+            arrows={false}
+            dots={true}
+            swiping={true}
+            duration={500}
+          >
             <div class="carousel-item">
-              <img src="/banner-placeholder.svg" alt="Banner" class="carousel-image" />
+              <img src="/banner-1.svg" alt="丸子配音 · 智能语音创作平台" class="carousel-image" />
+            </div>
+            <div class="carousel-item">
+              <img src="/banner-2.svg" alt="多角色配音 · 一键生成对话" class="carousel-image" />
+            </div>
+            <div class="carousel-item">
+              <img src="/banner-3.svg" alt="智能字幕 · 精准对轴" class="carousel-image" />
             </div>
           </Carousel>
         </div>
@@ -102,15 +117,47 @@
     margin-right: 20px;
     margin-top: 11px;
     height: 225px;
-    border-radius: 5px;
+    border-radius: 8px;
     overflow: hidden;
     flex-shrink: 0;
     border: 1px solid var(--color-border-secondary);
   }
 
+  /* 轮播圆点指示器样式 */
+  .carousel-container :global(.sc-carousel-dots__container) {
+    bottom: 12px;
+    gap: 6px;
+  }
+
+  .carousel-container :global(.sc-carousel-dots__dot-container) {
+    padding: 0;
+  }
+
+  .carousel-container :global(.sc-carousel-dots__dot) {
+    width: 8px;
+    height: 8px;
+    background-color: rgba(255, 255, 255, 0.3);
+    border: none;
+    transition: all 0.3s ease;
+  }
+
+  .carousel-container :global(.sc-carousel-dots__dot_active) {
+    background-color: rgba(255, 255, 255, 0.9);
+    width: 20px;
+    border-radius: 4px;
+  }
+
+  /* 自动播放进度条样式 */
+  .carousel-container :global(.sc-carousel-progress__indicator) {
+    background-color: var(--color-primary, #1677ff);
+    height: 2px;
+  }
+
   @media (max-width: 768px) {
     .carousel-container {
-      margin-left: 20px;
+      margin-left: 12px;
+      margin-right: 12px;
+      height: 160px;
     }
   }
 
@@ -122,11 +169,17 @@
     justify-content: center;
   }
 
+  @media (max-width: 768px) {
+    .carousel-item {
+      height: 160px;
+    }
+  }
+
   .carousel-image {
     width: 100%;
     height: 100%;
     object-fit: cover;
-    border-radius: 5px;
+    border-radius: 8px;
   }
 
   @media (max-width: 768px) {

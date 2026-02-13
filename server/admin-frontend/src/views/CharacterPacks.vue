@@ -6,6 +6,9 @@
         <el-button @click="showStatsDialog">
           <el-icon><DataAnalysis /></el-icon>统计数据
         </el-button>
+        <el-button @click="showPackageDialog">
+          <el-icon><Setting /></el-icon>套餐设置
+        </el-button>
         <el-button type="primary" @click="showGenerateDialog">
           <el-icon><Plus /></el-icon>生成激活码
         </el-button>
@@ -44,67 +47,6 @@
 
     <!-- 标签页 -->
     <el-tabs v-model="activeTab" @tab-change="handleTabChange">
-      <!-- 套餐设置 -->
-      <el-tab-pane label="套餐设置" name="packages">
-        <div class="table-card">
-          <div style="margin-bottom: 16px;">
-            <span style="color: #909399; font-size: 14px;">设置字符包套餐的价格和字符数量，修改后将同步到客户端显示</span>
-          </div>
-          
-          <el-table :data="packages" stripe v-loading="packagesLoading" table-layout="fixed">
-            <el-table-column prop="pack_type" label="套餐类型" width="120">
-              <template #default="{ row }">
-                <el-tag :type="getPackTypeColor(row.pack_type)" size="small">{{ row.name }}</el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column prop="characters" label="字符数" width="150">
-              <template #default="{ row }">
-                <el-input-number 
-                  v-model="row.characters" 
-                  :min="1000" 
-                  :max="10000000" 
-                  :step="10000"
-                  size="small"
-                  style="width: 130px;"
-                />
-              </template>
-            </el-table-column>
-            <el-table-column prop="price" label="售价 (元)" width="120">
-              <template #default="{ row }">
-                <el-input-number 
-                  v-model="row.price" 
-                  :min="0" 
-                  :max="9999" 
-                  :precision="2"
-                  size="small"
-                  style="width: 100px;"
-                />
-              </template>
-            </el-table-column>
-            <el-table-column prop="validity_days" label="有效期 (天)" width="120">
-              <template #default="{ row }">
-                <el-input-number 
-                  v-model="row.validity_days" 
-                  :min="1" 
-                  :max="3650"
-                  size="small"
-                  style="width: 100px;"
-                />
-              </template>
-            </el-table-column>
-            <el-table-column prop="description" label="描述" min-width="200">
-              <template #default="{ row }">
-                <el-input v-model="row.description" size="small" placeholder="套餐描述" />
-              </template>
-            </el-table-column>
-          </el-table>
-          
-          <div style="margin-top: 20px; text-align: right;">
-            <el-button type="primary" @click="savePackages" :loading="savingPackages">保存套餐设置</el-button>
-          </div>
-        </div>
-      </el-tab-pane>
-      
       <!-- 激活码管理 -->
       <el-tab-pane label="激活码管理" name="codes">
         <div class="table-card">
@@ -298,6 +240,44 @@
       </template>
     </el-dialog>
     
+    <!-- 套餐设置对话框 -->
+    <el-dialog v-model="packageDialogVisible" title="字符包套餐设置" width="750px">
+      <div style="margin-bottom: 16px;">
+        <span style="color: #909399; font-size: 14px;">设置字符包套餐的价格和字符数量，修改后将同步到客户端显示</span>
+      </div>
+      <el-table :data="packages" stripe v-loading="packagesLoading" table-layout="fixed">
+        <el-table-column prop="pack_type" label="套餐类型" width="120">
+          <template #default="{ row }">
+            <el-tag :type="getPackTypeColor(row.pack_type)" size="small">{{ row.name }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="characters" label="字符数" width="150">
+          <template #default="{ row }">
+            <el-input-number v-model="row.characters" :min="1000" :max="10000000" :step="10000" size="small" style="width: 130px;" />
+          </template>
+        </el-table-column>
+        <el-table-column prop="price" label="售价 (元)" width="120">
+          <template #default="{ row }">
+            <el-input-number v-model="row.price" :min="0" :max="9999" :precision="2" size="small" style="width: 100px;" />
+          </template>
+        </el-table-column>
+        <el-table-column prop="validity_days" label="有效期 (天)" width="120">
+          <template #default="{ row }">
+            <el-input-number v-model="row.validity_days" :min="1" :max="3650" size="small" style="width: 100px;" />
+          </template>
+        </el-table-column>
+        <el-table-column prop="description" label="描述" min-width="200">
+          <template #default="{ row }">
+            <el-input v-model="row.description" size="small" placeholder="套餐描述" />
+          </template>
+        </el-table-column>
+      </el-table>
+      <template #footer>
+        <el-button @click="packageDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="savePackages" :loading="savingPackages">保存设置</el-button>
+      </template>
+    </el-dialog>
+    
     <!-- 统计数据对话框 -->
     <el-dialog v-model="statsDialogVisible" title="字符包统计数据" width="600px">
       <el-descriptions :column="2" border>
@@ -335,14 +315,15 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Search, CopyDocument, DataAnalysis } from '@element-plus/icons-vue'
+import { Plus, Search, CopyDocument, DataAnalysis, Setting } from '@element-plus/icons-vue'
 import api from '../api'
 
 // 状态
-const activeTab = ref('packages')
+const activeTab = ref('codes')
 const stats = ref({})
 
 // 套餐设置相关
+const packageDialogVisible = ref(false)
 const packages = ref([])
 const packagesLoading = ref(false)
 const savingPackages = ref(false)
@@ -509,13 +490,16 @@ const savePackages = async () => {
 
 // 标签页切换
 const handleTabChange = (tab) => {
-  if (tab === 'packages') {
-    loadPackages()
-  } else if (tab === 'codes') {
+  if (tab === 'codes') {
     loadCodes()
   } else if (tab === 'users') {
     loadUsers()
   }
+}
+
+const showPackageDialog = () => {
+  loadPackages()
+  packageDialogVisible.value = true
 }
 
 // 复制激活码
@@ -626,7 +610,7 @@ const showStatsDialog = () => {
 // 初始化
 onMounted(() => {
   loadStats()
-  loadPackages()
+  loadCodes()
 })
 </script>
 

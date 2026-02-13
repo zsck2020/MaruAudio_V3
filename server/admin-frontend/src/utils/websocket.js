@@ -3,7 +3,7 @@
  */
 
 class AdminWebSocket {
-  constructor(url = 'ws://175.178.131.67:8080') {
+  constructor(url = 'wss://auth.wzagent.cn/ws') {
     this.url = url
     this.ws = null
     this.connected = false

@@ -5,6 +5,19 @@
 class UserController {
     
     /**
+     * 验证用户 Token
+     */
+    private static function checkAuth() {
+        $payload = JWTAuth::getPayloadFromRequest();
+        
+        if (!$payload) {
+            Response::error('未登录或Token已过期', 4001);
+        }
+        
+        return $payload;
+    }
+    
+    /**
      * 获取用户信息
      */
     public static function info() {

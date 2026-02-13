@@ -20,42 +20,61 @@
           <el-icon><DataAnalysis /></el-icon>
           <span>控制台</span>
         </el-menu-item>
-        <el-menu-item index="/users">
-          <el-icon><User /></el-icon>
-          <span>用户管理</span>
-        </el-menu-item>
-        <el-menu-item index="/cards">
-          <el-icon><Ticket /></el-icon>
-          <span>卡密管理</span>
-        </el-menu-item>
-        <el-menu-item index="/character-packs">
-          <el-icon><Coin /></el-icon>
-          <span>字符包管理</span>
-        </el-menu-item>
-        <el-menu-item index="/marketing">
-          <el-icon><Promotion /></el-icon>
-          <span>营销活动</span>
-        </el-menu-item>
-        <el-menu-item index="/commission">
-          <el-icon><Wallet /></el-icon>
-          <span>分佣提现</span>
-        </el-menu-item>
-        <el-menu-item index="/software">
-          <el-icon><Monitor /></el-icon>
-          <span>软件管理</span>
-        </el-menu-item>
-        <el-menu-item index="/announcements">
-          <el-icon><Bell /></el-icon>
-          <span>公告管理</span>
-        </el-menu-item>
-        <el-menu-item index="/logs">
-          <el-icon><Document /></el-icon>
-          <span>操作日志</span>
-        </el-menu-item>
-        <el-menu-item index="/settings">
-          <el-icon><Setting /></el-icon>
-          <span>系统设置</span>
-        </el-menu-item>
+        
+        <el-menu-item-group title="用户管理">
+          <el-menu-item index="/users">
+            <el-icon><User /></el-icon>
+            <span>用户管理</span>
+          </el-menu-item>
+        </el-menu-item-group>
+        
+        <el-menu-item-group title="商品与销售">
+          <el-menu-item index="/cards">
+            <el-icon><Ticket /></el-icon>
+            <span>卡密管理</span>
+          </el-menu-item>
+          <el-menu-item index="/character-packs">
+            <el-icon><Coin /></el-icon>
+            <span>字符包管理</span>
+          </el-menu-item>
+        </el-menu-item-group>
+        
+        <el-menu-item-group title="营销推广">
+          <el-menu-item index="/marketing">
+            <el-icon><Promotion /></el-icon>
+            <span>营销活动</span>
+          </el-menu-item>
+          <el-menu-item index="/commission">
+            <el-icon><Wallet /></el-icon>
+            <span>分佣提现</span>
+          </el-menu-item>
+        </el-menu-item-group>
+        
+        <el-menu-item-group title="内容运营">
+          <el-menu-item index="/banner-manage">
+            <el-icon><Picture /></el-icon>
+            <span>Banner 管理</span>
+          </el-menu-item>
+          <el-menu-item index="/announcements">
+            <el-icon><Bell /></el-icon>
+            <span>公告管理</span>
+          </el-menu-item>
+        </el-menu-item-group>
+        
+        <el-menu-item-group title="系统管理">
+          <el-menu-item index="/software">
+            <el-icon><Monitor /></el-icon>
+            <span>软件配置</span>
+          </el-menu-item>
+          <el-menu-item index="/settings">
+            <el-icon><Setting /></el-icon>
+            <span>邮箱与账号</span>
+          </el-menu-item>
+          <el-menu-item index="/logs">
+            <el-icon><Document /></el-icon>
+            <span>操作日志</span>
+          </el-menu-item>
+        </el-menu-item-group>
       </el-menu>
     </aside>
     

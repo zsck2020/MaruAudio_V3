@@ -31,16 +31,10 @@ const routes = [
         meta: { title: '卡密管理' }
       },
       {
-        path: 'products',
-        name: 'Products',
-        component: () => import('../views/Products.vue'),
-        meta: { title: '产品列表' }
-      },
-      {
         path: 'software',
         name: 'Software',
         component: () => import('../views/Software.vue'),
-        meta: { title: '软件管理' }
+        meta: { title: '软件配置' }
       },
       {
         path: 'marketing',
@@ -59,6 +53,12 @@ const routes = [
         name: 'Settings',
         component: () => import('../views/Settings.vue'),
         meta: { title: '系统设置' }
+      },
+      {
+        path: 'banner-manage',
+        name: 'BannerManage',
+        component: () => import('../views/BannerManage.vue'),
+        meta: { title: 'Banner 管理' }
       },
       {
         path: 'announcements',

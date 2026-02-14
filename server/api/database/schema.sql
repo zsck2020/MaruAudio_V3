@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS `users` (
     `register_time` DATETIME DEFAULT CURRENT_TIMESTAMP,
     `last_login_time` DATETIME DEFAULT NULL,
     `status` ENUM('active', 'banned') DEFAULT 'active',
+    `password_changed_at` DATETIME DEFAULT NULL,
     INDEX `idx_email` (`email`),
     INDEX `idx_invite_code` (`invite_code`),
     INDEX `idx_invited_by` (`invited_by`)

@@ -313,7 +313,10 @@ class AdminApiController {
         }
         
         $passwordHash = password_hash($newPassword, PASSWORD_BCRYPT);
-        $db->update('users', ['password_hash' => $passwordHash], 'id = ?', [$userId]);
+        $db->update('users', [
+            'password_hash' => $passwordHash,
+            'password_changed_at' => date('Y-m-d H:i:s')
+        ], 'id = ?', [$userId]);
         
         self::logOperation('重置用户密码', 'user', $userId, [
             'email' => $user['email']

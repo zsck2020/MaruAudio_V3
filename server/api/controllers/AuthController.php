@@ -681,9 +681,12 @@ class AuthController {
             Response::error('验证码错误或已过期', 1002);
         }
         
-        // 更新密码
+        // 更新密码及密码修改时间
         $passwordHash = password_hash($newPassword, PASSWORD_BCRYPT);
-        $db->update('users', ['password_hash' => $passwordHash], 'email = ?', [$email]);
+        $db->update('users', [
+            'password_hash' => $passwordHash,
+            'password_changed_at' => date('Y-m-d H:i:s')
+        ], 'email = ?', [$email]);
         
         // 标记验证码已使用
         $db->update('password_reset_codes', ['used' => 1], 'id = ?', [$codeRecord['id']]);

@@ -6,12 +6,41 @@ class UserController {
     
     /**
      * 验证用户 Token
+     * 实时校验：账号状态（封禁）、密码是否被修改
      */
     private static function checkAuth() {
         $payload = JWTAuth::getPayloadFromRequest();
         
         if (!$payload) {
             Response::error('未登录或Token已过期', 4001);
+        }
+        
+        // 实时查库校验账号状态和密码修改时间
+        $userId = $payload['user_id'] ?? 0;
+        if ($userId) {
+            $db = Database::getInstance();
+            $user = $db->fetch(
+                "SELECT status, password_changed_at FROM users WHERE id = ?",
+                [$userId]
+            );
+            
+            if (!$user) {
+                Response::error('用户不存在', 4001);
+            }
+            
+            // 账号被封禁
+            if ($user['status'] === 'banned') {
+                Response::error('账号已被封禁', 4003);
+            }
+            
+            // 密码被修改（token签发时间早于密码修改时间）
+            if (!empty($user['password_changed_at'])) {
+                $tokenIssuedAt = $payload['iat'] ?? 0;
+                $pwdChangedAt = strtotime($user['password_changed_at']);
+                if ($tokenIssuedAt < $pwdChangedAt) {
+                    Response::error('密码已被修改，请重新登录', 4004);
+                }
+            }
         }
         
         return $payload;

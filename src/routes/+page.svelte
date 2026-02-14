@@ -69,6 +69,23 @@
     }
   }
 
+  // svelte-carousel (Svelte 3) 的 swipeable action 会拦截 mousedown，
+  // 导致 Svelte 5 的 onclick 无法触发，改用 pointerdown/pointerup 手动检测点击
+  let bannerPointerStart = { x: 0, y: 0, time: 0 };
+
+  function handleBannerPointerDown(e: PointerEvent) {
+    bannerPointerStart = { x: e.clientX, y: e.clientY, time: Date.now() };
+  }
+
+  function handleBannerPointerUp(e: PointerEvent, banner: BannerItem) {
+    const dx = Math.abs(e.clientX - bannerPointerStart.x);
+    const dy = Math.abs(e.clientY - bannerPointerStart.y);
+    const dt = Date.now() - bannerPointerStart.time;
+    if (dx < 6 && dy < 6 && dt < 400) {
+      handleBannerClick(banner);
+    }
+  }
+
   onMount(() => {
     const checkScreenSize = () => {
       const width = window.innerWidth;
@@ -124,7 +141,8 @@
                 class:clickable={banner.link_type !== 'none'}
                 role={banner.link_type !== 'none' ? 'button' : undefined}
                 tabindex={banner.link_type !== 'none' ? 0 : undefined}
-                onclick={() => handleBannerClick(banner)}
+                onpointerdown={handleBannerPointerDown}
+                onpointerup={(e) => handleBannerPointerUp(e, banner)}
                 onkeydown={(e) => e.key === 'Enter' && handleBannerClick(banner)}
               >
                 <img src={banner.image_url} alt={banner.title} class="carousel-image" />

@@ -136,11 +136,12 @@
             duration={500}
           >
             {#each banners as banner (banner.id)}
+              <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
               <div
                 class="carousel-item"
                 class:clickable={banner.link_type !== 'none'}
-                role={banner.link_type !== 'none' ? 'button' : undefined}
-                tabindex={banner.link_type !== 'none' ? 0 : undefined}
+                role={banner.link_type !== 'none' ? 'button' : 'img'}
+                tabindex={banner.link_type !== 'none' ? 0 : -1}
                 onpointerdown={handleBannerPointerDown}
                 onpointerup={(e) => handleBannerPointerUp(e, banner)}
                 onkeydown={(e) => e.key === 'Enter' && handleBannerClick(banner)}

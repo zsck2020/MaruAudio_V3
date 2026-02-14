@@ -21,7 +21,10 @@ class JWTAuth {
         ]));
         
         $payload['iat'] = time();
-        $payload['exp'] = time() + self::$expire;
+        // 管理员 token 不设置过期时间
+        if (!isset($payload['type']) || $payload['type'] !== 'admin') {
+            $payload['exp'] = time() + self::$expire;
+        }
         $payloadEncoded = self::base64UrlEncode(json_encode($payload));
         
         $signature = self::base64UrlEncode(

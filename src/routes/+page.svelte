@@ -3,6 +3,7 @@
   import Sidebar from '../lib/components/Sidebar.svelte';
   import { onMount } from 'svelte';
   import Carousel from 'svelte-carousel';
+  import { openUrl } from '@tauri-apps/plugin-opener';
 
   let isMobile = $state(false);
   let isTablet = $state(false);
@@ -61,9 +62,15 @@
     }
   }
 
-  function handleBannerClick(banner: BannerItem) {
+  async function handleBannerClick(banner: BannerItem) {
     if (banner.link_type === 'url' && banner.link_url) {
-      window.open(banner.link_url, '_blank');
+      try {
+        // Tauri 桌面端：使用 opener 插件打开系统浏览器
+        await openUrl(banner.link_url);
+      } catch {
+        // Web 环境回退
+        window.open(banner.link_url, '_blank');
+      }
     } else if (banner.link_type === 'page' && banner.link_url) {
       activeMenu = banner.link_url as MenuKey;
     }

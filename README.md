@@ -12,30 +12,30 @@ AI 语音克隆桌面应用 - 基于 Tauri 2.0 + SvelteKit 构建
 
 ```
 MaruAudio_V3/
-├── src/                    # SvelteKit 前端源码
-│   ├── routes/            # 路由页面
-│   ├── lib/               # 共享组件和工具
-│   ├── app.html           # HTML 模板
-│   └── app.css            # 全局样式
-├── src-tauri/             # Tauri 后端 (Rust)
-│   ├── src/               # Rust 源代码
-│   │   ├── commands/      # Tauri 命令（前端调用接口）
-│   │   ├── services/      # 业务服务层
-│   │   └── main.rs        # 入口文件
-│   ├── Cargo.toml         # Rust 依赖配置
-│   ├── tauri.conf.json    # Tauri 配置
-│   └── capabilities/      # Tauri 权限配置
-├── static/                # 静态资源（logo、favicon 等）
-├── server/                # 管理后台 (独立系统)
-│   ├── admin-frontend/    # 管理后台前端 (Vue 3 + SvelteKit)
+├── frontend/              # 前端 + Tauri 桌面端
+│   ├── src/               # SvelteKit 前端源码
+│   │   ├── routes/        # 路由页面
+│   │   ├── lib/           # 共享组件和工具
+│   │   ├── app.html       # HTML 模板
+│   │   └── app.css        # 全局样式
+│   ├── src-tauri/         # Tauri 后端 (Rust)
+│   │   ├── src/           # Rust 源代码
+│   │   ├── Cargo.toml     # Rust 依赖配置
+│   │   ├── tauri.conf.json# Tauri 配置
+│   │   └── capabilities/  # Tauri 权限配置
+│   ├── static/            # 静态资源（logo、favicon 等）
+│   ├── build/             # 构建输出目录
+│   └── package.json       # 前端依赖配置
+├── admin_panel/           # 网页管理后台 (独立系统)
+│   ├── admin-frontend/    # 管理后台前端 (Vue 3)
 │   ├── api/               # API 后端 (PHP)
 │   │   ├── controllers/   # 控制器
 │   │   ├── lib/           # 核心库
 │   │   ├── database/      # 数据库脚本
 │   │   └── tests/         # 测试文件
 │   └── websocket/         # WebSocket 服务 (PHP)
-├── build/                 # 构建输出目录
-└── 项目开发文档/          # 项目文档
+├── backend/               # 丸子配音后端 (待开发)
+└── docs/                  # 项目文档
 ```
 
 ## 开发环境要求
@@ -49,6 +49,7 @@ MaruAudio_V3/
 ### 安装依赖
 
 ```bash
+cd frontend
 npm install
 ```
 
@@ -57,12 +58,15 @@ npm install
 启动完整的开发环境（前端 + Tauri 桌面应用）：
 
 ```bash
+cd frontend
 npm run dev
 ```
 
 或者分别启动：
 
 ```bash
+cd frontend
+
 # 仅启动前端开发服务器（端口 1420）
 npm run dev:web-only
 
@@ -73,6 +77,8 @@ npm run dev:desktop
 ### 构建应用
 
 ```bash
+cd frontend
+
 # 构建前端
 npm run build
 
@@ -81,6 +87,8 @@ npm run tauri build
 ```
 
 ## 开发命令
+
+所有命令需在 `frontend/` 目录下执行：
 
 - `npm run dev` - 同时启动前端开发服务器和 Tauri 开发模式（推荐）
 - `npm run dev:web` - 启动前端开发服务器（端口 1420）
@@ -103,9 +111,7 @@ npm run tauri build
 
 ## 相关文档
 
-- [项目结构说明](./项目开发文档/项目结构说明.md)
-- [开发方案](./项目开发文档/MaruAudio_V3项目开发方案.md)
-- [API 文档](./server/api/API_DOCS.md)
+- [API 文档](./admin_panel/api/API_DOCS.md)
 
 ## 许可证
 

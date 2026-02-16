@@ -109,8 +109,11 @@
         <el-form-item v-if="bannerForm.link_type !== 'none'" label="跳转地址">
           <el-input 
             v-model="bannerForm.link_url" 
-            :placeholder="bannerForm.link_type === 'url' ? 'https://example.com' : '页面路径，如 dubbing'" 
-          />
+            :placeholder="bannerForm.link_type === 'url' ? 'www.example.com' : '页面路径，如 dubbing'" 
+          >
+            <template v-if="bannerForm.link_type === 'url'" #prepend>https://</template>
+          </el-input>
+          <div v-if="bannerForm.link_type === 'url'" style="color: #999; font-size: 12px; margin-top: 4px;">只需输入域名，系统会自动补全 https://</div>
         </el-form-item>
         <el-form-item label="排序权重">
           <el-input-number v-model="bannerForm.sort_order" :min="0" :max="999" />
@@ -164,11 +167,16 @@ const loadBanners = async () => {
 
 const showBannerDialog = (row = null) => {
   if (row) {
+    let linkUrl = row.link_url || ''
+    // 编辑时去除协议前缀，只显示域名部分
+    if (row.link_type === 'url') {
+      linkUrl = linkUrl.replace(/^https?:\/\//i, '')
+    }
     Object.assign(bannerForm, {
       id: row.id,
       title: row.title,
       image_url: row.image_url,
-      link_url: row.link_url || '',
+      link_url: linkUrl,
       link_type: row.link_type || 'none',
       sort_order: parseInt(row.sort_order) || 0,
       is_enabled: parseInt(row.is_enabled)
@@ -197,6 +205,13 @@ const saveBanner = async () => {
     return
   }
   
+  // 外部链接自动补全协议前缀，并去除用户可能多输入的 https:// 或 http://
+  if (bannerForm.link_type === 'url' && bannerForm.link_url) {
+    let url = bannerForm.link_url.trim()
+    url = url.replace(/^https?:\/\//i, '')
+    bannerForm.link_url = url
+  }
+
   bannerSaving.value = true
   try {
     if (bannerForm.id) {

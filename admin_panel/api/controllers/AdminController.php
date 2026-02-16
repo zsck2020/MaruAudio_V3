@@ -22,7 +22,7 @@ class AdminController {
         // 管理员登录暴力破解防护：同一IP 15分钟内最多5次失败
         $lockWindow = date('Y-m-d H:i:s', time() - 900);
         $recentFails = $db->fetch(
-            "SELECT COUNT(*) as count FROM admin_login_logs WHERE login_ip = ? AND login_result = 'failed' AND created_at > ?",
+            "SELECT COUNT(*) as count FROM admin_login_logs WHERE login_ip = ? AND login_result = 'failed' AND login_time > ?",
             [$ip, $lockWindow]
         );
         if ($recentFails && (int)$recentFails['count'] >= 5) {

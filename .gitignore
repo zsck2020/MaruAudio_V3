@@ -15,5 +15,8 @@ admin_panel/admin-frontend/dist/
 # Rust/Tauri 构建输出
 frontend/src-tauri/target/
 
+# IndexTTS 参考引擎（仅本地参考，不提交）
+IndexTTS/
+
 # 禁止提交服务器敏感信息文件
 docs/服务器信息.txt

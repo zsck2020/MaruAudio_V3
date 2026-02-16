@@ -165,7 +165,7 @@
     
 
     <!-- 编辑用户对话框 -->
-    <el-dialog v-model="editDialogVisible" title="" width="720px" class="user-edit-dialog" :close-on-click-modal="false">
+    <el-dialog v-model="editDialogVisible" title="" width="880px" class="user-edit-dialog" :close-on-click-modal="false" top="4vh">
       <template #header>
         <div class="dialog-header-title">编辑用户</div>
       </template>
@@ -173,7 +173,7 @@
       <!-- 用户概览卡片 -->
       <div class="user-profile-card">
         <div class="profile-left">
-          <el-avatar :size="52" :src="editForm.avatar || undefined" class="profile-avatar">
+          <el-avatar :size="56" :src="editForm.avatar || undefined" class="profile-avatar">
             {{ (editForm.email || '?')[0].toUpperCase() }}
           </el-avatar>
           <div class="profile-info">
@@ -277,7 +277,7 @@
         <el-tab-pane label="机器码" name="machine">
           <div class="section-card">
             <div class="section-title">已绑定机器码 <el-tag size="small" round>{{ userMachines.length }}</el-tag></div>
-            <el-table :data="userMachines" stripe max-height="180" size="small">
+            <el-table :data="userMachines" stripe max-height="220" size="small">
               <el-table-column prop="machine_code" label="机器码" show-overflow-tooltip>
                 <template #default="{ row }">
                   <code class="machine-code-text">{{ row.machine_code }}</code>
@@ -350,7 +350,7 @@
             <el-descriptions-item label="已邀请">{{ userInvites.length }} 人</el-descriptions-item>
             <el-descriptions-item label="邀请人ID">{{ editForm.invited_by || '-' }}</el-descriptions-item>
           </el-descriptions>
-          <el-table :data="userInvites" stripe max-height="220" v-loading="invitesLoading" size="small">
+          <el-table :data="userInvites" stripe max-height="280" v-loading="invitesLoading" size="small">
             <el-table-column prop="email" label="被邀请用户" show-overflow-tooltip />
             <el-table-column prop="user_group" label="用户组" width="100">
               <template #default="{ row }">
@@ -381,7 +381,7 @@
               </div>
             </el-col>
           </el-row>
-          <el-table :data="userCommissions" stripe max-height="220" v-loading="commissionsLoading" size="small">
+          <el-table :data="userCommissions" stripe max-height="280" v-loading="commissionsLoading" size="small">
             <el-table-column prop="from_email" label="来源用户" show-overflow-tooltip />
             <el-table-column prop="amount" label="金额" width="90">
               <template #default="{ row }">
@@ -415,7 +415,7 @@
     
 
     <!-- 登录日志对话框 -->
-    <el-dialog v-model="logsDialogVisible" title="" width="900px" class="logs-dialog" :close-on-click-modal="false">
+    <el-dialog v-model="logsDialogVisible" title="" width="1060px" class="logs-dialog" :close-on-click-modal="false" top="4vh">
       <template #header>
         <div class="dialog-header-title">
           登录日志
@@ -475,7 +475,7 @@
       </div>
 
       <!-- 日志表格 -->
-      <el-table :data="loginLogs" stripe max-height="380" v-loading="logsLoading" size="small" class="logs-table">
+      <el-table :data="loginLogs" stripe max-height="440" v-loading="logsLoading" size="small" class="logs-table">
         <el-table-column prop="login_time" label="时间" width="160" />
         <el-table-column prop="login_ip" label="IP地址" width="130">
           <template #default="{ row }">
@@ -1509,10 +1509,10 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  padding: 16px 20px;
+  padding: 20px 24px;
   background: linear-gradient(135deg, #f0f5ff 0%, #e8f4f8 100%);
-  border-radius: 10px;
-  margin-bottom: 16px;
+  border-radius: 12px;
+  margin-bottom: 20px;
   border: 1px solid #d6e4ff;
 }
 .profile-left {
@@ -1528,10 +1528,10 @@ onMounted(() => {
   flex-shrink: 0;
 }
 .profile-email {
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 600;
   color: #1d2129;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
 }
 .profile-meta {
   display: flex;
@@ -1548,7 +1548,7 @@ onMounted(() => {
 }
 .profile-right {
   display: flex;
-  gap: 24px;
+  gap: 28px;
   flex-shrink: 0;
 }
 .profile-stat {
@@ -1557,41 +1557,42 @@ onMounted(() => {
   align-items: flex-end;
 }
 .stat-label {
-  font-size: 11px;
+  font-size: 12px;
   color: #86909c;
-  margin-bottom: 3px;
+  margin-bottom: 4px;
 }
 .stat-value {
-  font-size: 12px;
+  font-size: 13px;
   color: #4e5969;
   font-weight: 500;
 }
 
 /* Tab 样式 */
 .user-edit-tabs :deep(.el-tabs__header) {
-  margin-bottom: 14px;
+  margin-bottom: 18px;
 }
 .user-edit-tabs :deep(.el-tabs__item) {
-  font-size: 13px;
+  font-size: 14px;
+  padding: 0 20px;
 }
 
 /* 表单样式 */
 .edit-form :deep(.el-form-item) {
-  margin-bottom: 16px;
+  margin-bottom: 20px;
 }
 
 /* 分区卡片 */
 .section-card {
   background: #fafafa;
   border: 1px solid #f0f0f0;
-  border-radius: 8px;
-  padding: 14px;
+  border-radius: 10px;
+  padding: 16px;
 }
 .section-title {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   color: #1d2129;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1611,22 +1612,22 @@ onMounted(() => {
 .stat-mini-card {
   background: #fafafa;
   border: 1px solid #f0f0f0;
-  border-radius: 8px;
-  padding: 12px 16px;
+  border-radius: 10px;
+  padding: 14px 18px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 .stat-mini-card--highlight {
   background: #fffbe6;
   border-color: #ffe58f;
 }
 .stat-mini-label {
-  font-size: 12px;
+  font-size: 13px;
   color: #86909c;
 }
 .stat-mini-value {
-  font-size: 18px;
+  font-size: 22px;
   font-weight: 600;
   color: #1d2129;
 }
@@ -1636,7 +1637,7 @@ onMounted(() => {
 
 /* 弹窗标题 */
 .dialog-header-title {
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 600;
   color: #1d2129;
 }
@@ -1650,20 +1651,19 @@ onMounted(() => {
 
 /* 弹窗整体 */
 :deep(.user-edit-dialog .el-dialog__body) {
-  padding-top: 12px;
-  padding-bottom: 8px;
+  padding: 16px 24px 12px;
 }
 
 /* 日志统计卡片 */
 .log-stat-card {
   background: #fafafa;
   border: 1px solid #f0f0f0;
-  border-radius: 8px;
-  padding: 10px 12px;
+  border-radius: 10px;
+  padding: 14px 16px;
   text-align: center;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
 }
 .log-stat-card--success {
   background: #f0f9eb;
@@ -1674,7 +1674,7 @@ onMounted(() => {
   border-color: #fde2e2;
 }
 .log-stat-num {
-  font-size: 20px;
+  font-size: 24px;
   font-weight: 700;
   color: #1d2129;
   line-height: 1.2;
@@ -1686,13 +1686,12 @@ onMounted(() => {
   color: #f56c6c;
 }
 .log-stat-label {
-  font-size: 11px;
+  font-size: 12px;
   color: #86909c;
 }
 
 /* 日志弹窗 */
 :deep(.logs-dialog .el-dialog__body) {
-  padding-top: 12px;
-  padding-bottom: 8px;
+  padding: 16px 24px 12px;
 }
 </style>

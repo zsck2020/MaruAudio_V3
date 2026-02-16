@@ -921,7 +921,7 @@ class AdminApiController {
     }
     
     /**
-     * 获取用户登录日志
+     * 获取用户登录日志（支持分页、筛选、统计）
      */
     public static function getUserLogs($input) {
         self::checkAdminAuth();
@@ -933,13 +933,61 @@ class AdminApiController {
         
         $db = Database::getInstance();
         
+        $page = max(1, (int)($input['page'] ?? 1));
+        $pageSize = min(100, max(10, (int)($input['page_size'] ?? 20)));
+        $offset = ($page - 1) * $pageSize;
+        $result = $input['result'] ?? '';  // success / failed / 空=全部
+        
+        // 构建查询条件
+        $where = "WHERE user_id = ?";
+        $params = [$userId];
+        
+        if ($result === 'success' || $result === 'failed') {
+            $where .= " AND login_result = ?";
+            $params[] = $result;
+        }
+        
+        // 查询日志
         $logs = $db->fetchAll(
             "SELECT created_at as login_time, login_ip, machine_code, device_name, os_version, client_version, login_result, fail_reason 
-             FROM user_login_logs WHERE user_id = ? ORDER BY created_at DESC LIMIT 50",
+             FROM user_login_logs {$where} ORDER BY created_at DESC LIMIT ? OFFSET ?",
+            array_merge($params, [$pageSize, $offset])
+        );
+        
+        // 总数
+        $totalRow = $db->fetch(
+            "SELECT COUNT(*) as count FROM user_login_logs {$where}",
+            $params
+        );
+        $total = (int)($totalRow['count'] ?? 0);
+        
+        // 统计信息
+        $stats = $db->fetch(
+            "SELECT 
+                COUNT(*) as total,
+                SUM(CASE WHEN login_result = 'success' THEN 1 ELSE 0 END) as success_count,
+                SUM(CASE WHEN login_result = 'failed' THEN 1 ELSE 0 END) as failed_count,
+                MAX(CASE WHEN login_result = 'success' THEN created_at END) as last_success,
+                COUNT(DISTINCT login_ip) as unique_ips,
+                COUNT(DISTINCT machine_code) as unique_machines
+             FROM user_login_logs WHERE user_id = ?",
             [$userId]
         );
         
-        Response::success($logs);
+        Response::success([
+            'list' => $logs,
+            'total' => $total,
+            'page' => $page,
+            'page_size' => $pageSize,
+            'stats' => [
+                'total' => (int)($stats['total'] ?? 0),
+                'success_count' => (int)($stats['success_count'] ?? 0),
+                'failed_count' => (int)($stats['failed_count'] ?? 0),
+                'last_success' => $stats['last_success'] ?? null,
+                'unique_ips' => (int)($stats['unique_ips'] ?? 0),
+                'unique_machines' => (int)($stats['unique_machines'] ?? 0)
+            ]
+        ]);
     }
     
     /**

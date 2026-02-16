@@ -415,37 +415,122 @@
     
 
     <!-- 登录日志对话框 -->
+    <el-dialog v-model="logsDialogVisible" title="" width="900px" class="logs-dialog" :close-on-click-modal="false">
+      <template #header>
+        <div class="dialog-header-title">
+          登录日志
+          <span v-if="logsUserEmail" style="font-weight: 400; font-size: 13px; color: #86909c; margin-left: 8px;">{{ logsUserEmail }}</span>
+        </div>
+      </template>
 
-    <el-dialog v-model="logsDialogVisible" title="登录日志" width="800px">
+      <!-- 统计卡片 -->
+      <el-row :gutter="12" style="margin-bottom: 14px;">
+        <el-col :span="4">
+          <div class="log-stat-card">
+            <span class="log-stat-num">{{ logStats.total }}</span>
+            <span class="log-stat-label">总登录</span>
+          </div>
+        </el-col>
+        <el-col :span="4">
+          <div class="log-stat-card log-stat-card--success">
+            <span class="log-stat-num">{{ logStats.success_count }}</span>
+            <span class="log-stat-label">成功</span>
+          </div>
+        </el-col>
+        <el-col :span="4">
+          <div class="log-stat-card log-stat-card--danger">
+            <span class="log-stat-num">{{ logStats.failed_count }}</span>
+            <span class="log-stat-label">失败</span>
+          </div>
+        </el-col>
+        <el-col :span="4">
+          <div class="log-stat-card">
+            <span class="log-stat-num">{{ logStats.unique_ips }}</span>
+            <span class="log-stat-label">IP数</span>
+          </div>
+        </el-col>
+        <el-col :span="4">
+          <div class="log-stat-card">
+            <span class="log-stat-num">{{ logStats.unique_machines }}</span>
+            <span class="log-stat-label">设备数</span>
+          </div>
+        </el-col>
+        <el-col :span="4">
+          <div class="log-stat-card" style="font-size: 11px;">
+            <span class="log-stat-num" style="font-size: 12px;">{{ logStats.last_success ? logStats.last_success.slice(5, 16) : '-' }}</span>
+            <span class="log-stat-label">最后成功</span>
+          </div>
+        </el-col>
+      </el-row>
 
-      <el-table :data="loginLogs" stripe max-height="400">
+      <!-- 筛选栏 -->
+      <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+        <el-radio-group v-model="logFilter" size="small" @change="loadLogs">
+          <el-radio-button label="">全部</el-radio-button>
+          <el-radio-button label="success">成功</el-radio-button>
+          <el-radio-button label="failed">失败</el-radio-button>
+        </el-radio-group>
+        <span style="flex: 1;"></span>
+        <span style="font-size: 12px; color: #86909c;">共 {{ logTotal }} 条记录</span>
+      </div>
 
-        <el-table-column prop="login_time" label="时间" width="180" />
-
-        <el-table-column prop="login_ip" label="IP地址" width="150" />
-
-        <el-table-column prop="device_name" label="设备" />
-
-        <el-table-column prop="os_version" label="系统" />
-
-        <el-table-column prop="client_version" label="版本" width="100" />
-
-        <el-table-column prop="login_result" label="结果" width="100">
-
+      <!-- 日志表格 -->
+      <el-table :data="loginLogs" stripe max-height="380" v-loading="logsLoading" size="small" class="logs-table">
+        <el-table-column prop="login_time" label="时间" width="160" />
+        <el-table-column prop="login_ip" label="IP地址" width="130">
           <template #default="{ row }">
-
-            <el-tag :type="row.login_result === 'success' ? 'success' : 'danger'">
-
-              {{ row.login_result === 'success' ? '成功' : '失败' }}
-
-            </el-tag>
-
+            <code class="machine-code-text">{{ row.login_ip || '-' }}</code>
           </template>
-
         </el-table-column>
-
+        <el-table-column prop="machine_code" label="机器码" width="140" show-overflow-tooltip>
+          <template #default="{ row }">
+            <code v-if="row.machine_code" class="machine-code-text">{{ row.machine_code.slice(0, 16) }}{{ row.machine_code.length > 16 ? '...' : '' }}</code>
+            <span v-else style="color: #c0c4cc;">-</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="device_name" label="设备" min-width="100" show-overflow-tooltip>
+          <template #default="{ row }">
+            {{ row.device_name || '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="os_version" label="系统" width="100" show-overflow-tooltip>
+          <template #default="{ row }">
+            {{ row.os_version || '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="client_version" label="版本" width="70">
+          <template #default="{ row }">
+            <el-tag v-if="row.client_version" size="small" type="info" effect="plain">{{ row.client_version }}</el-tag>
+            <span v-else style="color: #c0c4cc;">-</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="login_result" label="结果" width="70" align="center">
+          <template #default="{ row }">
+            <el-tag :type="row.login_result === 'success' ? 'success' : 'danger'" size="small" effect="dark">
+              {{ row.login_result === 'success' ? '成功' : '失败' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="fail_reason" label="失败原因" width="100" show-overflow-tooltip>
+          <template #default="{ row }">
+            <span v-if="row.fail_reason" style="color: #f56c6c; font-size: 12px;">{{ row.fail_reason }}</span>
+            <span v-else style="color: #c0c4cc;">-</span>
+          </template>
+        </el-table-column>
       </el-table>
 
+      <!-- 分页 -->
+      <el-pagination
+        v-model:current-page="logPage"
+        v-model:page-size="logPageSize"
+        :total="logTotal"
+        :page-sizes="[20, 50, 100]"
+        layout="total, sizes, prev, pager, next"
+        style="margin-top: 12px; justify-content: flex-end;"
+        size="small"
+        @size-change="loadLogs"
+        @current-change="loadLogs"
+      />
     </el-dialog>
 
   </div>
@@ -548,6 +633,22 @@ const confirmPassword = ref('')
 const logsDialogVisible = ref(false)
 
 const loginLogs = ref([])
+
+const logsLoading = ref(false)
+
+const logsUserEmail = ref('')
+
+const logsUserId = ref(0)
+
+const logFilter = ref('')
+
+const logPage = ref(1)
+
+const logPageSize = ref(20)
+
+const logTotal = ref(0)
+
+const logStats = ref({ total: 0, success_count: 0, failed_count: 0, last_success: null, unique_ips: 0, unique_machines: 0 })
 
 // 邀请记录和佣金记录
 
@@ -1134,22 +1235,40 @@ const saveUser = async () => {
 
 }
 
-const showLogsDialog = async (row) => {
+const showLogsDialog = (row) => {
+  logsUserEmail.value = row.email
+  logsUserId.value = row.id
+  logFilter.value = ''
+  logPage.value = 1
+  logPageSize.value = 20
+  loginLogs.value = []
+  logTotal.value = 0
+  logStats.value = { total: 0, success_count: 0, failed_count: 0, last_success: null, unique_ips: 0, unique_machines: 0 }
+  logsDialogVisible.value = true
+  loadLogs()
+}
 
+const loadLogs = async () => {
+  logsLoading.value = true
   try {
-
-    const res = await getUserLogs(row.id)
-
-    loginLogs.value = res.data
-
-    logsDialogVisible.value = true
-
+    const res = await getUserLogs({
+      user_id: logsUserId.value,
+      page: logPage.value,
+      page_size: logPageSize.value,
+      result: logFilter.value
+    })
+    loginLogs.value = res.data?.list || []
+    logTotal.value = res.data?.total || 0
+    if (res.data?.stats) {
+      logStats.value = res.data.stats
+    }
   } catch (e) {
-
     console.error('获取日志失败', e)
-
+    loginLogs.value = []
+    logTotal.value = 0
+  } finally {
+    logsLoading.value = false
   }
-
 }
 
 const toggleStatus = async (row) => {
@@ -1531,6 +1650,48 @@ onMounted(() => {
 
 /* 弹窗整体 */
 :deep(.user-edit-dialog .el-dialog__body) {
+  padding-top: 12px;
+  padding-bottom: 8px;
+}
+
+/* 日志统计卡片 */
+.log-stat-card {
+  background: #fafafa;
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  padding: 10px 12px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.log-stat-card--success {
+  background: #f0f9eb;
+  border-color: #e1f3d8;
+}
+.log-stat-card--danger {
+  background: #fef0f0;
+  border-color: #fde2e2;
+}
+.log-stat-num {
+  font-size: 20px;
+  font-weight: 700;
+  color: #1d2129;
+  line-height: 1.2;
+}
+.log-stat-card--success .log-stat-num {
+  color: #67c23a;
+}
+.log-stat-card--danger .log-stat-num {
+  color: #f56c6c;
+}
+.log-stat-label {
+  font-size: 11px;
+  color: #86909c;
+}
+
+/* 日志弹窗 */
+:deep(.logs-dialog .el-dialog__body) {
   padding-top: 12px;
   padding-bottom: 8px;
 }

@@ -118,7 +118,7 @@ export const toggleUserStatus = (userId) => api.post('/admin/users/toggle-status
 
 // 获取用户登录日志
 
-export const getUserLogs = (userId) => api.get('/admin/users/logs', { params: { user_id: userId } })
+export const getUserLogs = (params) => api.get('/admin/users/logs', { params })
 
 // 获取用户邀请记录
 export const getUserInvites = (userId) => api.get('/admin/users/invites', { params: { user_id: userId } })

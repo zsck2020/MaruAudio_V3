@@ -17,6 +17,7 @@ class ConfigController {
         $publicKeys = [
             'user_agreement',
             'privacy_policy',
+            'disclaimer',
             'support_qrcode_url',
             'group_join_url',
             'tutorial_url',

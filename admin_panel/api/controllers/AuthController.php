@@ -731,10 +731,17 @@ class AuthController {
             Response::error('账号已被封禁', 2003);
         }
         
-        // 生成新的 Access Token
+        // 生成新的 session_id 并更新用户记录
+        $sessionId = bin2hex(random_bytes(32));
+        $db->update('users', [
+            'current_session_id' => $sessionId
+        ], 'id = ?', [$user['id']]);
+        
+        // 生成新的 Access Token（包含 session_id，否则会被踢下线）
         $newToken = JWTAuth::generate([
             'user_id' => $user['id'],
-            'email' => $user['email']
+            'email' => $user['email'],
+            'session_id' => $sessionId
         ]);
         
         // 生成新的 Refresh Token

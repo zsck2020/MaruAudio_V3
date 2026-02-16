@@ -186,8 +186,10 @@ class AuthController {
             $expireTime = date('Y-m-d H:i:s', time() + $days * 86400);
         }
         
-        // 创建用户
+        // 创建用户（包含 session_id，与 smartLogin 注册分支保持一致）
         $passwordHash = password_hash($password, PASSWORD_BCRYPT);
+        $sessionId = bin2hex(random_bytes(32));
+        
         $userId = $db->insert('users', [
             'email' => $email,
             'password_hash' => $passwordHash,
@@ -196,7 +198,11 @@ class AuthController {
             'invite_code' => $userInviteCode,
             'invited_by' => $inviterId,
             'register_ip' => $ip,
-            'register_machine_code' => $machineCode
+            'register_machine_code' => $machineCode,
+            'current_session_id' => $sessionId,
+            'current_machine_code' => $machineCode,
+            'last_login_time' => date('Y-m-d H:i:s'),
+            'last_login_ip' => $ip
         ]);
         
         // 记录机器码
@@ -216,15 +222,20 @@ class AuthController {
         // 标记验证码已使用
         $db->update('register_codes', ['used' => 1], 'id = ?', [$codeRecord['id']]);
         
-        // 生成 Token
+        // 生成 Token（包含 session_id，确保单设备在线控制生效）
         $token = JWTAuth::generate([
             'user_id' => $userId,
-            'email' => $email
+            'email' => $email,
+            'session_id' => $sessionId
         ]);
         
         // 计算 is_trial 和 is_vip
         $isTrial = ($userGroup === 'trial');
         $isVip = in_array($userGroup, ['trial', 'monthly', 'yearly', 'permanent']);
+        
+        // 生成 Refresh Token（注册后客户端需要用于自动续期）
+        require_once __DIR__ . '/../lib/SecurityHelper.php';
+        $refreshToken = SecurityHelper::generateRefreshToken($userId);
         
         Response::success([
             'user_id' => $userId,
@@ -232,6 +243,7 @@ class AuthController {
             'user_group' => $userGroup,
             'expire_time' => $expireTime,
             'token' => $token,
+            'refresh_token' => $refreshToken,
             'is_trial' => $isTrial,
             'is_vip' => $isVip
         ], '注册成功');
@@ -374,18 +386,11 @@ class AuthController {
             'session_id' => $sessionId
         ]);
         
-        // 检查试用会员是否已过期，如果过期则自动降级为免费用户
-        if ($user['user_group'] === 'trial' && !empty($user['expire_time'])) {
+        // 检查会员是否已过期，如果过期则自动降级为免费用户
+        if (in_array($user['user_group'], ['trial', 'monthly', 'yearly']) && !empty($user['expire_time'])) {
             if (strtotime($user['expire_time']) < time()) {
-                // 试用已过期，降级为免费用户
-                $db->update('users', [
-                    'user_group' => 'free',
-                    'expire_time' => null
-                ], 'id = ?', [$user['id']]);
-                
-                // 更新返回数据
+                $db->update('users', ['user_group' => 'free'], 'id = ?', [$user['id']]);
                 $user['user_group'] = 'free';
-                $user['expire_time'] = null;
             }
         }
         
@@ -516,18 +521,11 @@ class AuthController {
                 'session_id' => $sessionId
             ]);
             
-            // 检查试用会员是否已过期，如果过期则自动降级为免费用户
-            if ($user['user_group'] === 'trial' && !empty($user['expire_time'])) {
+            // 检查会员是否已过期，如果过期则自动降级为免费用户
+            if (in_array($user['user_group'], ['trial', 'monthly', 'yearly']) && !empty($user['expire_time'])) {
                 if (strtotime($user['expire_time']) < time()) {
-                    // 试用已过期，降级为免费用户
-                    $db->update('users', [
-                        'user_group' => 'free',
-                        'expire_time' => null
-                    ], 'id = ?', [$user['id']]);
-                    
-                    // 更新返回数据
+                    $db->update('users', ['user_group' => 'free'], 'id = ?', [$user['id']]);
                     $user['user_group'] = 'free';
-                    $user['expire_time'] = null;
                 }
             }
             

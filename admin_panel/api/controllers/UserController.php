@@ -220,7 +220,7 @@ class UserController {
             }
         }
         
-        // 更新用户
+        // 使用事务保护：用户升级 + 卡密标记 + 佣金记录必须原子完成
         $updateData = ['user_group' => $newUserGroup];
         if ($newExpireTime) {
             $updateData['expire_time'] = $newExpireTime;
@@ -229,51 +229,58 @@ class UserController {
             $updateData['expire_time'] = null;
         }
         
-        // 注意：数据库表中没有 trial_expire_time 字段，所以不需要清除
-        // 试用会员的逻辑通过 user_group 字段来判断
+        $db->beginTransaction();
         
-        $db->update('users', $updateData, 'id = ?', [$user['id']]);
-        
-        // 更新卡密状态
-        $db->update('card_keys', [
-            'status' => 'used',
-            'used_at' => date('Y-m-d H:i:s'),
-            'used_by' => $user['id']
-        ], 'id = ?', [$card['id']]);
-        
-        // 计算邀请人佣金
-        if (!empty($user['invited_by'])) {
-            $commissionEnabled = $db->fetch("SELECT setting_value FROM system_settings WHERE setting_key = 'commission_enabled'");
-            if ($commissionEnabled && $commissionEnabled['setting_value'] === '1') {
-                $commissionRate = $db->fetch("SELECT setting_value FROM system_settings WHERE setting_key = 'commission_rate'");
-                $rate = $commissionRate ? (float)$commissionRate['setting_value'] : 10;
-                
-                // 从数据库获取卡密价格（区分产品：dubbing 和 comic 价格不同）
-                $pricePrefix = ($cardProductCode === 'comic') ? 'comic_card_price_' : 'card_price_';
-                $priceMonthly = $db->fetch("SELECT setting_value FROM system_settings WHERE setting_key = ?", [$pricePrefix . 'monthly']);
-                $priceYearly = $db->fetch("SELECT setting_value FROM system_settings WHERE setting_key = ?", [$pricePrefix . 'yearly']);
-                $pricePermanent = $db->fetch("SELECT setting_value FROM system_settings WHERE setting_key = ?", [$pricePrefix . 'permanent']);
-                
-                $cardPrices = [
-                    'monthly' => $priceMonthly ? (float)$priceMonthly['setting_value'] : 29.9,
-                    'yearly' => $priceYearly ? (float)$priceYearly['setting_value'] : 199,
-                    'permanent' => $pricePermanent ? (float)$pricePermanent['setting_value'] : 399
-                ];
-                $cardPrice = $cardPrices[$card['card_type']] ?? 0;
-                
-                if ($cardPrice > 0) {
-                    $commissionAmount = $cardPrice * $rate / 100;
+        try {
+            // 更新用户
+            $db->update('users', $updateData, 'id = ?', [$user['id']]);
+            
+            // 更新卡密状态
+            $db->update('card_keys', [
+                'status' => 'used',
+                'used_at' => date('Y-m-d H:i:s'),
+                'used_by' => $user['id']
+            ], 'id = ?', [$card['id']]);
+            
+            // 计算邀请人佣金
+            if (!empty($user['invited_by'])) {
+                $commissionEnabled = $db->fetch("SELECT setting_value FROM system_settings WHERE setting_key = 'commission_enabled'");
+                if ($commissionEnabled && $commissionEnabled['setting_value'] === '1') {
+                    $commissionRate = $db->fetch("SELECT setting_value FROM system_settings WHERE setting_key = 'commission_rate'");
+                    $rate = $commissionRate ? (float)$commissionRate['setting_value'] : 10;
                     
-                    // 创建佣金记录
-                    $db->insert('commissions', [
-                        'user_id' => $user['invited_by'],
-                        'from_user_id' => $user['id'],
-                        'amount' => $commissionAmount,
-                        'rate' => $rate,
-                        'status' => 'available'
-                    ]);
+                    // 从数据库获取卡密价格（区分产品：dubbing 和 comic 价格不同）
+                    $pricePrefix = ($cardProductCode === 'comic') ? 'comic_card_price_' : 'card_price_';
+                    $priceMonthly = $db->fetch("SELECT setting_value FROM system_settings WHERE setting_key = ?", [$pricePrefix . 'monthly']);
+                    $priceYearly = $db->fetch("SELECT setting_value FROM system_settings WHERE setting_key = ?", [$pricePrefix . 'yearly']);
+                    $pricePermanent = $db->fetch("SELECT setting_value FROM system_settings WHERE setting_key = ?", [$pricePrefix . 'permanent']);
+                    
+                    $cardPrices = [
+                        'monthly' => $priceMonthly ? (float)$priceMonthly['setting_value'] : 29.9,
+                        'yearly' => $priceYearly ? (float)$priceYearly['setting_value'] : 199,
+                        'permanent' => $pricePermanent ? (float)$pricePermanent['setting_value'] : 399
+                    ];
+                    $cardPrice = $cardPrices[$card['card_type']] ?? 0;
+                    
+                    if ($cardPrice > 0) {
+                        $commissionAmount = $cardPrice * $rate / 100;
+                        
+                        // 创建佣金记录
+                        $db->insert('commissions', [
+                            'user_id' => $user['invited_by'],
+                            'from_user_id' => $user['id'],
+                            'amount' => $commissionAmount,
+                            'rate' => $rate,
+                            'status' => 'available'
+                        ]);
+                    }
                 }
             }
+            
+            $db->commit();
+        } catch (Exception $e) {
+            $db->rollback();
+            Response::error('激活失败，请稍后重试', 5001);
         }
         
         // 通知用户会员状态已更新

@@ -162,87 +162,90 @@ class UserController {
         
         $db = Database::getInstance();
         
-        // 查找卡密
-        $card = $db->fetch(
-            "SELECT * FROM card_keys WHERE card_key = ?",
-            [$cardKey]
-        );
-        
-        if (!$card) {
-            Response::error('卡密不存在', 3001);
-        }
-        
-        if ($card['status'] === 'used') {
-            Response::error('卡密已被使用', 3002);
-        }
-        
-        if ($card['status'] === 'disabled') {
-            Response::error('卡密已被禁用', 3002);
-        }
-        
-        // 校验产品代码（卡密必须与当前产品匹配）
-        $cardProductCode = $card['product_code'] ?? 'dubbing';
-        if ($cardProductCode !== $clientProductCode) {
-            Response::error('该卡密不适用于当前产品', 3004);
-        }
-        
-        // 获取用户信息
-        $user = $db->fetch("SELECT * FROM users WHERE id = ?", [$payload['user_id']]);
-        
-        // 计算新的到期时间
-        $currentExpire = $user['expire_time'];
-        $durationDays = $card['duration_days'];
-        
-        // 会员等级优先级：permanent > yearly > monthly > trial > free
-        $groupPriority = ['free' => 0, 'trial' => 1, 'monthly' => 2, 'yearly' => 3, 'permanent' => 4];
-        
-        // custom 类型卡密的 user_group 映射（users.user_group enum 不含 custom）
-        // 根据 duration_days 自动映射：≥365天→yearly，否则→monthly
-        $cardGroupMapping = [
-            'monthly' => 'monthly',
-            'yearly' => 'yearly',
-            'permanent' => 'permanent',
-            'custom' => ($durationDays >= 365) ? 'yearly' : 'monthly'
-        ];
-        $mappedGroup = $cardGroupMapping[$card['card_type']] ?? 'monthly';
-        
-        if ($card['card_type'] === 'permanent') {
-            $newExpireTime = null;
-            $newUserGroup = 'permanent';
-        } else {
-            // 如果当前有会员且未过期，从当前到期时间开始计算
-            if ($currentExpire && strtotime($currentExpire) > time()) {
-                $baseTime = strtotime($currentExpire);
-            } else {
-                $baseTime = time();
-            }
-            
-            $newExpireTime = date('Y-m-d H:i:s', $baseTime + $durationDays * 86400);
-            
-            // 防止会员等级降级：如果当前等级高于卡密等级，保持当前等级
-            $currentPriority = $groupPriority[$user['user_group']] ?? 0;
-            $cardPriority = $groupPriority[$mappedGroup] ?? 0;
-            
-            if ($currentPriority > $cardPriority && $user['user_group'] !== 'permanent') {
-                $newUserGroup = $user['user_group'];
-            } else {
-                $newUserGroup = $mappedGroup;
-            }
-        }
-        
-        // 使用事务保护：用户升级 + 卡密标记 + 佣金记录必须原子完成
-        $updateData = ['user_group' => $newUserGroup];
-        if ($newExpireTime) {
-            $updateData['expire_time'] = $newExpireTime;
-        } else {
-            // 永久会员清除到期时间
-            $updateData['expire_time'] = null;
-        }
-        
+        // 整个激活流程使用事务 + 行锁，防止并发重复激活
         $db->beginTransaction();
         
         try {
+            // 使用 FOR UPDATE 行锁查询卡密，防止并发激活同一张卡密
+            $card = $db->fetch(
+                "SELECT * FROM card_keys WHERE card_key = ? FOR UPDATE",
+                [$cardKey]
+            );
+            
+            if (!$card) {
+                $db->rollback();
+                Response::error('卡密不存在', 3001);
+            }
+            
+            if ($card['status'] === 'used') {
+                $db->rollback();
+                Response::error('卡密已被使用', 3002);
+            }
+            
+            if ($card['status'] === 'disabled') {
+                $db->rollback();
+                Response::error('卡密已被禁用', 3002);
+            }
+            
+            // 校验产品代码（卡密必须与当前产品匹配）
+            $cardProductCode = $card['product_code'] ?? 'dubbing';
+            if ($cardProductCode !== $clientProductCode) {
+                $db->rollback();
+                Response::error('该卡密不适用于当前产品', 3004);
+            }
+            
+            // 获取用户信息
+            $user = $db->fetch("SELECT * FROM users WHERE id = ? FOR UPDATE", [$payload['user_id']]);
+            
+            // 计算新的到期时间
+            $currentExpire = $user['expire_time'];
+            $durationDays = $card['duration_days'];
+            
+            // 会员等级优先级：permanent > yearly > monthly > trial > free
+            $groupPriority = ['free' => 0, 'trial' => 1, 'monthly' => 2, 'yearly' => 3, 'permanent' => 4];
+            
+            // custom 类型卡密的 user_group 映射（users.user_group enum 不含 custom）
+            // 根据 duration_days 自动映射：≥365天→yearly，否则→monthly
+            $cardGroupMapping = [
+                'monthly' => 'monthly',
+                'yearly' => 'yearly',
+                'permanent' => 'permanent',
+                'custom' => ($durationDays >= 365) ? 'yearly' : 'monthly'
+            ];
+            $mappedGroup = $cardGroupMapping[$card['card_type']] ?? 'monthly';
+            
+            if ($card['card_type'] === 'permanent') {
+                $newExpireTime = null;
+                $newUserGroup = 'permanent';
+            } else {
+                // 如果当前有会员且未过期，从当前到期时间开始计算
+                if ($currentExpire && strtotime($currentExpire) > time()) {
+                    $baseTime = strtotime($currentExpire);
+                } else {
+                    $baseTime = time();
+                }
+                
+                $newExpireTime = date('Y-m-d H:i:s', $baseTime + $durationDays * 86400);
+                
+                // 防止会员等级降级：如果当前等级高于卡密等级，保持当前等级
+                $currentPriority = $groupPriority[$user['user_group']] ?? 0;
+                $cardPriority = $groupPriority[$mappedGroup] ?? 0;
+                
+                if ($currentPriority > $cardPriority && $user['user_group'] !== 'permanent') {
+                    $newUserGroup = $user['user_group'];
+                } else {
+                    $newUserGroup = $mappedGroup;
+                }
+            }
+            
             // 更新用户
+            $updateData = ['user_group' => $newUserGroup];
+            if ($newExpireTime) {
+                $updateData['expire_time'] = $newExpireTime;
+            } else {
+                // 永久会员清除到期时间
+                $updateData['expire_time'] = null;
+            }
             $db->update('users', $updateData, 'id = ?', [$user['id']]);
             
             // 更新卡密状态
@@ -453,21 +456,27 @@ class UserController {
             Response::error("最低提现金额为 ¥{$minAmount}", 1001);
         }
         
-        // 获取可用佣金余额
-        $balance = $db->fetch(
-            "SELECT COALESCE(SUM(amount), 0) as total FROM commissions WHERE user_id = ? AND status = 'available'",
-            [$userId]
-        )['total'];
-        
-        if ($amount > $balance) {
-            Response::error('余额不足', 1001);
-        }
-        
-        // 开始事务
-        $pdo = $db->getConnection();
-        $pdo->beginTransaction();
+        // 开始事务（余额检查和冻结必须在同一事务内，防止并发重复提现）
+        $db->beginTransaction();
         
         try {
+            // 在事务内用 FOR UPDATE 锁定佣金记录，防止并发提现
+            $commissions = $db->fetchAll(
+                "SELECT id, amount FROM commissions WHERE user_id = ? AND status = 'available' ORDER BY created_at ASC FOR UPDATE",
+                [$userId]
+            );
+            
+            // 计算可用余额
+            $balance = 0;
+            foreach ($commissions as $c) {
+                $balance += (float)$c['amount'];
+            }
+            
+            if ($amount > $balance) {
+                $db->rollback();
+                Response::error('余额不足', 1001);
+            }
+            
             // 创建提现申请
             $withdrawalId = $db->insert('withdrawals', [
                 'user_id' => $userId,
@@ -479,13 +488,7 @@ class UserController {
             ]);
             
             // 冻结对应金额的佣金
-            // 按时间顺序冻结佣金记录，直到达到提现金额
             $remainingAmount = $amount;
-            $commissions = $db->fetchAll(
-                "SELECT id, amount FROM commissions WHERE user_id = ? AND status = 'available' ORDER BY created_at ASC",
-                [$userId]
-            );
-            
             foreach ($commissions as $commission) {
                 if ($remainingAmount <= 0) break;
                 
@@ -497,10 +500,10 @@ class UserController {
                 $remainingAmount -= $commission['amount'];
             }
             
-            $pdo->commit();
+            $db->commit();
             Response::success(null, '提现申请已提交，请等待审核');
         } catch (Exception $e) {
-            $pdo->rollBack();
+            $db->rollback();
             Response::error('提现申请失败，请稍后重试', 5001);
         }
     }

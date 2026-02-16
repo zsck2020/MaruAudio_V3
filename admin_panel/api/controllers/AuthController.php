@@ -463,6 +463,25 @@ class AuthController {
         if ($user) {
             // ===== 用户存在：执行登录流程 =====
             
+            // 暴力破解防护（与 login 方法保持一致）
+            $failLimitSetting = $db->fetch("SELECT setting_value FROM system_settings WHERE setting_key = 'login_fail_limit'");
+            $lockDurationSetting = $db->fetch("SELECT setting_value FROM system_settings WHERE setting_key = 'login_lock_duration'");
+            $loginFailLimit = $failLimitSetting ? (int)$failLimitSetting['setting_value'] : 5;
+            $loginLockDuration = $lockDurationSetting ? (int)$lockDurationSetting['setting_value'] : 30;
+            
+            $lockCheckTime = date('Y-m-d H:i:s', time() - $loginLockDuration * 60);
+            $recentFailures = $db->fetch(
+                "SELECT COUNT(*) as count FROM user_login_logs 
+                 WHERE (email = ? OR login_ip = ?) 
+                 AND login_result = 'failed' 
+                 AND created_at > ?",
+                [$email, $ip, $lockCheckTime]
+            );
+            
+            if ($recentFailures && (int)$recentFailures['count'] >= $loginFailLimit) {
+                Response::error("登录失败次数过多，请 {$loginLockDuration} 分钟后再试", 4002);
+            }
+            
             // 检查账号状态
             if ($user['status'] === 'banned') {
                 Response::error('账号已被封禁', 2003);
@@ -470,10 +489,22 @@ class AuthController {
             
             // 验证密码
             if (!password_verify($password, $user['password_hash'])) {
+                // 记录失败日志
+                $db->insert('user_login_logs', [
+                    'user_id' => $user['id'],
+                    'email' => $email,
+                    'login_ip' => $ip,
+                    'machine_code' => $machineCode,
+                    'device_name' => $deviceInfo['device_name'],
+                    'os_version' => $deviceInfo['os_version'],
+                    'client_version' => $deviceInfo['client_version'],
+                    'login_result' => 'failed',
+                    'fail_reason' => '密码错误'
+                ]);
                 Response::error('密码错误', 2002);
             }
             
-            // 记录登录日志
+            // 记录成功登录日志
             $db->insert('user_login_logs', [
                 'user_id' => $user['id'],
                 'email' => $email,

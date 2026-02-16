@@ -196,6 +196,16 @@ class UserController {
         // 会员等级优先级：permanent > yearly > monthly > trial > free
         $groupPriority = ['free' => 0, 'trial' => 1, 'monthly' => 2, 'yearly' => 3, 'permanent' => 4];
         
+        // custom 类型卡密的 user_group 映射（users.user_group enum 不含 custom）
+        // 根据 duration_days 自动映射：≥365天→yearly，否则→monthly
+        $cardGroupMapping = [
+            'monthly' => 'monthly',
+            'yearly' => 'yearly',
+            'permanent' => 'permanent',
+            'custom' => ($durationDays >= 365) ? 'yearly' : 'monthly'
+        ];
+        $mappedGroup = $cardGroupMapping[$card['card_type']] ?? 'monthly';
+        
         if ($card['card_type'] === 'permanent') {
             $newExpireTime = null;
             $newUserGroup = 'permanent';
@@ -211,12 +221,12 @@ class UserController {
             
             // 防止会员等级降级：如果当前等级高于卡密等级，保持当前等级
             $currentPriority = $groupPriority[$user['user_group']] ?? 0;
-            $cardPriority = $groupPriority[$card['card_type']] ?? 0;
+            $cardPriority = $groupPriority[$mappedGroup] ?? 0;
             
             if ($currentPriority > $cardPriority && $user['user_group'] !== 'permanent') {
                 $newUserGroup = $user['user_group'];
             } else {
-                $newUserGroup = $card['card_type'];
+                $newUserGroup = $mappedGroup;
             }
         }
         

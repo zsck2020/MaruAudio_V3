@@ -852,6 +852,7 @@ class AdminApiController {
         // 如果已经绑定到当前用户，则直接返回成功
         if ($existing && (int)$existing['user_id'] === $userId) {
             Response::success(null, '绑定成功');
+            return;
         }
         
         $db->insert('machine_bindings', [
@@ -1029,6 +1030,13 @@ class AdminApiController {
             case 'permanent':
                 $durationDays = 0;
                 break;
+            case 'custom':
+                // 自定义类型使用前端传入的天数，需验证范围
+                $durationDays = max(1, min(3650, $durationDays));
+                break;
+            default:
+                Response::error('无效的卡密类型', 1001);
+                return;
         }
         
         $db = Database::getInstance();

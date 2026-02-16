@@ -193,6 +193,9 @@ class UserController {
         $currentExpire = $user['expire_time'];
         $durationDays = $card['duration_days'];
         
+        // 会员等级优先级：permanent > yearly > monthly > trial > free
+        $groupPriority = ['free' => 0, 'trial' => 1, 'monthly' => 2, 'yearly' => 3, 'permanent' => 4];
+        
         if ($card['card_type'] === 'permanent') {
             $newExpireTime = null;
             $newUserGroup = 'permanent';
@@ -205,7 +208,16 @@ class UserController {
             }
             
             $newExpireTime = date('Y-m-d H:i:s', $baseTime + $durationDays * 86400);
-            $newUserGroup = $card['card_type'];
+            
+            // 防止会员等级降级：如果当前等级高于卡密等级，保持当前等级
+            $currentPriority = $groupPriority[$user['user_group']] ?? 0;
+            $cardPriority = $groupPriority[$card['card_type']] ?? 0;
+            
+            if ($currentPriority > $cardPriority && $user['user_group'] !== 'permanent') {
+                $newUserGroup = $user['user_group'];
+            } else {
+                $newUserGroup = $card['card_type'];
+            }
         }
         
         // 更新用户
@@ -236,10 +248,11 @@ class UserController {
                 $commissionRate = $db->fetch("SELECT setting_value FROM system_settings WHERE setting_key = 'commission_rate'");
                 $rate = $commissionRate ? (float)$commissionRate['setting_value'] : 10;
                 
-                // 从数据库获取卡密价格
-                $priceMonthly = $db->fetch("SELECT setting_value FROM system_settings WHERE setting_key = 'card_price_monthly'");
-                $priceYearly = $db->fetch("SELECT setting_value FROM system_settings WHERE setting_key = 'card_price_yearly'");
-                $pricePermanent = $db->fetch("SELECT setting_value FROM system_settings WHERE setting_key = 'card_price_permanent'");
+                // 从数据库获取卡密价格（区分产品：dubbing 和 comic 价格不同）
+                $pricePrefix = ($cardProductCode === 'comic') ? 'comic_card_price_' : 'card_price_';
+                $priceMonthly = $db->fetch("SELECT setting_value FROM system_settings WHERE setting_key = ?", [$pricePrefix . 'monthly']);
+                $priceYearly = $db->fetch("SELECT setting_value FROM system_settings WHERE setting_key = ?", [$pricePrefix . 'yearly']);
+                $pricePermanent = $db->fetch("SELECT setting_value FROM system_settings WHERE setting_key = ?", [$pricePrefix . 'permanent']);
                 
                 $cardPrices = [
                     'monthly' => $priceMonthly ? (float)$priceMonthly['setting_value'] : 29.9,

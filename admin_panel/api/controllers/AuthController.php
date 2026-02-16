@@ -147,13 +147,17 @@ class AuthController {
             Response::error('该邮箱已注册', 2004);
         }
         
-        // 检查机器码是否已注册
-        $existMachine = $db->fetch(
-            "SELECT id FROM machine_registrations WHERE machine_code = ?",
+        // 检查机器码注册限制（与 sendCode 保持一致，尊重 machine_code_limit 设置）
+        $limitSetting = $db->fetch("SELECT setting_value FROM system_settings WHERE setting_key = 'machine_code_limit'");
+        $machineCodeLimit = $limitSetting ? (int)$limitSetting['setting_value'] : 1;
+        
+        $registeredCount = $db->fetch(
+            "SELECT COUNT(*) as count FROM machine_registrations WHERE machine_code = ?",
             [$machineCode]
         );
-        if ($existMachine) {
-            Response::error('该设备已注册账号', 2005);
+        
+        if ($registeredCount && (int)$registeredCount['count'] >= $machineCodeLimit) {
+            Response::error("该设备已注册 {$machineCodeLimit} 个账号，无法继续注册", 2005);
         }
         
         // 查找邀请人

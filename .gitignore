@@ -1,7 +1,7 @@
 .DS_Store
 node_modules
-/build
-/.svelte-kit
+/frontend/build
+/frontend/.svelte-kit
 /package
 .env
 .env.*
@@ -10,10 +10,10 @@ vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
 # 构建输出
-server/admin-frontend/dist/
+admin_panel/admin-frontend/dist/
 
 # Rust/Tauri 构建输出
-src-tauri/target/
+frontend/src-tauri/target/
 
 # 禁止提交服务器敏感信息文件
-项目开发文档/服务器信息.txt
+docs/服务器信息.txt

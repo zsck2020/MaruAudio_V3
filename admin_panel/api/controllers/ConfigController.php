@@ -12,6 +12,8 @@ class ConfigController {
         $db = Database::getInstance();
         
         // 获取所有公共配置
+        // 注意：login_fail_limit、login_lock_duration 等安全参数不应公开暴露
+        // 攻击者可利用这些信息精确规避暴力破解检测
         $publicKeys = [
             'user_agreement',
             'privacy_policy',
@@ -22,8 +24,6 @@ class ConfigController {
             'registration_enabled',
             'machine_code_limit',
             'machine_change_cooldown',
-            'login_fail_limit',
-            'login_lock_duration',
             'trial_enabled',
             'trial_duration_days',
             'current_version',
@@ -51,13 +51,11 @@ class ConfigController {
             $result[$setting['setting_key']] = $setting['setting_value'];
         }
         
-        // 设置默认值
+        // 设置默认值（不包含安全敏感参数）
         $defaults = [
             'registration_enabled' => '1',
             'machine_code_limit' => '1',
             'machine_change_cooldown' => '30',
-            'login_fail_limit' => '5',
-            'login_lock_duration' => '30',
             'trial_enabled' => '0',
             'trial_duration_days' => '3',
             'current_version' => '1.0.0',

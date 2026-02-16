@@ -454,6 +454,10 @@ class AdminApiController {
         }
         
         if (isset($input['status'])) {
+            $allowedStatuses = ['active', 'banned'];
+            if (!in_array($input['status'], $allowedStatuses, true)) {
+                Response::error('无效的用户状态', 1001);
+            }
             $updateData['status'] = $input['status'];
         }
         
@@ -473,6 +477,22 @@ class AdminApiController {
     }
     
     /**
+     * CSV 字段安全转义（防止 CSV 注入）
+     */
+    private static function csvEscape($value) {
+        $value = (string)$value;
+        // 防止 CSV 注入：以 =, +, -, @ 开头的值前加单引号
+        if (preg_match('/^[=+\-@\t\r]/', $value)) {
+            $value = "'" . $value;
+        }
+        // 包含逗号、引号、换行的字段用双引号包裹
+        if (preg_match('/[,"\n\r]/', $value)) {
+            $value = '"' . str_replace('"', '""', $value) . '"';
+        }
+        return $value;
+    }
+    
+    /**
      * 导出用户数据
      */
     public static function exportUsers($input) {
@@ -487,7 +507,7 @@ class AdminApiController {
         // 生成 CSV
         $csv = "ID,邮箱,用户组,到期时间,注册时间,注册IP,最后登录,状态,邀请码,邀请人ID\n";
         foreach ($users as $user) {
-            $csv .= implode(',', [
+            $csv .= implode(',', array_map([self::class, 'csvEscape'], [
                 $user['id'],
                 $user['email'],
                 $user['user_group'],
@@ -498,7 +518,7 @@ class AdminApiController {
                 $user['status'],
                 $user['invite_code'] ?? '',
                 $user['invited_by'] ?? ''
-            ]) . "\n";
+            ])) . "\n";
         }
         
         Response::success(['csv' => $csv, 'filename' => 'users_' . date('Ymd_His') . '.csv']);
@@ -519,7 +539,7 @@ class AdminApiController {
         // 生成 CSV
         $csv = "ID,卡密,类型,状态,创建时间,使用时间,使用者ID\n";
         foreach ($cards as $card) {
-            $csv .= implode(',', [
+            $csv .= implode(',', array_map([self::class, 'csvEscape'], [
                 $card['id'],
                 $card['card_key'],
                 $card['card_type'],
@@ -527,7 +547,7 @@ class AdminApiController {
                 $card['created_at'],
                 $card['used_at'] ?? '',
                 $card['used_by'] ?? ''
-            ]) . "\n";
+            ])) . "\n";
         }
         
         Response::success(['csv' => $csv, 'filename' => 'cards_' . date('Ymd_His') . '.csv']);
@@ -1431,13 +1451,23 @@ class AdminApiController {
         $backupDir = '/www/wwwroot/auth.wzagent.cn/backups/';
         $backupPath = $backupDir . $filename;
         
-        // 执行备份命令
+        // 执行备份命令（使用 --defaults-extra-file 避免密码出现在命令行中）
         $dbConfig = require __DIR__ . '/../config/database.php';
+        
+        // 创建临时配置文件传递密码，避免命令行泄露
+        $tmpCnf = tempnam(sys_get_temp_dir(), 'mydb_');
+        file_put_contents($tmpCnf, sprintf(
+            "[mysqldump]\nuser=%s\npassword=%s\nhost=%s\nport=%d\n",
+            $dbConfig['username'],
+            $dbConfig['password'],
+            $dbConfig['host'],
+            $dbConfig['port'] ?? 3306
+        ));
+        chmod($tmpCnf, 0600);
+        
         $cmd = sprintf(
-            'mysqldump -h%s -u%s -p%s %s > %s 2>&1',
-            escapeshellarg($dbConfig['host']),
-            escapeshellarg($dbConfig['username']),
-            escapeshellarg($dbConfig['password']),
+            'mysqldump --defaults-extra-file=%s %s > %s 2>&1',
+            escapeshellarg($tmpCnf),
             escapeshellarg($dbConfig['database']),
             escapeshellarg($backupPath)
         );
@@ -1448,6 +1478,7 @@ class AdminApiController {
         }
         
         exec($cmd, $output, $returnCode);
+        @unlink($tmpCnf); // 清理临时配置文件
         
         if ($returnCode === 0 && file_exists($backupPath)) {
             $fileSize = filesize($backupPath);

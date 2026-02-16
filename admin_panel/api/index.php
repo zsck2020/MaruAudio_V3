@@ -3,9 +3,28 @@
  * 丸子配音 API 入口
  */
 
-// 错误处理
-error_reporting(E_ALL);
+// 错误处理（生产环境禁止显示错误，仅记录日志）
+error_reporting(E_ALL & ~E_DEPRECATED & ~E_STRICT);
 ini_set('display_errors', 0);
+ini_set('log_errors', 1);
+
+// 加载 .env 环境变量
+$envFile = __DIR__ . '/.env';
+if (file_exists($envFile)) {
+    $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    foreach ($lines as $line) {
+        $line = trim($line);
+        if ($line === '' || $line[0] === '#') continue;
+        if (strpos($line, '=') !== false) {
+            list($key, $value) = explode('=', $line, 2);
+            $key = trim($key);
+            $value = trim($value);
+            if (!getenv($key)) {
+                putenv("{$key}={$value}");
+            }
+        }
+    }
+}
 
 // 处理 OPTIONS 预检请求
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -56,8 +75,8 @@ function checkReplayAttack($timestamp, $nonce) {
     return true;
 }
 
-// 请求签名密钥（与客户端保持一致）
-define('API_SIGN_SECRET', 'MaruAudio_2024_SecretKey_v1');
+// 请求签名密钥（从环境变量读取，与客户端保持一致）
+define('API_SIGN_SECRET', getenv('MARUAUDIO_API_SIGN_SECRET') ?: 'MaruAudio_2024_SecretKey_v1');
 
 // 验证请求签名
 function verifySignature($data, $timestamp, $signature) {

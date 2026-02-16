@@ -222,6 +222,11 @@ HTML;
         $time = date('Y-m-d H:i:s');
         $browser = self::parseBrowser($userAgent);
         $location = self::getIpLocation($ip);
+        // HTML 转义防止 XSS
+        $username = htmlspecialchars($username, ENT_QUOTES, 'UTF-8');
+        $ip = htmlspecialchars($ip, ENT_QUOTES, 'UTF-8');
+        $browser = htmlspecialchars($browser, ENT_QUOTES, 'UTF-8');
+        $location = htmlspecialchars($location, ENT_QUOTES, 'UTF-8');
         
         return <<<HTML
 <!DOCTYPE html>

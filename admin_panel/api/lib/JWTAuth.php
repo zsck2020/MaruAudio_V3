@@ -21,7 +21,10 @@ class JWTAuth {
         ]));
         
         $payload['iat'] = time();
-        // 所有 token 均不设过期时间，由业务层实时校验状态
+        // 管理员 Token 强制设置过期时间（2小时），用户 Token 由业务层实时校验
+        if (isset($payload['type']) && $payload['type'] === 'admin') {
+            $payload['exp'] = time() + self::$expire;
+        }
         $payloadEncoded = self::base64UrlEncode(json_encode($payload));
         
         $signature = self::base64UrlEncode(

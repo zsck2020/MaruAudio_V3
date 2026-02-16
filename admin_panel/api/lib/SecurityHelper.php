@@ -5,8 +5,15 @@
  */
 class SecurityHelper {
     
-    // 签名密钥（应该从配置文件读取）
-    private static $signatureKey = 'MaruAudio_Signature_Key_2024_Secure';
+    // 签名密钥（从环境变量读取）
+    private static $signatureKey = null;
+    
+    private static function getSignatureKey() {
+        if (self::$signatureKey === null) {
+            self::$signatureKey = getenv('MARUAUDIO_SIGNATURE_KEY') ?: 'MaruAudio_Signature_Key_2024_Secure';
+        }
+        return self::$signatureKey;
+    }
     
     // 授权码有效期（秒）
     private static $authCodeExpiry = 300; // 5分钟
@@ -33,7 +40,7 @@ class SecurityHelper {
         
         // 生成签名
         $payload = json_encode($data);
-        $signature = hash_hmac('sha256', $payload, self::$signatureKey);
+        $signature = hash_hmac('sha256', $payload, self::getSignatureKey());
         
         // 返回 Base64 编码的授权码
         return base64_encode($payload . '.' . $signature);
@@ -59,7 +66,7 @@ class SecurityHelper {
             list($payload, $signature) = $parts;
             
             // 验证签名
-            $expectedSignature = hash_hmac('sha256', $payload, self::$signatureKey);
+            $expectedSignature = hash_hmac('sha256', $payload, self::getSignatureKey());
             if (!hash_equals($expectedSignature, $signature)) {
                 return false;
             }
@@ -102,7 +109,7 @@ class SecurityHelper {
         }
         $signStr .= 'timestamp=' . $timestamp . '&token=' . substr($token, 0, 32);
         
-        return hash_hmac('sha256', $signStr, self::$signatureKey);
+        return hash_hmac('sha256', $signStr, self::getSignatureKey());
     }
     
     /**
@@ -199,7 +206,7 @@ class SecurityHelper {
         ];
         
         $payload = json_encode($data);
-        $signature = hash_hmac('sha256', $payload, self::$signatureKey);
+        $signature = hash_hmac('sha256', $payload, self::getSignatureKey());
         
         return base64_encode($payload . '.' . $signature);
     }
@@ -224,7 +231,7 @@ class SecurityHelper {
             list($payload, $signature) = $parts;
             
             // 验证签名
-            $expectedSignature = hash_hmac('sha256', $payload, self::$signatureKey);
+            $expectedSignature = hash_hmac('sha256', $payload, self::getSignatureKey());
             if (!hash_equals($expectedSignature, $signature)) {
                 return false;
             }

@@ -1189,9 +1189,11 @@ class AdminApiController {
             'user_agreement', 'privacy_policy', 'support_qrcode_url',
             'group_join_url', 'tutorial_url', 'donate_url',
             'card_price_monthly', 'card_price_yearly', 'card_price_permanent',
+            'comic_card_price_monthly', 'comic_card_price_yearly', 'comic_card_price_permanent',
             'purchase_url', 'purchase_qrcode_url',
             'dashscope_api_key',
-            'admin_sensitive_verify'
+            'admin_sensitive_verify',
+            'disclaimer'
         ];
         
         $updatedKeys = [];

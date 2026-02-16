@@ -165,360 +165,251 @@
     
 
     <!-- 编辑用户对话框 -->
+    <el-dialog v-model="editDialogVisible" title="" width="720px" class="user-edit-dialog" :close-on-click-modal="false">
+      <template #header>
+        <div class="dialog-header-title">编辑用户</div>
+      </template>
 
-    <el-dialog v-model="editDialogVisible" title="编辑用户" width="600px">
+      <!-- 用户概览卡片 -->
+      <div class="user-profile-card">
+        <div class="profile-left">
+          <el-avatar :size="52" :src="editForm.avatar || undefined" class="profile-avatar">
+            {{ (editForm.email || '?')[0].toUpperCase() }}
+          </el-avatar>
+          <div class="profile-info">
+            <div class="profile-email">{{ editForm.email }}</div>
+            <div class="profile-meta">
+              <span class="meta-item">ID: {{ editForm.id }}</span>
+              <el-tag :type="getGroupType(editForm.user_group)" size="small" class="profile-group-tag">{{ getGroupName(editForm.user_group) }}</el-tag>
+              <el-tag :type="editForm.status === 'active' ? 'success' : 'danger'" size="small" effect="dark">
+                {{ editForm.status === 'active' ? '正常' : '封禁' }}
+              </el-tag>
+            </div>
+          </div>
+        </div>
+        <div class="profile-right">
+          <div class="profile-stat">
+            <span class="stat-label">注册时间</span>
+            <span class="stat-value">{{ editForm.register_time || '-' }}</span>
+          </div>
+          <div class="profile-stat">
+            <span class="stat-label">最后登录</span>
+            <span class="stat-value">{{ editForm.last_login_time || '-' }}</span>
+          </div>
+          <div class="profile-stat">
+            <span class="stat-label">到期时间</span>
+            <span class="stat-value">
+              <template v-if="editForm.user_group === 'permanent'">永久</template>
+              <template v-else-if="editForm.user_group === 'free'">-</template>
+              <template v-else>{{ editForm.expire_time || '未设置' }}</template>
+            </span>
+          </div>
+        </div>
+      </div>
 
-      <el-tabs v-model="editTab">
-
+      <el-tabs v-model="editTab" class="user-edit-tabs">
         <!-- 基本信息 -->
-
         <el-tab-pane label="基本信息" name="basic">
-
-          <el-form :model="editForm" label-width="100px">
-
-            <el-form-item label="用户ID">
-
-              <el-input v-model="editForm.id" disabled />
-
+          <el-form :model="editForm" label-width="90px" class="edit-form">
+            <el-row :gutter="20">
+              <el-col :span="12">
+                <el-form-item label="用户组">
+                  <el-select v-model="editForm.user_group" style="width: 100%;">
+                    <el-option label="免费用户" value="free" />
+                    <el-option label="试用会员" value="trial" />
+                    <el-option label="月卡会员" value="monthly" />
+                    <el-option label="年卡会员" value="yearly" />
+                    <el-option label="永久会员" value="permanent" />
+                  </el-select>
+                </el-form-item>
+              </el-col>
+              <el-col :span="12">
+                <el-form-item label="状态">
+                  <el-select v-model="editForm.status" style="width: 100%;">
+                    <el-option label="正常" value="active" />
+                    <el-option label="封禁" value="banned" />
+                  </el-select>
+                </el-form-item>
+              </el-col>
+            </el-row>
+            <el-form-item label="头像URL">
+              <el-input v-model="editForm.avatar" placeholder="留空使用默认头像" clearable />
             </el-form-item>
-
-            <el-form-item label="邮箱">
-
-              <el-input v-model="editForm.email" disabled />
-
-            </el-form-item>
-
-            <el-form-item label="头像">
-
-              <el-input v-model="editForm.avatar" placeholder="头像URL（留空使用默认）" />
-
-            </el-form-item>
-
-            <el-form-item label="用户组">
-
-              <el-select v-model="editForm.user_group" style="width: 100%;">
-
-                <el-option label="免费用户" value="free" />
-
-                <el-option label="试用会员" value="trial" />
-
-                <el-option label="月卡会员" value="monthly" />
-
-                <el-option label="年卡会员" value="yearly" />
-
-                <el-option label="永久会员" value="permanent" />
-
-              </el-select>
-
-            </el-form-item>
-
-            <el-form-item label="状态">
-
-              <el-select v-model="editForm.status" style="width: 100%;">
-
-                <el-option label="正常" value="active" />
-
-                <el-option label="封禁" value="banned" />
-
-              </el-select>
-
-            </el-form-item>
-
           </el-form>
-
         </el-tab-pane>
-
-        
 
         <!-- 使用时长 -->
-
         <el-tab-pane label="使用时长" name="duration">
-
-          <el-form :model="editForm" label-width="100px">
-
-            <!-- 免费用户提示 -->
-
-            <el-alert v-if="editForm.user_group === 'free'" type="info" :closable="false" style="margin-bottom: 20px;">
-
-              免费用户无需设置到期时间。如需要开通会员，请先在「基本信息」中修改用户组。
-            </el-alert>
-
-            <el-form-item label="当前到期">
-
-              <el-tag v-if="editForm.user_group === 'permanent'" type="success">永久会员</el-tag>
-
-              <el-tag v-else-if="editForm.user_group === 'free'" type="info">免费用户</el-tag>
-
-              <span v-else-if="editForm.expire_time">{{ formatExpireTime(editForm.expire_time) }}</span>
-
-              <span v-else style="color: #999;">未设置到期时间</span>
-
-            </el-form-item>
-
-            <el-divider v-if="editForm.user_group !== 'free'" />
-
-            <el-form-item v-if="editForm.user_group !== 'free'" label="修改方式">
-
+          <el-alert v-if="editForm.user_group === 'free'" type="info" :closable="false" style="margin-bottom: 16px;">
+            免费用户无需设置到期时间。请先在「基本信息」中修改用户组。
+          </el-alert>
+          <el-form :model="editForm" label-width="90px" class="edit-form" v-if="editForm.user_group !== 'free'">
+            <el-form-item label="修改方式">
               <el-radio-group v-model="durationMode">
-
-                <el-radio label="set">设置到期时间</el-radio>
-
-                <el-radio label="add">增加时长</el-radio>
-
+                <el-radio-button label="set">设置到期时间</el-radio-button>
+                <el-radio-button label="add">增加时长</el-radio-button>
               </el-radio-group>
-
             </el-form-item>
-
-            <el-form-item v-if="durationMode === 'set' && editForm.user_group !== 'free'" label="到期时间">
-
+            <el-form-item v-if="durationMode === 'set'" label="到期时间">
               <el-date-picker v-model="editForm.expire_time" type="datetime" style="width: 100%;" placeholder="选择到期时间" value-format="YYYY-MM-DD HH:mm:ss" />
-
             </el-form-item>
-
-            <el-form-item v-if="durationMode === 'add' && editForm.user_group !== 'free'" label="增加时长">
-
-              <el-space>
-
-                <el-button @click="addDuration(30)">+30天</el-button>
-
-                <el-button @click="addDuration(90)">+90天</el-button>
-
-                <el-button @click="addDuration(365)">+1年</el-button>
-
-                <el-button type="success" @click="setPermanent">设为永久</el-button>
-
-              </el-space>
-
-            </el-form-item>
-
-            <el-form-item v-if="durationMode === 'add' && editForm.user_group !== 'free'" label="自定义天数">
-
-              <el-input-number v-model="customDays" :min="1" :max="9999" />
-
-              <el-button style="margin-left: 10px;" @click="addDuration(customDays)">添加</el-button>
-
-            </el-form-item>
-
+            <template v-if="durationMode === 'add'">
+              <el-form-item label="快捷增加">
+                <el-space wrap>
+                  <el-button @click="addDuration(7)">+7天</el-button>
+                  <el-button @click="addDuration(30)">+30天</el-button>
+                  <el-button @click="addDuration(90)">+90天</el-button>
+                  <el-button @click="addDuration(365)">+1年</el-button>
+                  <el-button type="success" @click="setPermanent">设为永久</el-button>
+                </el-space>
+              </el-form-item>
+              <el-form-item label="自定义">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <el-input-number v-model="customDays" :min="1" :max="9999" />
+                  <el-button type="primary" @click="addDuration(customDays)">添加天数</el-button>
+                </div>
+              </el-form-item>
+            </template>
           </el-form>
-
         </el-tab-pane>
-
-        
 
         <!-- 机器码管理 -->
-
         <el-tab-pane label="机器码" name="machine">
-
-          <el-table :data="userMachines" stripe max-height="200">
-
-            <el-table-column prop="machine_code" label="机器码" show-overflow-tooltip />
-
-            <el-table-column prop="bind_time" label="绑定时间" width="180" />
-
-            <el-table-column label="操作" width="80">
-
-              <template #default="{ row }">
-
-                <el-button type="danger" link size="small" @click="unbindMachine(row)">解绑</el-button>
-
-              </template>
-
-            </el-table-column>
-
-          </el-table>
-
-          <el-divider />
-
-          <h5 style="margin: 0 0 12px 0;">机器码验证</h5>
-
-          <div style="display: flex; align-items: center; gap: 10px;">
-
-            <el-input v-model="verifyMachineCode" placeholder="输入用户提供的机器码进行验证" style="width: 350px;" />
-
-            <el-button type="primary" @click="verifyMachine">验证</el-button>
-
+          <div class="section-card">
+            <div class="section-title">已绑定机器码 <el-tag size="small" round>{{ userMachines.length }}</el-tag></div>
+            <el-table :data="userMachines" stripe max-height="180" size="small">
+              <el-table-column prop="machine_code" label="机器码" show-overflow-tooltip>
+                <template #default="{ row }">
+                  <code class="machine-code-text">{{ row.machine_code }}</code>
+                </template>
+              </el-table-column>
+              <el-table-column prop="bind_time" label="绑定时间" width="170" />
+              <el-table-column label="操作" width="70" align="center">
+                <template #default="{ row }">
+                  <el-button type="danger" link size="small" @click="unbindMachine(row)">解绑</el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+            <el-empty v-if="userMachines.length === 0" description="暂无绑定机器码" :image-size="40" />
           </div>
-
-          <div v-if="verifyResult !== null" style="margin-top: 12px;">
-
-            <el-alert v-if="verifyResult === true" title="验证通过" type="success" :closable="false" show-icon>
-
-              该机器码已绑定到此用户
-            </el-alert>
-
-            <el-alert v-else-if="verifyResult === 'other'" title="验证失败" type="warning" :closable="false" show-icon>
-
-              该机器码已绑定到其他用户
-
-            </el-alert>
-
-            <el-alert v-else title="验证失败" type="error" :closable="false" show-icon>
-
-              该机器码未在系统中注册
-            </el-alert>
-
-          </div>
-
-          <el-divider />
-
-          <h5 style="margin: 0 0 12px 0;">绑定新机器码</h5>
-
-          <div style="display: flex; align-items: center; gap: 10px;">
-
-            <el-input v-model="newMachineCode" placeholder="输入新机器码" style="width: 350px;" />
-
-            <el-button type="primary" @click="bindMachine">绑定</el-button>
-
-          </div>
-
+          <el-row :gutter="16" style="margin-top: 14px;">
+            <el-col :span="12">
+              <div class="section-card">
+                <div class="section-title">验证机器码</div>
+                <div style="display: flex; gap: 8px;">
+                  <el-input v-model="verifyMachineCode" placeholder="输入机器码验证" size="small" clearable />
+                  <el-button type="primary" size="small" @click="verifyMachine" :disabled="!verifyMachineCode">验证</el-button>
+                </div>
+                <div v-if="verifyResult !== null" style="margin-top: 8px;">
+                  <el-alert v-if="verifyResult === true" title="已绑定到此用户" type="success" :closable="false" show-icon />
+                  <el-alert v-else-if="verifyResult === 'other'" title="已绑定到其他用户" type="warning" :closable="false" show-icon />
+                  <el-alert v-else title="未在系统中注册" type="error" :closable="false" show-icon />
+                </div>
+              </div>
+            </el-col>
+            <el-col :span="12">
+              <div class="section-card">
+                <div class="section-title">绑定新机器码</div>
+                <div style="display: flex; gap: 8px;">
+                  <el-input v-model="newMachineCode" placeholder="输入新机器码" size="small" clearable />
+                  <el-button type="primary" size="small" @click="bindMachine" :disabled="!newMachineCode">绑定</el-button>
+                </div>
+              </div>
+            </el-col>
+          </el-row>
         </el-tab-pane>
-
-        
 
         <!-- 重置密码 -->
-
         <el-tab-pane label="重置密码" name="password">
-
-          <el-form label-width="100px">
-
-            <el-alert type="warning" :closable="false" style="margin-bottom: 20px;">
-
-              重置密码后，用户需要使用新密码登录
-
+          <el-form label-width="90px" class="edit-form" style="max-width: 420px;">
+            <el-alert type="warning" :closable="false" style="margin-bottom: 16px;" show-icon>
+              重置密码后，用户需要使用新密码重新登录
             </el-alert>
-
             <el-form-item label="新密码">
-
-              <el-input v-model="newPassword" type="password" placeholder="输入新密码" show-password />
-
+              <el-input v-model="newPassword" type="password" placeholder="输入新密码（至少6位）" show-password />
             </el-form-item>
-
             <el-form-item label="确认密码">
-
-              <el-input v-model="confirmPassword" type="password" placeholder="确认新密码" show-password />
-
+              <el-input v-model="confirmPassword" type="password" placeholder="再次输入新密码" show-password />
             </el-form-item>
-
             <el-form-item>
-
-              <el-button type="danger" @click="resetPassword">重置密码</el-button>
-
+              <el-button type="danger" @click="resetPassword" :disabled="!newPassword || !confirmPassword">重置密码</el-button>
             </el-form-item>
-
           </el-form>
-
         </el-tab-pane>
-
-        
 
         <!-- 邀请记录 -->
-
-        <el-tab-pane label="邀请记录" name="invites">
-
-          <div style="margin-bottom: 12px;">
-
-            <el-descriptions :column="2" border size="small">
-
-              <el-descriptions-item label="邀请码">{{ editForm.invite_code || '未生成' }}</el-descriptions-item>
-
-              <el-descriptions-item label="已邀请人数">{{ userInvites.length }} 人</el-descriptions-item>
-
-            </el-descriptions>
-
-          </div>
-
-          <el-table :data="userInvites" stripe max-height="250" v-loading="invitesLoading">
-
+        <el-tab-pane name="invites">
+          <template #label>
+            邀请记录 <el-badge :value="userInvites.length" :hidden="userInvites.length === 0" type="primary" />
+          </template>
+          <el-descriptions :column="3" border size="small" style="margin-bottom: 14px;">
+            <el-descriptions-item label="邀请码">
+              <code v-if="editForm.invite_code" class="machine-code-text">{{ editForm.invite_code }}</code>
+              <span v-else style="color: #999;">未生成</span>
+            </el-descriptions-item>
+            <el-descriptions-item label="已邀请">{{ userInvites.length }} 人</el-descriptions-item>
+            <el-descriptions-item label="邀请人ID">{{ editForm.invited_by || '-' }}</el-descriptions-item>
+          </el-descriptions>
+          <el-table :data="userInvites" stripe max-height="220" v-loading="invitesLoading" size="small">
             <el-table-column prop="email" label="被邀请用户" show-overflow-tooltip />
-
             <el-table-column prop="user_group" label="用户组" width="100">
-
               <template #default="{ row }">
-
                 <el-tag :type="getGroupType(row.user_group)" size="small">{{ getGroupName(row.user_group) }}</el-tag>
-
               </template>
-
             </el-table-column>
-
             <el-table-column prop="register_time" label="注册时间" width="165" />
-
           </el-table>
-
-          <el-empty v-if="userInvites.length === 0 && !invitesLoading" description="暂无邀请记录" />
-
+          <el-empty v-if="userInvites.length === 0 && !invitesLoading" description="暂无邀请记录" :image-size="50" />
         </el-tab-pane>
-
-        
 
         <!-- 佣金记录 -->
-
-        <el-tab-pane label="佣金记录" name="commissions">
-
-          <div style="margin-bottom: 12px;">
-
-            <el-descriptions :column="2" border size="small">
-
-              <el-descriptions-item label="累计佣金">¥{{ commissionStats.total.toFixed(2) }}</el-descriptions-item>
-
-              <el-descriptions-item label="可提现余额">¥{{ commissionStats.available.toFixed(2) }}</el-descriptions-item>
-
-            </el-descriptions>
-
-          </div>
-
-          <el-table :data="userCommissions" stripe max-height="250" v-loading="commissionsLoading">
-
+        <el-tab-pane name="commissions">
+          <template #label>
+            佣金记录 <el-badge :value="'¥' + commissionStats.available.toFixed(0)" :hidden="commissionStats.available <= 0" type="warning" />
+          </template>
+          <el-row :gutter="12" style="margin-bottom: 14px;">
+            <el-col :span="12">
+              <div class="stat-mini-card">
+                <span class="stat-mini-label">累计佣金</span>
+                <span class="stat-mini-value">¥{{ commissionStats.total.toFixed(2) }}</span>
+              </div>
+            </el-col>
+            <el-col :span="12">
+              <div class="stat-mini-card stat-mini-card--highlight">
+                <span class="stat-mini-label">可提现余额</span>
+                <span class="stat-mini-value">¥{{ commissionStats.available.toFixed(2) }}</span>
+              </div>
+            </el-col>
+          </el-row>
+          <el-table :data="userCommissions" stripe max-height="220" v-loading="commissionsLoading" size="small">
             <el-table-column prop="from_email" label="来源用户" show-overflow-tooltip />
-
-            <el-table-column prop="amount" label="佣金金额" width="100">
-
+            <el-table-column prop="amount" label="金额" width="90">
               <template #default="{ row }">
-
-                <span style="color: #f5222d;">+¥{{ row.amount }}</span>
-
+                <span style="color: #f5222d; font-weight: 500;">+¥{{ row.amount }}</span>
               </template>
-
             </el-table-column>
-
-            <el-table-column prop="rate" label="比例" width="80">
-
+            <el-table-column prop="rate" label="比例" width="70">
               <template #default="{ row }">{{ row.rate }}%</template>
-
             </el-table-column>
-
-            <el-table-column prop="status" label="状态" width="80">
-
+            <el-table-column prop="status" label="状态" width="75">
               <template #default="{ row }">
-
-                <el-tag :type="row.status === 'available' ? 'success' : 'info'" size="small">
-
+                <el-tag :type="row.status === 'available' ? 'success' : row.status === 'frozen' ? 'warning' : 'info'" size="small">
                   {{ row.status === 'available' ? '可用' : row.status === 'withdrawn' ? '已提现' : '冻结' }}
-
                 </el-tag>
-
               </template>
-
             </el-table-column>
-
-            <el-table-column prop="created_at" label="时间" width="165" />
-
+            <el-table-column prop="created_at" label="时间" width="155" />
           </el-table>
-
-          <el-empty v-if="userCommissions.length === 0 && !commissionsLoading" description="暂无佣金记录" />
-
+          <el-empty v-if="userCommissions.length === 0 && !commissionsLoading" description="暂无佣金记录" :image-size="50" />
         </el-tab-pane>
-
       </el-tabs>
 
       <template #footer>
-
-        <el-button @click="editDialogVisible = false">取消</el-button>
-
-        <el-button type="primary" @click="saveUser">保存修改</el-button>
-
+        <div class="dialog-footer">
+          <el-button @click="editDialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="saveUser">保存修改</el-button>
+        </div>
       </template>
-
     </el-dialog>
 
     
@@ -1493,3 +1384,154 @@ onMounted(() => {
 
 </script>
 
+<style scoped>
+/* 用户概览卡片 */
+.user-profile-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, #f0f5ff 0%, #e8f4f8 100%);
+  border-radius: 10px;
+  margin-bottom: 16px;
+  border: 1px solid #d6e4ff;
+}
+.profile-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.profile-avatar {
+  background: linear-gradient(135deg, #409eff, #337ecc);
+  color: #fff;
+  font-size: 20px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.profile-email {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1d2129;
+  margin-bottom: 6px;
+}
+.profile-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.meta-item {
+  font-size: 12px;
+  color: #86909c;
+  background: rgba(0,0,0,0.04);
+  padding: 1px 8px;
+  border-radius: 4px;
+}
+.profile-right {
+  display: flex;
+  gap: 24px;
+  flex-shrink: 0;
+}
+.profile-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+.stat-label {
+  font-size: 11px;
+  color: #86909c;
+  margin-bottom: 3px;
+}
+.stat-value {
+  font-size: 12px;
+  color: #4e5969;
+  font-weight: 500;
+}
+
+/* Tab 样式 */
+.user-edit-tabs :deep(.el-tabs__header) {
+  margin-bottom: 14px;
+}
+.user-edit-tabs :deep(.el-tabs__item) {
+  font-size: 13px;
+}
+
+/* 表单样式 */
+.edit-form :deep(.el-form-item) {
+  margin-bottom: 16px;
+}
+
+/* 分区卡片 */
+.section-card {
+  background: #fafafa;
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  padding: 14px;
+}
+.section-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1d2129;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 机器码文本 */
+.machine-code-text {
+  background: #f5f5f5;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: 'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace;
+  color: #4e5969;
+}
+
+/* 迷你统计卡片 */
+.stat-mini-card {
+  background: #fafafa;
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.stat-mini-card--highlight {
+  background: #fffbe6;
+  border-color: #ffe58f;
+}
+.stat-mini-label {
+  font-size: 12px;
+  color: #86909c;
+}
+.stat-mini-value {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1d2129;
+}
+.stat-mini-card--highlight .stat-mini-value {
+  color: #d48806;
+}
+
+/* 弹窗标题 */
+.dialog-header-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1d2129;
+}
+
+/* 弹窗底部 */
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* 弹窗整体 */
+:deep(.user-edit-dialog .el-dialog__body) {
+  padding-top: 12px;
+  padding-bottom: 8px;
+}
+</style>

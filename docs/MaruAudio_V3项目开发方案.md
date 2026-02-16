@@ -71,65 +71,96 @@
 
 ## 📁 项目目录结构
 
+> ⚠️ 注意: 本文后续代码示例中的路径如 `src-tauri/src/...` 均指 `frontend/src-tauri/src/...`，
+> `src/routes/...` 均指 `frontend/src/routes/...`，省略 `frontend/` 前缀以保持简洁。
+
 ```
 MaruAudio_V3/
-├── src/                          # 前端源码 (SvelteKit)
-│   ├── routes/                   # SvelteKit 路由
-│   │   ├── +layout.svelte       # 布局组件
-│   │   ├── +page.svelte         # 首页
-│   │   ├── voice-clone/         # 配音生成页
-│   │   ├── sample-library/      # 样音库页
-│   │   ├── subtitle/            # 字幕生成页
-│   │   └── file-manager/        # 文件管理页
-│   ├── lib/                     # 共享库
-│   │   ├── components/          # Svelte组件
-│   │   │   ├── common/          # 通用组件
-│   │   │   ├── audio/           # 音频相关组件
-│   │   │   └── form/            # 表单组件
-│   │   ├── stores/              # Svelte状态管理
-│   │   │   ├── user.ts         # 用户状态
-│   │   │   ├── engine.ts       # 引擎状态
-│   │   │   └── audio.ts        # 音频状态
-│   │   └── utils/               # 工具函数
-│   │       ├── api.ts          # API调用
-│   │       ├── format.ts       # 格式化工具
-│   │       └── constants.ts    # 常量定义
-│   └── app.html                 # HTML 模板
 │
-├── src-tauri/                   # Tauri后端 (Rust)
-│   ├── src/
-│   │   ├── commands/           # Tauri命令
-│   │   │   ├── audio.rs        # 音频处理命令
-│   │   │   ├── engine.rs       # 引擎管理命令
-│   │   │   ├── file.rs         # 文件操作命令
-│   │   │   └── user.rs         # 用户相关命令
-│   │   ├── services/           # 业务服务
-│   │   │   ├── tts/            # TTS服务
+├── frontend/                        # 桌面端应用 (Tauri 2.0 + SvelteKit)
+│   ├── src/                         # 前端源码
+│   │   ├── routes/                  # SvelteKit 路由
+│   │   │   ├── +layout.svelte      # 全局布局
+│   │   │   ├── +layout.ts          # SSR 禁用
+│   │   │   ├── +page.svelte        # 首页
+│   │   │   └── +page.ts            # 首页数据加载
+│   │   ├── lib/                     # 共享库
+│   │   │   ├── components/          # Svelte 组件
+│   │   │   │   ├── MenuItem.svelte
+│   │   │   │   ├── Sidebar.svelte
+│   │   │   │   ├── TitleBar.svelte
+│   │   │   │   └── Tooltip.svelte
+│   │   │   └── icons/               # 图标组件
+│   │   │       └── Icon.svelte
+│   │   ├── app.css                  # 全局样式
+│   │   ├── app.d.ts                 # TypeScript 声明
+│   │   ├── app.html                 # HTML 模板
+│   │   └── fonts.css                # 字体定义
+│   │
+│   ├── src-tauri/                   # Tauri 后端 (Rust)
+│   │   ├── src/
+│   │   │   ├── commands/            # Tauri 命令
+│   │   │   │   ├── mod.rs           # 模块导出
+│   │   │   │   ├── app.rs           # 应用级命令
+│   │   │   │   ├── audio.rs         # 音频处理（待实现）
+│   │   │   │   ├── engine.rs        # 引擎管理（待实现）
+│   │   │   │   ├── file.rs          # 文件操作（待实现）
+│   │   │   │   ├── sample.rs        # 样音管理（待实现）
+│   │   │   │   ├── tts.rs           # TTS 生成命令
+│   │   │   │   └── user.rs          # 用户认证
+│   │   │   ├── services/            # 业务服务
 │   │   │   │   ├── mod.rs
-│   │   │   │   ├── lightweight.rs  # 轻量引擎
-│   │   │   │   ├── emotion.rs      # 情感引擎
-│   │   │   │   └── cloud.rs        # 云端引擎
-│   │   │   ├── audio.rs        # 音频处理服务
-│   │   │   └── subtitle.rs     # 字幕服务
-│   │   ├── utils/              # 工具函数
-│   │   │   ├── config.rs       # 配置管理
-│   │   │   ├── logger.rs       # 日志
-│   │   │   └── path.rs         # 路径处理
-│   │   └── main.rs             # Rust入口
-│   ├── Cargo.toml              # Rust依赖配置
-│   └── tauri.conf.json         # Tauri配置
+│   │   │   │   └── tts/mod.rs       # TTS 引擎（待实现）
+│   │   │   ├── utils/               # 工具函数
+│   │   │   │   ├── mod.rs
+│   │   │   │   ├── api.rs           # 后端 API 请求
+│   │   │   │   ├── config.rs        # 配置管理
+│   │   │   │   └── storage.rs       # 本地存储
+│   │   │   ├── lib.rs               # Tauri 应用配置
+│   │   │   └── main.rs              # Rust 入口
+│   │   ├── capabilities/            # 权限声明
+│   │   ├── icons/                   # 应用图标
+│   │   ├── build.rs                 # 构建脚本
+│   │   ├── Cargo.toml               # Rust 依赖
+│   │   └── tauri.conf.json          # Tauri 配置
+│   │
+│   ├── static/                      # 静态资源
+│   │   ├── fonts/                   # 字体文件
+│   │   ├── banner-*.svg             # Banner 占位图
+│   │   ├── favicon.png              # 网站图标
+│   │   └── logo.png                 # 应用 Logo
+│   │
+│   ├── package.json                 # Node.js 依赖
+│   ├── tsconfig.json                # TypeScript 配置
+│   ├── svelte.config.js             # SvelteKit 配置
+│   └── vite.config.js               # Vite 构建配置
 │
-├── public/                      # 公共静态资源
+├── admin_panel/                     # 管理后台
+│   ├── api/                         # 后端 API (PHP 8.2)
+│   │   ├── controllers/             # 控制器
+│   │   ├── lib/                     # 公共库
+│   │   ├── config/                  # 配置
+│   │   ├── database/                # 数据库结构
+│   │   ├── migrations/              # 迁移脚本
+│   │   └── index.php                # API 入口
+│   ├── admin-frontend/              # 管理前端 (Vue 3 + Element Plus)
+│   ├── websocket/                   # WebSocket 服务 (PHP Ratchet)
+│   └── deploy/                      # 部署相关
 │
-├── 项目开发文档/                # 项目文档
+├── IndexTTS/                        # TTS 参考引擎（仅本地参考，禁止直接调用，不提交 Git）
+│   ├── v15/                         # IndexTTS 1.5 轻量引擎
+│   └── v20/                         # IndexTTS 2.0 情感引擎
+│
+├── backend/                         # 桌面端后端服务（待开发）
+│
+├── docs/                            # 项目文档
 │   ├── V2项目功能分析报告.md
-│   └── MaruAudio_V3项目开发方案.md
+│   ├── MaruAudio_V3项目开发方案.md  # 本文件
+│   └── 项目结构说明.md
 │
-├── .gitignore                   # Git忽略配置
-├── package.json                 # Node.js依赖配置
-├── tsconfig.json               # TypeScript配置
-├── vite.config.ts              # Vite构建配置
-└── README.md                   # 项目说明
+├── .gitignore                       # Git 忽略配置
+├── .cursorrules                     # Cursor IDE 规则
+└── README.md                        # 项目说明
 ```
 
 ---
@@ -2026,8 +2057,8 @@ reqwest = { version = "0.11", features = ["json"] }
 
 ---
 
-**文档版本**: 2.0  
+**文档版本**: 2.1  
 **创建时间**: 2026-02-01  
-**最后更新**: 2026-02-01  
-**更新内容**: 基于 V2 项目源码分析，补充详细的技术实现方案
+**最后更新**: 2026-02-16  
+**更新内容**: 修正项目目录结构，补充管理后台、IndexTTS 参考引擎、线上环境等信息
 

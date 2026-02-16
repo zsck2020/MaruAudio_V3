@@ -46,6 +46,9 @@
             <el-form-item label="邮箱">
               <el-input v-model="adminForm.email" style="width: 320px;" />
             </el-form-item>
+            <el-form-item label="当前密码">
+              <el-input v-model="adminForm.old_password" type="password" placeholder="修改密码时必填" show-password style="width: 320px;" />
+            </el-form-item>
             <el-form-item label="新密码">
               <el-input v-model="adminForm.new_password" type="password" placeholder="留空则不修改" show-password style="width: 320px;" />
             </el-form-item>
@@ -71,6 +74,7 @@ import { getSettings, updateSettings, updateAdminProfile } from '../api'
 const adminForm = reactive({
   username: '',
   email: '',
+  old_password: '',
   new_password: '',
   confirm_password: ''
 })
@@ -126,12 +130,18 @@ const saveAdminSettings = async () => {
     ElMessage.error('两次输入的密码不一致')
     return
   }
+  if (adminForm.new_password && !adminForm.old_password) {
+    ElMessage.error('修改密码需要输入当前密码')
+    return
+  }
   try {
     await updateAdminProfile({
       email: adminForm.email,
+      old_password: adminForm.new_password ? adminForm.old_password : undefined,
       new_password: adminForm.new_password || undefined
     })
     ElMessage.success('保存成功')
+    adminForm.old_password = ''
     adminForm.new_password = ''
     adminForm.confirm_password = ''
   } catch (e) {

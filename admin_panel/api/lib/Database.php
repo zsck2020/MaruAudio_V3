@@ -70,7 +70,10 @@ class Database {
     }
     
     public function insert($table, $data) {
-        $columns = implode(', ', array_keys($data));
+        $table = '`' . str_replace('`', '``', $table) . '`';
+        $columns = implode(', ', array_map(function($col) {
+            return '`' . str_replace('`', '``', $col) . '`';
+        }, array_keys($data)));
         $placeholders = implode(', ', array_fill(0, count($data), '?'));
         
         $sql = "INSERT INTO {$table} ({$columns}) VALUES ({$placeholders})";
@@ -80,7 +83,10 @@ class Database {
     }
     
     public function update($table, $data, $where, $whereParams = []) {
-        $set = implode(' = ?, ', array_keys($data)) . ' = ?';
+        $table = '`' . str_replace('`', '``', $table) . '`';
+        $set = implode(' = ?, ', array_map(function($col) {
+            return '`' . str_replace('`', '``', $col) . '`';
+        }, array_keys($data))) . ' = ?';
         $sql = "UPDATE {$table} SET {$set} WHERE {$where}";
         
         return $this->query($sql, array_merge(array_values($data), $whereParams))->rowCount();

@@ -19,6 +19,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 require_once __DIR__ . '/lib/Database.php';
 require_once __DIR__ . '/lib/Response.php';
 require_once __DIR__ . '/lib/JWTAuth.php';
+require_once __DIR__ . '/lib/SecurityGuard.php';
 
 // 防重放攻击检查（基于时间戳和 nonce）
 function checkReplayAttack($timestamp, $nonce) {
@@ -127,7 +128,7 @@ if (!checkRateLimit($clientIp, 120, 60)) {
     Response::error('请求过于频繁，请稍后再试', 4029);
 }
 
-// 获取请求路径
+// 获取请求路径（提前解析，供安全检查使用）
 $requestUri = $_SERVER['REQUEST_URI'];
 $basePath = '/api';
 $path = str_replace($basePath, '', parse_url($requestUri, PHP_URL_PATH));
@@ -135,6 +136,9 @@ $path = trim($path, '/');
 
 // 获取请求方法
 $method = $_SERVER['REQUEST_METHOD'];
+
+// 安全防护检查（Anti-AI 渗透检测、IP 黑名单、攻击特征识别）
+SecurityGuard::check($path, $method, $clientIp);
 
 // 获取请求数据
 $input = json_decode(file_get_contents('php://input'), true) ?? [];

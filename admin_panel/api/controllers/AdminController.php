@@ -19,6 +19,16 @@ class AdminController {
         $ip = $_SERVER['REMOTE_ADDR'] ?? '';
         $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? '';
         
+        // 管理员登录暴力破解防护：同一IP 15分钟内最多5次失败
+        $lockWindow = date('Y-m-d H:i:s', time() - 900);
+        $recentFails = $db->fetch(
+            "SELECT COUNT(*) as count FROM admin_login_logs WHERE login_ip = ? AND login_result = 'failed' AND created_at > ?",
+            [$ip, $lockWindow]
+        );
+        if ($recentFails && (int)$recentFails['count'] >= 5) {
+            Response::error('登录失败次数过多，请15分钟后再试', 4002);
+        }
+        
         // 查找管理员
         $admin = $db->fetch("SELECT * FROM admins WHERE username = ?", [$username]);
         

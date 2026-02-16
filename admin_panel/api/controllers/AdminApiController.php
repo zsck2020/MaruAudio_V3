@@ -1110,6 +1110,15 @@ class AdminApiController {
         }
         
         if (!empty($input['new_password'])) {
+            // 修改密码必须验证旧密码
+            $oldPassword = $input['old_password'] ?? '';
+            if (empty($oldPassword)) {
+                Response::error('请输入当前密码', 1001);
+            }
+            $admin = $db->fetch("SELECT password_hash FROM admins WHERE id = ?", [$payload['admin_id']]);
+            if (!$admin || !password_verify($oldPassword, $admin['password_hash'])) {
+                Response::error('当前密码错误', 2002);
+            }
             $updateData['password_hash'] = password_hash($input['new_password'], PASSWORD_BCRYPT);
         }
         
@@ -1448,8 +1457,7 @@ class AdminApiController {
             
             Response::success([
                 'filename' => $filename,
-                'size' => $fileSize,
-                'path' => $backupPath
+                'size' => $fileSize
             ], '备份成功');
         } else {
             Response::error('备份失败', 5001);
@@ -1541,9 +1549,12 @@ class AdminApiController {
         $type = $_POST['type'] ?? 'default';
         
         // 验证文件类型
+        $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
         $allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-        if (!in_array($file['type'], $allowedTypes)) {
-            Response::error('只支持 JPG、PNG、GIF、WEBP 格式', 1002);
+        $isSvg = ($ext === 'svg' || $file['type'] === 'image/svg+xml');
+        
+        if (!$isSvg && !in_array($file['type'], $allowedTypes)) {
+            Response::error('只支持 JPG、PNG、GIF、WEBP、SVG 格式', 1002);
         }
         
         // 验证文件大小 (2MB)
@@ -1551,8 +1562,23 @@ class AdminApiController {
             Response::error('文件大小不能超过 2MB', 1003);
         }
         
-        // 生成文件名
-        $ext = pathinfo($file['name'], PATHINFO_EXTENSION);
+        // SVG 安全清洗：移除 script、event handler 等危险内容
+        if ($isSvg) {
+            $svgContent = file_get_contents($file['tmp_name']);
+            // 移除 <script> 标签
+            $svgContent = preg_replace('/<script\b[^>]*>.*?<\/script>/is', '', $svgContent);
+            // 移除 on* 事件属性（onclick, onerror, onload 等）
+            $svgContent = preg_replace('/\s+on\w+\s*=\s*["\'][^"\']*["\']/i', '', $svgContent);
+            $svgContent = preg_replace('/\s+on\w+\s*=\s*\S+/i', '', $svgContent);
+            // 移除 javascript: 协议
+            $svgContent = preg_replace('/javascript\s*:/i', 'blocked:', $svgContent);
+            // 移除 data: 协议（防止嵌入恶意内容）
+            $svgContent = preg_replace('/data\s*:\s*text\/html/i', 'blocked:text/html', $svgContent);
+            // 移除 <foreignObject> 标签（可嵌入 HTML）
+            $svgContent = preg_replace('/<foreignObject\b[^>]*>.*?<\/foreignObject>/is', '', $svgContent);
+            file_put_contents($file['tmp_name'], $svgContent);
+            $ext = 'svg';
+        }
         $filename = $type . '_' . date('YmdHis') . '_' . uniqid() . '.' . $ext;
         
         // 上传目录 - 使用 api/uploads 目录

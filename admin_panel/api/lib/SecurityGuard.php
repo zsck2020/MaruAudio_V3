@@ -152,7 +152,7 @@ class SecurityGuard {
     
     /**
      * 管理员接口额外频率限制
-     * 管理员路径：同一 IP 每分钟最多 20 次
+     * 管理员路径：同一 IP 每分钟最多 120 次
      */
     private static function checkAdminRateLimit($ip, $path) {
         $cacheFile = self::getCacheDir() . '/admin_rate_' . md5($ip) . '.json';
@@ -171,7 +171,7 @@ class SecurityGuard {
         $data['requests'][] = $now;
         file_put_contents($cacheFile, json_encode($data));
         
-        if (count($data['requests']) > 20) {
+        if (count($data['requests']) > 120) {
             self::logAttack($ip, $path, 60, ['admin_rate_limit_exceeded'], 'rate_limited');
             Response::error('管理接口请求过于频繁，请稍后再试', 4029);
         }

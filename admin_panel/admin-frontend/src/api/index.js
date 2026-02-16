@@ -4,6 +4,8 @@ import { ElMessage } from 'element-plus'
 
 import router from '../router'
 
+import { handleSensitiveError } from '../utils/sensitiveVerify'
+
 const api = axios.create({
 
   baseURL: '/api',
@@ -31,6 +33,12 @@ api.interceptors.request.use(
 
     }
 
+    // 自动附加敏感操作验证令牌
+    const verifyToken = sessionStorage.getItem('verify_token')
+    if (verifyToken) {
+      config.headers['X-Verify-Token'] = verifyToken
+    }
+
     return config
 
   },
@@ -47,6 +55,11 @@ api.interceptors.response.use(
     const res = response.data
 
     if (res.code !== 0) {
+
+      // 4010: 需要二次验证 — 弹出密码弹窗后自动重试
+      if (res.code === 4010 && !response.config._retried) {
+        return handleSensitiveError(response.config, api)
+      }
 
       ElMessage.error(res.message || '请求失败')
 
@@ -203,6 +216,9 @@ export const updateSettings = (data) => api.post('/admin/settings', data)
 
 // 更新管理员信息
 export const updateAdminProfile = (data) => api.post('/admin/profile', data)
+
+// 敏感操作密码验证
+export const verifyAdminPassword = (password) => api.post('/admin/verify-password', { password })
 
 // Banner 管理
 export const getBanners = (params) => api.get('/admin/banners', { params })

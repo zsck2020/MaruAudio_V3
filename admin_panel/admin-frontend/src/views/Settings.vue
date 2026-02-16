@@ -35,6 +35,26 @@
         </div>
       </el-col>
       
+      <!-- 安全设置 -->
+      <el-col :span="24" style="margin-bottom: 20px;">
+        <div class="table-card">
+          <h4 style="margin-top: 0;">🔒 安全设置</h4>
+          <el-form label-width="180px">
+            <el-form-item label="敏感操作二次验证">
+              <el-switch
+                v-model="securityForm.admin_sensitive_verify"
+                active-text="开启"
+                inactive-text="关闭"
+                @change="saveSensitiveVerify"
+              />
+              <div style="color: #999; font-size: 12px; margin-top: 4px; line-height: 1.6;">
+                开启后，执行删除卡密、重置密码、数据库备份、清理日志、封禁用户等敏感操作时，需要输入管理员密码确认。验证通过后 5 分钟内无需重复验证。
+              </div>
+            </el-form-item>
+          </el-form>
+        </div>
+      </el-col>
+      
       <!-- 管理员设置 -->
       <el-col :span="24" style="margin-bottom: 20px;">
         <div class="table-card">
@@ -95,6 +115,10 @@ const mailForm = reactive({
   from_name: '丸子配音'
 })
 
+const securityForm = reactive({
+  admin_sensitive_verify: false
+})
+
 const loadSettings = async () => {
   // 加载管理员信息
   const adminInfo = localStorage.getItem('admin_info')
@@ -113,6 +137,8 @@ const loadSettings = async () => {
       systemForm.machine_change_cooldown = parseInt(res.data.machine_change_cooldown) || 30
       systemForm.login_fail_limit = parseInt(res.data.login_fail_limit) || 5
       systemForm.login_lock_duration = parseInt(res.data.login_lock_duration) || 30
+      // 安全设置
+      securityForm.admin_sensitive_verify = res.data.admin_sensitive_verify === '1' || res.data.admin_sensitive_verify === true
       // 邮件设置
       mailForm.smtp_host = res.data.smtp_host || 'smtp.qq.com'
       mailForm.smtp_port = parseInt(res.data.smtp_port) || 465
@@ -176,6 +202,18 @@ const saveMailSettings = async () => {
     ElMessage.success('邮箱配置已保存')
   } catch (e) {
     ElMessage.error('保存失败')
+  }
+}
+
+const saveSensitiveVerify = async (val) => {
+  try {
+    await updateSettings({
+      admin_sensitive_verify: val ? '1' : '0'
+    })
+    ElMessage.success(val ? '已开启敏感操作二次验证' : '已关闭敏感操作二次验证')
+  } catch (e) {
+    // 回滚开关状态
+    securityForm.admin_sensitive_verify = !val
   }
 }
 

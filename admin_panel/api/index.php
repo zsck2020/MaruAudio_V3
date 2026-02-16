@@ -438,6 +438,11 @@ try {
             AdminApiController::updateAdmin($input);
             break;
             
+        case 'admin/verify-password':
+            require_once __DIR__ . '/controllers/AdminApiController.php';
+            AdminApiController::verifyPassword($input);
+            break;
+            
         case 'admin/test-mail':
             require_once __DIR__ . '/controllers/AdminApiController.php';
             AdminApiController::testMail($input);

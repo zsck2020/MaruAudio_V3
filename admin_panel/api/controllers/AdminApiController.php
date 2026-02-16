@@ -18,6 +18,99 @@ class AdminApiController {
     }
     
     /**
+     * 敏感操作二次验证
+     * 验证管理员密码，返回短期有效的 verify_token
+     */
+    public static function verifyPassword($input) {
+        $payload = self::checkAdminAuth();
+        
+        $password = $input['password'] ?? '';
+        if (empty($password)) {
+            Response::error('请输入密码', 1001);
+        }
+        
+        $db = Database::getInstance();
+        $admin = $db->fetch("SELECT password_hash FROM admins WHERE id = ?", [$payload['admin_id']]);
+        
+        if (!$admin || !password_verify($password, $admin['password_hash'])) {
+            self::logOperation('敏感操作验证失败', 'admin', $payload['admin_id']);
+            Response::error('密码错误', 2002);
+        }
+        
+        // 生成 5 分钟有效的 verify_token
+        $tokenData = [
+            'admin_id' => $payload['admin_id'],
+            'purpose' => 'sensitive_verify',
+            'exp' => time() + 300,
+            'rand' => bin2hex(random_bytes(8))
+        ];
+        $tokenJson = json_encode($tokenData);
+        $signature = hash_hmac('sha256', $tokenJson, getenv('MARUAUDIO_JWT_SECRET') ?: 'MaruAudio_JWT_Secret_2026_Secure_Key');
+        $verifyToken = base64_encode($tokenJson . '.' . $signature);
+        
+        self::logOperation('敏感操作验证通过', 'admin', $payload['admin_id']);
+        
+        Response::success(['verify_token' => $verifyToken, 'expires_in' => 300], '验证成功');
+    }
+    
+    /**
+     * 检查敏感操作二次验证（如果开关开启）
+     * 从请求头 X-Verify-Token 获取验证令牌
+     */
+    private static function checkSensitiveAuth($payload) {
+        $db = Database::getInstance();
+        
+        // 检查开关是否开启
+        $setting = $db->fetch(
+            "SELECT setting_value FROM system_settings WHERE setting_key = 'admin_sensitive_verify'"
+        );
+        $enabled = $setting && $setting['setting_value'] === '1';
+        
+        if (!$enabled) {
+            return; // 开关关闭，跳过验证
+        }
+        
+        // 从请求头获取 verify_token
+        $headers = getallheaders();
+        $verifyToken = $headers['X-Verify-Token'] ?? '';
+        
+        if (empty($verifyToken)) {
+            Response::error('此操作需要二次验证，请输入管理员密码', 4010);
+        }
+        
+        // 验证 token
+        $decoded = base64_decode($verifyToken);
+        if (!$decoded) {
+            Response::error('验证令牌无效', 4011);
+        }
+        
+        $parts = explode('.', $decoded, 2);
+        if (count($parts) !== 2) {
+            Response::error('验证令牌无效', 4011);
+        }
+        
+        list($tokenJson, $signature) = $parts;
+        $expectedSig = hash_hmac('sha256', $tokenJson, getenv('MARUAUDIO_JWT_SECRET') ?: 'MaruAudio_JWT_Secret_2026_Secure_Key');
+        
+        if (!hash_equals($expectedSig, $signature)) {
+            Response::error('验证令牌无效', 4011);
+        }
+        
+        $tokenData = json_decode($tokenJson, true);
+        if (!$tokenData || ($tokenData['purpose'] ?? '') !== 'sensitive_verify') {
+            Response::error('验证令牌无效', 4011);
+        }
+        
+        if (time() > ($tokenData['exp'] ?? 0)) {
+            Response::error('验证已过期，请重新验证', 4012);
+        }
+        
+        if (($tokenData['admin_id'] ?? 0) !== ($payload['admin_id'] ?? -1)) {
+            Response::error('验证令牌与当前用户不匹配', 4011);
+        }
+    }
+    
+    /**
      * 记录操作日志
      */
     private static function logOperation($action, $targetType = null, $targetId = null, $details = null) {
@@ -292,7 +385,8 @@ class AdminApiController {
      * 管理员重置用户密码
      */
     public static function resetUserPassword($input) {
-        self::checkAdminAuth();
+        $payload = self::checkAdminAuth();
+        self::checkSensitiveAuth($payload);
         
         $userId = (int)($input['user_id'] ?? 0);
         $newPassword = trim($input['new_password'] ?? '');
@@ -626,7 +720,8 @@ class AdminApiController {
      * 删除公告
      */
     public static function deleteAnnouncement($input) {
-        self::checkAdminAuth();
+        $payload = self::checkAdminAuth();
+        self::checkSensitiveAuth($payload);
         
         $id = (int)($input['id'] ?? 0);
         if ($id <= 0) {
@@ -645,7 +740,8 @@ class AdminApiController {
      * 切换用户状态
      */
     public static function toggleUserStatus($input) {
-        self::checkAdminAuth();
+        $payload = self::checkAdminAuth();
+        self::checkSensitiveAuth($payload);
         
         $userId = (int)($input['user_id'] ?? 0);
         if ($userId <= 0) {
@@ -914,6 +1010,7 @@ class AdminApiController {
      */
     public static function generateCards($input) {
         $payload = self::checkAdminAuth();
+        self::checkSensitiveAuth($payload);
         
         $productCode = $input['product_code'] ?? 'dubbing';
         $cardType = $input['card_type'] ?? 'monthly';
@@ -1012,7 +1109,8 @@ class AdminApiController {
      * 删除卡密
      */
     public static function deleteCard($input) {
-        self::checkAdminAuth();
+        $payload = self::checkAdminAuth();
+        self::checkSensitiveAuth($payload);
         
         $cardId = (int)($input['card_id'] ?? 0);
         if ($cardId <= 0) {
@@ -1092,7 +1190,8 @@ class AdminApiController {
             'group_join_url', 'tutorial_url', 'donate_url',
             'card_price_monthly', 'card_price_yearly', 'card_price_permanent',
             'purchase_url', 'purchase_qrcode_url',
-            'dashscope_api_key'
+            'dashscope_api_key',
+            'admin_sensitive_verify'
         ];
         
         $updatedKeys = [];
@@ -1444,7 +1543,8 @@ class AdminApiController {
      * 数据库备份
      */
     public static function backupDatabase($input) {
-        self::checkAdminAuth();
+        $payload = self::checkAdminAuth();
+        self::checkSensitiveAuth($payload);
         
         // 生成备份文件名
         $filename = 'backup_' . date('Ymd_His') . '.sql';
@@ -1530,7 +1630,8 @@ class AdminApiController {
      * 清理过期日志
      */
     public static function cleanupLogs($input) {
-        self::checkAdminAuth();
+        $payload = self::checkAdminAuth();
+        self::checkSensitiveAuth($payload);
         
         $db = Database::getInstance();
         $days = (int)($input['days'] ?? 30);
@@ -2025,7 +2126,8 @@ class AdminApiController {
      * 删除字符包激活码
      */
     public static function deleteCharacterPackCode($input) {
-        self::checkAdminAuth();
+        $payload = self::checkAdminAuth();
+        self::checkSensitiveAuth($payload);
         
         $codeId = intval($input['id'] ?? 0);
         

@@ -1,8 +1,18 @@
 <template>
   <router-view />
+  <SensitiveVerify ref="sensitiveVerifyRef" />
 </template>
 
 <script setup>
+import { ref, onMounted } from 'vue'
+import SensitiveVerify from './components/SensitiveVerify.vue'
+import { setSensitiveVerifyRef } from './utils/sensitiveVerify'
+
+const sensitiveVerifyRef = ref(null)
+
+onMounted(() => {
+  setSensitiveVerifyRef(sensitiveVerifyRef.value)
+})
 </script>
 
 <style>

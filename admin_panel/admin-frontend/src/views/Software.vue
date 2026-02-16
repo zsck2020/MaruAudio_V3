@@ -24,7 +24,7 @@
                 v-model="cloudApiForm.dashscope_api_key" 
                 type="password" 
                 show-password 
-                placeholder="sk-xxxxxxxxxxxxxxxx" 
+                :placeholder="cloudApiConfigured ? '已配置（留空则保持不变）' : 'sk-xxxxxxxxxxxxxxxx'" 
                 style="width: 400px;" 
               />
             </el-form-item>
@@ -167,6 +167,7 @@ const cloudApiForm = reactive({
 })
 
 const testingCloudApi = ref(false)
+const cloudApiConfigured = ref(false)
 
 const loadSettings = async () => {
   try {
@@ -184,8 +185,9 @@ const loadSettings = async () => {
       contentForm.group_join_url = res.data.group_join_url || ''
       contentForm.tutorial_url = res.data.tutorial_url || ''
       contentForm.donate_url = res.data.donate_url || ''
-      // 加载云端 API 设置
-      cloudApiForm.dashscope_api_key = res.data.dashscope_api_key || ''
+      // 加载云端 API 设置（敏感字段脱敏处理：__MASKED__ 表示已配置但不回传真实值）
+      cloudApiForm.dashscope_api_key = res.data.dashscope_api_key === '__MASKED__' ? '' : (res.data.dashscope_api_key || '')
+      cloudApiConfigured.value = res.data.dashscope_api_key === '__MASKED__'
     }
   } catch (e) {
     console.error('加载设置失败', e)
@@ -320,10 +322,21 @@ const loadDefaultDisclaimer = () => {
 }
 
 const saveCloudApiSettings = async () => {
+  // 如果用户未输入新值且已配置，跳过保存
+  if (!cloudApiForm.dashscope_api_key && cloudApiConfigured.value) {
+    ElMessage.info('API Key 未修改，保持原配置')
+    return
+  }
+  if (!cloudApiForm.dashscope_api_key) {
+    ElMessage.error('请输入 API Key')
+    return
+  }
   try {
     await updateSettings({
       dashscope_api_key: cloudApiForm.dashscope_api_key
     })
+    cloudApiConfigured.value = true
+    cloudApiForm.dashscope_api_key = ''
     ElMessage.success('云端 API 配置已保存')
   } catch (e) {
     ElMessage.error('保存失败')
@@ -331,22 +344,22 @@ const saveCloudApiSettings = async () => {
 }
 
 const testCloudApi = async () => {
-  if (!cloudApiForm.dashscope_api_key) {
+  if (!cloudApiForm.dashscope_api_key && !cloudApiConfigured.value) {
     ElMessage.error('请先配置 API Key')
     return
   }
   
   testingCloudApi.value = true
   try {
+    // 如果用户输入了新key则传新key，否则不传（后端从数据库读取）
+    const body = cloudApiForm.dashscope_api_key ? { api_key: cloudApiForm.dashscope_api_key } : {}
     const response = await fetch('/api/admin/test-dashscope', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('admin_token')}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        api_key: cloudApiForm.dashscope_api_key
-      })
+      body: JSON.stringify(body)
     })
     
     const result = await response.json()

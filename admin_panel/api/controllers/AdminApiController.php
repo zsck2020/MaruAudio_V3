@@ -1159,8 +1159,8 @@ class AdminApiController {
             $value = $setting['setting_value'];
             
             if (in_array($key, $sensitiveKeys, true)) {
-                // 只返回是否已配置，具体值不回传
-                $result[$key] = !empty($value) ? '******' : '';
+                // 返回是否已配置的标记，前端据此显示状态；不回传真实值
+                $result[$key] = !empty($value) ? '__MASKED__' : '';
             } else {
                 $result[$key] = $value;
             }
@@ -1196,9 +1196,16 @@ class AdminApiController {
             'disclaimer'
         ];
         
+        // 敏感字段：如果前端传回的是掩码标记，说明用户未修改，跳过保存
+        $sensitiveKeys = ['smtp_pass', 'dashscope_api_key'];
+        
         $updatedKeys = [];
         foreach ($input as $key => $value) {
             if (in_array($key, $allowedKeys)) {
+                // 跳过未修改的敏感字段（前端回传掩码标记）
+                if (in_array($key, $sensitiveKeys) && ($value === '__MASKED__' || $value === '******')) {
+                    continue;
+                }
                 $db->query(
                     "INSERT INTO system_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = ?",
                     [$key, $value, $value]
@@ -1897,8 +1904,15 @@ class AdminApiController {
         
         $apiKey = $input['api_key'] ?? '';
         
+        // 如果前端未传入 key，从数据库读取已保存的 key
         if (empty($apiKey)) {
-            Response::error('API Key 不能为空', 1001);
+            $db = Database::getInstance();
+            $setting = $db->fetch("SELECT setting_value FROM system_settings WHERE setting_key = 'dashscope_api_key'");
+            $apiKey = $setting ? $setting['setting_value'] : '';
+        }
+        
+        if (empty($apiKey)) {
+            Response::error('API Key 未配置，请先保存 API Key', 1001);
             return;
         }
         

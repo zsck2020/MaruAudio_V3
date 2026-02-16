@@ -22,7 +22,7 @@
               <el-input v-model="mailForm.smtp_user" placeholder="如: noreply@example.com" style="width: 320px;" />
             </el-form-item>
             <el-form-item label="邮箱密码/授权码">
-              <el-input v-model="mailForm.smtp_pass" type="password" show-password placeholder="SMTP授权码" style="width: 320px;" />
+              <el-input v-model="mailForm.smtp_pass" type="password" show-password :placeholder="smtpPassConfigured ? '已配置（留空则保持不变）' : 'SMTP授权码'" style="width: 320px;" />
             </el-form-item>
             <el-form-item label="发件人名称">
               <el-input v-model="mailForm.from_name" placeholder="如: 丸子配音" style="width: 320px;" />
@@ -115,6 +115,8 @@ const mailForm = reactive({
   from_name: '丸子配音'
 })
 
+const smtpPassConfigured = ref(false)
+
 const securityForm = reactive({
   admin_sensitive_verify: false
 })
@@ -143,7 +145,9 @@ const loadSettings = async () => {
       mailForm.smtp_host = res.data.smtp_host || 'smtp.qq.com'
       mailForm.smtp_port = parseInt(res.data.smtp_port) || 465
       mailForm.smtp_user = res.data.smtp_user || ''
-      mailForm.smtp_pass = res.data.smtp_pass || ''
+      // 敏感字段脱敏处理：__MASKED__ 表示已配置但不回传真实值
+      mailForm.smtp_pass = res.data.smtp_pass === '__MASKED__' ? '' : (res.data.smtp_pass || '')
+      smtpPassConfigured.value = res.data.smtp_pass === '__MASKED__'
       mailForm.from_name = res.data.from_name || '丸子配音'
     }
   } catch (e) {
@@ -192,13 +196,21 @@ const saveSystemSettings = async () => {
 
 const saveMailSettings = async () => {
   try {
-    await updateSettings({
+    const data = {
       smtp_host: mailForm.smtp_host,
       smtp_port: String(mailForm.smtp_port),
       smtp_user: mailForm.smtp_user,
-      smtp_pass: mailForm.smtp_pass,
       from_name: mailForm.from_name
-    })
+    }
+    // 只有用户输入了新密码才发送，避免覆盖已配置的真实值
+    if (mailForm.smtp_pass) {
+      data.smtp_pass = mailForm.smtp_pass
+    }
+    await updateSettings(data)
+    if (mailForm.smtp_pass) {
+      smtpPassConfigured.value = true
+      mailForm.smtp_pass = ''
+    }
     ElMessage.success('邮箱配置已保存')
   } catch (e) {
     ElMessage.error('保存失败')
@@ -233,12 +245,7 @@ const testMail = async () => {
         'Authorization': `Bearer ${localStorage.getItem('admin_token')}`
       },
       body: JSON.stringify({
-        to: testEmail,
-        smtp_host: mailForm.smtp_host,
-        smtp_port: mailForm.smtp_port,
-        smtp_user: mailForm.smtp_user,
-        smtp_pass: mailForm.smtp_pass,
-        from_name: mailForm.from_name
+        to: testEmail
       })
     })
     

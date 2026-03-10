@@ -16,5 +16,3 @@ impl TtsProvider for NoopTtsProvider {
         Err(anyhow::anyhow!("TTS not implemented yet"))
     }
 }
-
-

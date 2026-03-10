@@ -2,8 +2,11 @@
   import '../fonts.css';
   import '../app.css';
   import { onMount } from 'svelte';
+  import type { Snippet } from 'svelte';
   
-  let isWeb = false;
+  let { children }: { children: Snippet } = $props();
+  
+  let isWeb = $state(false);
   
   onMount(() => {
     // 检测是否在 web 环境（非 Tauri）
@@ -14,7 +17,7 @@
 <!-- 主窗体 -->
 <div class="window-container" class:web={isWeb}>
 <div class="window">
-  <slot />
+  {@render children()}
   </div>
 </div>
 

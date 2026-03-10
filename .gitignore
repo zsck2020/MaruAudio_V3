@@ -9,9 +9,6 @@ node_modules
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
-# 构建输出
-admin_panel/admin-frontend/dist/
-
 # Rust/Tauri 构建输出
 frontend/src-tauri/target/
 

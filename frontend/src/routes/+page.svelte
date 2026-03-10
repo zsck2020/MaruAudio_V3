@@ -6,7 +6,7 @@
   import Carousel from 'svelte-carousel';
   import { openUrl } from '@tauri-apps/plugin-opener';
   import { invoke } from '@tauri-apps/api/core';
-  import type { MenuKey } from '$lib/types';
+  import type { MenuKey, BannerItem } from '$lib/types';
 
   let isMobile = $state(false);
   let isTablet = $state(false);
@@ -31,14 +31,6 @@
   }
 
   // Banner 数据
-  interface BannerItem {
-    id: number;
-    title: string;
-    image_url: string;
-    link_url: string;
-    link_type: 'none' | 'url' | 'page';
-  }
-
   const fallbackBanners: BannerItem[] = [
     { id: 1, title: '丸子配音 · 智能语音创作平台', image_url: '/banner-1.svg', link_url: '', link_type: 'none' },
     { id: 2, title: '多角色配音 · 一键生成对话', image_url: '/banner-2.svg', link_url: '', link_type: 'none' },
@@ -54,7 +46,7 @@
         banners = data.map((b: any) => ({
           id: b.id,
           title: b.title,
-          image_url: b.image_url?.startsWith('http') ? b.image_url : `https://auth.wzagent.cn${b.image_url}`,
+          image_url: b.image_url?.startsWith('http') ? b.image_url : `https://auth.wzagent.cn${b.image_url?.startsWith('/') ? '' : '/'}${b.image_url}`,
           link_url: b.link_url || '',
           link_type: b.link_type || 'none',
         }));

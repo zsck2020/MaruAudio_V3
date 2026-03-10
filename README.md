@@ -32,7 +32,8 @@ MaruAudio_V3/
 │   └── package.json       # 前端依赖配置
 ├── backend/               # 桌面端后端服务 (待开发)
 ├── docs/                  # 项目文档
-└── IndexTTS/              # TTS 引擎参考（仅本地，不提交 Git）
+├── IndexTTS/              # TTS 引擎参考（仅本地，不提交 Git）
+└── admin_panel/           # 管理后台（部署在服务器，不在本地仓库中）
 ```
 
 ## 开发环境要求

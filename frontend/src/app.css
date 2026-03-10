@@ -114,8 +114,6 @@ svg {
 svg path {
   /* 平滑路径渲染 */
   vector-effect: non-scaling-stroke;
-  /* 确保填充规则正确 */
-  fill-rule: evenodd;
 }
 
 /* 图标容器优化 */

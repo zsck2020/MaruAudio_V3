@@ -4,6 +4,7 @@ declare module 'svelte-carousel' {
     export interface CarouselProps {
         autoplay?: boolean;
         autoplayDuration?: number;
+        autoplayDirection?: 'next' | 'prev';
         arrows?: boolean;
         dots?: boolean;
         infinite?: boolean;

@@ -68,7 +68,7 @@
     transform: translateY(-50%);
     width: 4px;
     height: 32px;
-    background-color: var(--color-bg-spotlight);
+    background-color: var(--color-primary);
     border-radius: 0 var(--border-radius-sm) var(--border-radius-sm) 0;
   }
 

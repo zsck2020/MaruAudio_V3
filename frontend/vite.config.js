@@ -7,7 +7,7 @@ const host = process.env.TAURI_DEV_HOST;
 const isTauri = !!process.env.TAURI_PLATFORM || !!process.env.TAURI_DEV_HOST;
 
 // https://vite.dev/config/
-export default defineConfig(async () => ({
+export default defineConfig(() => ({
   plugins: [sveltekit()],
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
@@ -33,10 +33,10 @@ export default defineConfig(async () => ({
       interval: 100,
     },
   },
-  // 优化构建性能
+  // 构建配置：开发模式保留 sourcemap，生产模式启用压缩
   build: {
     target: "esnext",
-    minify: false,
-    sourcemap: true,
+    // @ts-expect-error process is a nodejs global
+    sourcemap: !!process.env.TAURI_DEBUG,
   },
 }));

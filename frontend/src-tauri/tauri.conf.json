@@ -19,7 +19,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; connect-src 'self' https: wss:; font-src 'self' data:"
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https://auth.wzagent.cn data:; connect-src 'self' https://auth.wzagent.cn wss://auth.wzagent.cn; font-src 'self' data:"
     }
   },
   "bundle": {

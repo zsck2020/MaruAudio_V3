@@ -69,7 +69,7 @@
   <div class="header-right">
     <Tooltip text="用户中心" position="bottom">
       <button class="icon-btn avatar-btn">
-        <Icon name="avatar" size={32} color="#515151" />
+        <Icon name="avatar" size={32} color="var(--color-text-tertiary)" />
       </button>
     </Tooltip>
     <Tooltip text="教程" position="bottom">
@@ -273,7 +273,7 @@
   }
 
   .close-btn:hover :global(svg) {
-    color: #ffffff;
+    color: var(--color-text-active);
   }
 
   .divider {

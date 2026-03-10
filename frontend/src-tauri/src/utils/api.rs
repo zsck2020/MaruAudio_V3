@@ -143,7 +143,7 @@ impl ApiClient {
     }
 
     pub async fn login(&self, username: String, password: String) -> Result<LoginResponse> {
-        let machine_code = Self::get_machine_code();
+        let machine_code = Self::get_machine_code().await;
         let request = LoginRequest {
             username,
             password,
@@ -161,7 +161,7 @@ impl ApiClient {
         phone: Option<String>,
         invite_code: Option<String>,
     ) -> Result<LoginResponse> {
-        let machine_code = Self::get_machine_code();
+        let machine_code = Self::get_machine_code().await;
         let request = RegisterRequest {
             username,
             password,
@@ -205,14 +205,13 @@ impl ApiClient {
         self.request_data("GET", "banners?product_code=dubbing", None, None).await
     }
 
-    fn get_machine_code() -> String {
-        use std::process::Command;
-        
+    async fn get_machine_code() -> String {
         #[cfg(target_os = "windows")]
         {
-            let output = Command::new("powershell")
+            let output = tokio::process::Command::new("powershell")
                 .args(&["-NoProfile", "-Command", "(Get-CimInstance -ClassName Win32_ComputerSystemProduct).UUID"])
-                .output();
+                .output()
+                .await;
             
             if let Ok(output) = output {
                 let uuid = String::from_utf8_lossy(&output.stdout);
@@ -225,9 +224,10 @@ impl ApiClient {
         
         #[cfg(target_os = "macos")]
         {
-            let output = Command::new("system_profiler")
+            let output = tokio::process::Command::new("system_profiler")
                 .args(&["SPHardwareDataType"])
-                .output();
+                .output()
+                .await;
             
             if let Ok(output) = output {
                 let text = String::from_utf8_lossy(&output.stdout);
@@ -241,7 +241,7 @@ impl ApiClient {
         
         #[cfg(target_os = "linux")]
         {
-            if let Ok(machine_id) = std::fs::read_to_string("/etc/machine-id") {
+            if let Ok(machine_id) = tokio::fs::read_to_string("/etc/machine-id").await {
                 return machine_id.trim().to_string();
             }
         }
@@ -282,4 +282,3 @@ impl ApiClient {
         id
     }
 }
-

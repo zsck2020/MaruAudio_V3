@@ -7,8 +7,22 @@ const STORAGE_KEY_TOKEN: &str = "auth_token";
 const STORAGE_KEY_USER_INFO: &str = "user_info";
 const STORE_PATH: &str = ".auth-store.json";
 
-// XOR 混淆密钥（防止 token 以明文存储在本地 JSON 文件中）
-const OBFUSCATION_KEY: &[u8] = b"MaruAudio_V3_LocalStore_Key";
+// XOR 混淆前缀（防止 token 以明文存储在本地 JSON 文件中）
+const OBFUSCATION_SALT: &[u8] = b"MaruAudio_V3_LocalStore_Key";
+
+/// 生成设备相关的混淆密钥：固定 salt + 设备 hostname 哈希，增加逆向难度
+fn get_obfuscation_key() -> Vec<u8> {
+    let hostname = hostname::get()
+        .map(|h| h.to_string_lossy().into_owned())
+        .unwrap_or_else(|_| "fallback_host".to_string());
+    let mut key = OBFUSCATION_SALT.to_vec();
+    // 简单哈希：将 hostname 各字节累积异或混入 salt
+    for (i, b) in hostname.bytes().enumerate() {
+        let idx = i % key.len();
+        key[idx] ^= b;
+    }
+    key
+}
 
 /// 存储在文件中的编码后 token 结构
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -19,7 +33,7 @@ struct EncodedTokens {
 
 fn obfuscate(data: &str) -> String {
     use base64::Engine;
-    let key = OBFUSCATION_KEY;
+    let key = get_obfuscation_key();
     let xored: Vec<u8> = data.bytes()
         .enumerate()
         .map(|(i, b)| b ^ key[i % key.len()])
@@ -29,7 +43,7 @@ fn obfuscate(data: &str) -> String {
 
 fn deobfuscate(encoded: &str) -> Result<String, String> {
     use base64::Engine;
-    let key = OBFUSCATION_KEY;
+    let key = get_obfuscation_key();
     let decoded = base64::engine::general_purpose::STANDARD
         .decode(encoded)
         .map_err(|e| format!("Failed to decode token: {}", e))?;
@@ -49,6 +63,8 @@ pub struct AuthTokens {
 
 pub struct Storage;
 
+// 注意: 以下方法标记为 async 是为了与 Tauri 异步命令层保持签名一致，
+// 内部操作实际为同步（tauri-plugin-store 不提供异步 API）。
 impl Storage {
     /// 获取并重新加载 Store 实例（消除 6 处重复的初始化代码）
     fn open_store(app: &tauri::AppHandle) -> Result<Arc<Store<tauri::Wry>>, String> {

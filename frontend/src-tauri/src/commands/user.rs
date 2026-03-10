@@ -47,7 +47,7 @@ pub async fn user_login(
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct RegisterRequest {
+pub struct RegisterInput {
     pub username: String,
     pub password: String,
     pub email: Option<String>,
@@ -58,7 +58,7 @@ pub struct RegisterRequest {
 #[tauri::command]
 pub async fn user_register(
     app: tauri::AppHandle,
-    request: RegisterRequest,
+    request: RegisterInput,
 ) -> Result<LoginResult, String> {
     let client = ApiClient::new();
     let resp = client
@@ -130,4 +130,3 @@ pub async fn user_sync(app: tauri::AppHandle) -> Result<UserInfo, String> {
 pub async fn user_is_logged_in(app: tauri::AppHandle) -> Result<bool, String> {
     Ok(Storage::get_tokens(&app).await?.is_some())
 }
-

@@ -1,6 +1,6 @@
 <script lang="ts">
   import MenuItem from './MenuItem.svelte';
-  import type { MenuKey } from '$lib/types';
+  import type { MenuKey, MenuItemConfig } from '$lib/types';
 
   let {
     activeMenu = 'home',
@@ -17,7 +17,7 @@
   } = $props();
 
   // 主菜单项配置
-  const mainMenuItems: { key: MenuKey; icon: string; label: string; tooltip: string }[] = [
+  const mainMenuItems: MenuItemConfig[] = [
     { key: 'home', icon: 'home', label: '首页', tooltip: '返回首页' },
     { key: 'dubbing', icon: 'dubbing', label: '配音', tooltip: '通用配音' },
     { key: 'project', icon: 'project', label: '角色', tooltip: '多角色配音' },
@@ -28,7 +28,7 @@
   ];
 
   // 底部菜单项配置
-  const bottomMenuItems: { key: MenuKey; icon: string; label: string; tooltip: string }[] = [
+  const bottomMenuItems: MenuItemConfig[] = [
     { key: 'setting', icon: 'setting', label: '设置', tooltip: '软件设置' },
     { key: 'about', icon: 'about', label: '关于', tooltip: '关于我们' },
   ];

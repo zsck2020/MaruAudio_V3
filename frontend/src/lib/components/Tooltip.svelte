@@ -5,11 +5,13 @@
     text,
     position = 'right',
     delay = 150,
+    wrapperClass = '',
     children
   }: {
     text: string;
     position?: 'top' | 'bottom' | 'left' | 'right';
     delay?: number;
+    wrapperClass?: string;
     children: Snippet;
   } = $props();
 
@@ -57,7 +59,7 @@
 </script>
 
 <div
-  class="tooltip-wrapper"
+  class="tooltip-wrapper {wrapperClass}"
   role="group"
   onmouseenter={handleMouseEnter}
   onmouseleave={handleMouseLeave}

@@ -29,7 +29,7 @@
     onkeydown={(e) => e.key === 'Enter' && onclick()}
   >
     <div class="menu-icon">
-      <Icon name={icon} size={20} color={active ? '#ffffff' : 'var(--color-text-tertiary)'} />
+      <Icon name={icon} size={20} color={active ? 'var(--color-text-active)' : 'var(--color-text-tertiary)'} />
     </div>
     <div class="menu-text">{label}</div>
   </div>
@@ -83,15 +83,8 @@
 
   /* 强制统一左侧菜单图标的视觉大小并确保垂直居中 */
   .menu-icon :global(svg) {
-    width: 20px !important;
-    height: 20px !important;
-    min-width: 20px !important;
-    min-height: 20px !important;
-    max-width: 20px !important;
-    max-height: 20px !important;
     flex-shrink: 0;
     display: block;
-    margin: 0 auto;
   }
 
   .menu-text {
@@ -106,7 +99,7 @@
   }
 
   .menu-item.active .menu-text {
-    color: #ffffff;
+    color: var(--color-text-active);
   }
 
   @media (max-width: 768px) {

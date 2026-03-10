@@ -1,16 +1,18 @@
 <script lang="ts">
   import Icon from '../icons/Icon.svelte';
+  import Logo from '../icons/Logo.svelte';
   import Tooltip from './Tooltip.svelte';
   import { onMount } from 'svelte';
-  import { getCurrentWindow } from '@tauri-apps/api/window';
+  import { getCurrentWindow, type Window as TauriWindow } from '@tauri-apps/api/window';
 
   let isMaximized = $state(false);
   let isTauriApp = $state(false);
+  let appWindow: TauriWindow | null = null;
 
   onMount(() => {
     (async () => {
       try {
-        const appWindow = getCurrentWindow();
+        appWindow = getCurrentWindow();
         isMaximized = await appWindow.isMaximized();
         isTauriApp = true;
       } catch (e) {
@@ -19,14 +21,13 @@
     })();
   });
 
-  // 窗口控制函数 - 复用 appWindow 实例
-  async function withWindow(fn: (win: Awaited<ReturnType<typeof getCurrentWindow>>) => Promise<void>) {
-    if (!isTauriApp) return;
+  // 窗口控制函数 - 复用缓存的 appWindow 实例
+  async function withWindow(fn: (win: TauriWindow) => Promise<void>) {
+    if (!isTauriApp || !appWindow) return;
     try {
-      const appWindow = getCurrentWindow();
       await fn(appWindow);
     } catch (e) {
-      // 静默处理错误
+      if (import.meta.env.DEV) console.warn('Window operation failed:', e);
     }
   }
 
@@ -59,9 +60,7 @@
   <div class="header-left">
     <div class="logo-section">
       <div class="logo-icon">
-        <svg viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" width="28" height="28">
-          <path d="M122.709333 626.432c0 27.050667-24.96 48.512-57.216 48.512S11.562667 653.312 11.562667 621.013333v-161.749333c0-26.88 21.632-53.930667 53.930666-53.930667 27.050667 0 57.216 21.632 57.216 53.930667v167.168z m217.258667 129.28c0 32.298667-24.96 53.930667-57.216 53.930667-32.298667 0-53.930667-21.632-53.930667-53.930667V324.736c0-26.88 21.461333-53.930667 53.930667-53.930667 26.88 0 57.216 21.461333 57.216 53.930667v430.976z m215.466667 107.690667c0 32.256-21.461333 53.930667-53.930667 53.930666-32.298667 0-53.930667-21.461333-53.930667-53.930666V217.088c0-27.050667 21.632-53.930667 53.930667-53.930667 27.050667 0 53.930667 21.461333 53.930667 53.930667v646.314667z m218.965333-107.690667c0 32.298667-21.632 53.930667-53.930667 53.930667-32.256 0-53.930667-21.632-53.930666-53.930667V324.736c0-26.88 21.632-53.930667 53.930666-53.930667 26.88 0 53.930667 21.461333 53.930667 53.930667v430.976z m215.338667-129.28c0 27.050667-21.461333 48.512-53.930667 48.512-32.298667 0-53.930667-21.632-53.930667-53.930667v-161.749333c0-26.88 21.632-53.930667 53.930667-53.930667 27.050667 0 53.930667 21.632 53.930667 53.930667v167.168z"/>
-        </svg>
+        <Logo size={28} color="var(--color-text)" />
       </div>
       <div class="app-title">丸子配音</div>
     </div>
@@ -147,14 +146,6 @@
     flex-shrink: 0;
   }
   
-  .logo-icon svg path {
-    fill: var(--color-text);
-  }
-
-  .logo-icon svg {
-    -webkit-backface-visibility: hidden;
-    backface-visibility: hidden;
-  }
   
   .app-title {
     font-size: var(--font-size-lg);
@@ -237,8 +228,8 @@
     color: var(--color-text-secondary);
   }
 
-  .tutorial-btn.active :global(svg path) {
-    fill: var(--color-text-secondary);
+  .tutorial-btn.active :global(svg) {
+    color: var(--color-text-secondary);
   }
 
   .tutorial-text {
@@ -272,17 +263,17 @@
     background-color: var(--color-bg-spotlight);
   }
 
-  .icon-btn:hover :global(svg path),
-  .window-btn:hover :global(svg path) {
-    fill: var(--color-text);
+  .icon-btn:hover :global(svg),
+  .window-btn:hover :global(svg) {
+    color: var(--color-text);
   }
 
   .close-btn:hover {
     background-color: var(--color-error);
   }
 
-  .close-btn:hover :global(svg path) {
-    fill: #ffffff;
+  .close-btn:hover :global(svg) {
+    color: #ffffff;
   }
 
   .divider {

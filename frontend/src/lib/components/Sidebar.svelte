@@ -1,16 +1,6 @@
 <script lang="ts">
   import MenuItem from './MenuItem.svelte';
-
-  type MenuKey =
-    | 'home'
-    | 'video'
-    | 'copywriting'
-    | 'dubbing'
-    | 'cover'
-    | 'resource'
-    | 'project'
-    | 'setting'
-    | 'about';
+  import type { MenuKey } from '$lib/types';
 
   let {
     activeMenu = 'home',

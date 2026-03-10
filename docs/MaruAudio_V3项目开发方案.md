@@ -14,9 +14,11 @@
 ### 核心技术栈
 
 #### 前端层
-- **框架**: Svelte 5 + SvelteKit
-- **语言**: TypeScript
+- **框架**: SvelteKit + TypeScript（轻量、高性能、编译优化）
 - **构建工具**: Vite 6
+- **UI设计规范**: 参考 Element Plus 设计风格（组件设计参考其设计语言）
+- **图标库**: Ant Design Icons（通过 @iconify/svelte + @iconify-json/ant-design 离线使用，禁止使用 emoji）
+- **字体**: HarmonyOS Sans SC（woff2 离线内嵌，来源 @lobehub/webfont-harmony-sans-sc）
 - **状态管理**: Svelte Stores
 - **路由**: SvelteKit 文件系统路由
 
@@ -135,17 +137,7 @@ MaruAudio_V3/
 │   ├── svelte.config.js             # SvelteKit 配置
 │   └── vite.config.js               # Vite 构建配置
 │
-├── admin_panel/                     # 管理后台
-│   ├── api/                         # 后端 API (PHP 8.2)
-│   │   ├── controllers/             # 控制器
-│   │   ├── lib/                     # 公共库
-│   │   ├── config/                  # 配置
-│   │   ├── database/                # 数据库结构
-│   │   ├── migrations/              # 迁移脚本
-│   │   └── index.php                # API 入口
-│   ├── admin-frontend/              # 管理前端 (Vue 3 + Element Plus)
-│   ├── websocket/                   # WebSocket 服务 (PHP Ratchet)
-│   └── deploy/                      # 部署相关
+├── admin_panel/                     # 管理后台（部署在服务器，不在本地仓库中）
 │
 ├── IndexTTS/                        # TTS 参考引擎（仅本地参考，禁止直接调用，不提交 Git）
 │   ├── v15/                         # IndexTTS 1.5 轻量引擎
@@ -154,12 +146,12 @@ MaruAudio_V3/
 ├── backend/                         # 桌面端后端服务（待开发）
 │
 ├── docs/                            # 项目文档
-│   ├── V2项目功能分析报告.md
 │   ├── MaruAudio_V3项目开发方案.md  # 本文件
-│   └── 项目结构说明.md
+│   ├── IndexTTS引擎深度学习报告.md
+│   ├── V2项目功能分析报告.md
+│   └── 逗哥配音功能对标分析.md
 │
 ├── .gitignore                       # Git 忽略配置
-├── .cursorrules                     # Cursor IDE 规则
 └── README.md                        # 项目说明
 ```
 

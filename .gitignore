@@ -18,5 +18,9 @@ frontend/src-tauri/target/
 # IndexTTS 参考引擎（仅本地参考，不提交）
 IndexTTS/
 
+# AI Agent Skills（本地工具，不提交）
+.agents/
+.windsurf/skills/
+
 # 禁止提交服务器敏感信息文件
 docs/服务器信息.txt

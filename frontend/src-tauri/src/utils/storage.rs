@@ -7,6 +7,40 @@ const STORAGE_KEY_TOKEN: &str = "auth_token";
 const STORAGE_KEY_USER_INFO: &str = "user_info";
 const STORE_PATH: &str = ".auth-store.json";
 
+// XOR 混淆密钥（防止 token 以明文存储在本地 JSON 文件中）
+const OBFUSCATION_KEY: &[u8] = b"MaruAudio_V3_LocalStore_Key";
+
+/// 存储在文件中的编码后 token 结构
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct EncodedTokens {
+    t: String,
+    r: String,
+}
+
+fn obfuscate(data: &str) -> String {
+    use base64::Engine;
+    let key = OBFUSCATION_KEY;
+    let xored: Vec<u8> = data.bytes()
+        .enumerate()
+        .map(|(i, b)| b ^ key[i % key.len()])
+        .collect();
+    base64::engine::general_purpose::STANDARD.encode(&xored)
+}
+
+fn deobfuscate(encoded: &str) -> Result<String, String> {
+    use base64::Engine;
+    let key = OBFUSCATION_KEY;
+    let decoded = base64::engine::general_purpose::STANDARD
+        .decode(encoded)
+        .map_err(|e| format!("Failed to decode token: {}", e))?;
+    let xored: Vec<u8> = decoded.iter()
+        .enumerate()
+        .map(|(i, b)| b ^ key[i % key.len()])
+        .collect();
+    String::from_utf8(xored)
+        .map_err(|e| format!("Failed to decode token string: {}", e))
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuthTokens {
     pub token: String,
@@ -53,12 +87,23 @@ impl Storage {
 
     pub async fn save_tokens(app: &tauri::AppHandle, tokens: &AuthTokens) -> Result<(), String> {
         let store = Self::open_store(app)?;
-        Self::set_and_save(&store, STORAGE_KEY_TOKEN, tokens)
+        let encoded = EncodedTokens {
+            t: obfuscate(&tokens.token),
+            r: obfuscate(&tokens.refresh_token),
+        };
+        Self::set_and_save(&store, STORAGE_KEY_TOKEN, &encoded)
     }
 
     pub async fn get_tokens(app: &tauri::AppHandle) -> Result<Option<AuthTokens>, String> {
         let store = Self::open_store(app)?;
-        Self::get_value(&store, STORAGE_KEY_TOKEN)
+        let encoded: Option<EncodedTokens> = Self::get_value(&store, STORAGE_KEY_TOKEN)?;
+        match encoded {
+            Some(e) => Ok(Some(AuthTokens {
+                token: deobfuscate(&e.t)?,
+                refresh_token: deobfuscate(&e.r)?,
+            })),
+            None => Ok(None),
+        }
     }
 
     pub async fn clear_tokens(app: &tauri::AppHandle) -> Result<(), String> {

@@ -15,8 +15,9 @@ impl Default for AppConfig {
 
 impl AppConfig {
     pub fn from_env() -> Self {
+        let default = Self::default();
         let api_base_url = std::env::var("MARUAUDIO_API_URL")
-            .unwrap_or_else(|_| "https://auth.wzagent.cn/api".to_string());
+            .unwrap_or(default.api_base_url);
         
         Self { api_base_url }
     }

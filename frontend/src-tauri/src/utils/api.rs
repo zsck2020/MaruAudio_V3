@@ -201,6 +201,10 @@ impl ApiClient {
         self.request_data("GET", "announcements", None, None).await
     }
 
+    pub async fn get_banners(&self) -> Result<Vec<Value>> {
+        self.request_data("GET", "banners?product_code=dubbing", None, None).await
+    }
+
     fn get_machine_code() -> String {
         use std::process::Command;
         
@@ -242,7 +246,40 @@ impl ApiClient {
             }
         }
         
-        "unknown".to_string()
+        // 所有平台方法均失败时，生成并持久化一个随机 UUID，确保每台设备唯一
+        Self::get_or_create_fallback_id()
+    }
+
+    fn get_or_create_fallback_id() -> String {
+        let fallback_path = dirs_next::data_local_dir()
+            .unwrap_or_else(|| std::path::PathBuf::from("."))
+            .join("MaruAudio")
+            .join(".machine_id");
+
+        // 尝试读取已持久化的 ID
+        if let Ok(id) = std::fs::read_to_string(&fallback_path) {
+            let id = id.trim().to_string();
+            if !id.is_empty() {
+                return id;
+            }
+        }
+
+        // 生成新的随机 UUID 并持久化
+        let id = format!(
+            "{:08x}-{:04x}-{:04x}-{:04x}-{:012x}",
+            rand::random::<u32>(),
+            rand::random::<u16>(),
+            rand::random::<u16>(),
+            rand::random::<u16>(),
+            rand::random::<u64>() & 0xFFFF_FFFF_FFFF
+        );
+
+        if let Some(parent) = fallback_path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        let _ = std::fs::write(&fallback_path, &id);
+
+        id
     }
 }
 

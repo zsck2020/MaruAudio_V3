@@ -1,26 +1,30 @@
 <script lang="ts">
   import TitleBar from '../lib/components/TitleBar.svelte';
   import Sidebar from '../lib/components/Sidebar.svelte';
+  import Icon from '../lib/icons/Icon.svelte';
   import { onMount } from 'svelte';
   import Carousel from 'svelte-carousel';
   import { openUrl } from '@tauri-apps/plugin-opener';
+  import { invoke } from '@tauri-apps/api/core';
+  import type { MenuKey } from '$lib/types';
 
   let isMobile = $state(false);
   let isTablet = $state(false);
   let sidebarCollapsed = $state(false);
 
-  // 菜单状态管理
-  type MenuKey =
-    | 'home'
-    | 'video'
-    | 'copywriting'
-    | 'dubbing'
-    | 'cover'
-    | 'resource'
-    | 'project'
-    | 'setting'
-    | 'about';
   let activeMenu: MenuKey = $state('home');
+
+  const menuLabels: Record<MenuKey, string> = {
+    home: '首页',
+    dubbing: '配音',
+    project: '多角色配音',
+    video: '对轴',
+    copywriting: '文案',
+    resource: '资源',
+    cover: '文件',
+    setting: '设置',
+    about: '关于',
+  };
 
   function handleMenuClick(menuKey: MenuKey) {
     activeMenu = menuKey;
@@ -45,14 +49,12 @@
 
   async function loadBanners() {
     try {
-      const apiUrl = 'https://auth.wzagent.cn/api/banners?product_code=dubbing';
-      const response = await fetch(apiUrl);
-      const result = await response.json();
-      if (result.code === 0 && Array.isArray(result.data) && result.data.length > 0) {
-        banners = result.data.map((b: any) => ({
+      const data: any[] = await invoke('get_banners');
+      if (Array.isArray(data) && data.length > 0) {
+        banners = data.map((b: any) => ({
           id: b.id,
           title: b.title,
-          image_url: b.image_url.startsWith('http') ? b.image_url : `https://auth.wzagent.cn${b.image_url}`,
+          image_url: b.image_url?.startsWith('http') ? b.image_url : `https://auth.wzagent.cn${b.image_url}`,
           link_url: b.link_url || '',
           link_type: b.link_type || 'none',
         }));
@@ -160,6 +162,12 @@
             {/each}
           </Carousel>
         </div>
+      {:else}
+        <div class="empty-state">
+          <Icon name={activeMenu} size={48} color="var(--color-text-quaternary)" />
+          <p class="empty-state-text">{menuLabels[activeMenu] || activeMenu}</p>
+          <p class="empty-state-hint">功能开发中，敬请期待</p>
+        </div>
       {/if}
     </div>
   </div>
@@ -255,6 +263,29 @@
     height: 100%;
     object-fit: cover;
     border-radius: 8px;
+  }
+
+  .empty-state {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    opacity: 0.6;
+  }
+
+  .empty-state-text {
+    font-size: var(--font-size-lg, 16px);
+    font-weight: 500;
+    color: var(--color-text-secondary);
+    margin: 0;
+  }
+
+  .empty-state-hint {
+    font-size: var(--font-size-sm, 12px);
+    color: var(--color-text-tertiary);
+    margin: 0;
   }
 
   @media (max-width: 768px) {

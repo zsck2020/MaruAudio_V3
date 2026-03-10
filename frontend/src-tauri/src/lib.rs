@@ -78,6 +78,7 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::default().build())
         .invoke_handler(tauri::generate_handler![
             commands::app::ping,
+            commands::app::get_banners,
             commands::get_app_version,
             commands::audio::audio_health,
             commands::engine::engine_health,

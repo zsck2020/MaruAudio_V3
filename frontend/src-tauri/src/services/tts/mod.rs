@@ -1,6 +1,8 @@
+use anyhow::Result;
+
 pub trait TtsProvider: Send + Sync {
     fn name(&self) -> &'static str;
-    fn synthesize(&self, text: &str) -> Result<Vec<u8>, String>;
+    fn synthesize(&self, text: &str) -> Result<Vec<u8>>;
 }
 
 pub struct NoopTtsProvider;
@@ -10,8 +12,8 @@ impl TtsProvider for NoopTtsProvider {
         "noop"
     }
 
-    fn synthesize(&self, _text: &str) -> Result<Vec<u8>, String> {
-        Err("TTS not implemented yet".to_string())
+    fn synthesize(&self, _text: &str) -> Result<Vec<u8>> {
+        Err(anyhow::anyhow!("TTS not implemented yet"))
     }
 }
 

@@ -4,38 +4,35 @@ AI 语音克隆桌面应用 - 基于 Tauri 2.0 + SvelteKit 构建
 
 ## 技术栈
 
-- **前端**: Svelte 5 + SvelteKit + TypeScript
-- **后端**: Tauri 2.0 + Rust
-- **构建工具**: Vite 6
+| 层面 | 技术选型 | 说明 |
+|------|---------|------|
+| **客户前端** | Tauri 2.0 (Rust + Web) | 体积小、性能好、单exe交付 |
+| **前端框架** | SvelteKit + TypeScript | 轻量、高性能、编译优化 |
+| **UI设计规范** | 参考 Element Plus 设计风格 | 组件设计参考其设计语言 |
+| **图标库** | Ant Design Icons | @iconify/svelte + @iconify-json/ant-design 离线使用 |
+| **字体** | HarmonyOS Sans SC | woff2 离线内嵌 |
+| **构建工具** | Vite 6 | 快速开发与构建 |
 
 ## 项目结构
 
 ```
 MaruAudio_V3/
-├── frontend/              # 前端 + Tauri 桌面端
+├── frontend/              # 桌面端应用 (Tauri 2.0 + SvelteKit)
 │   ├── src/               # SvelteKit 前端源码
 │   │   ├── routes/        # 路由页面
 │   │   ├── lib/           # 共享组件和工具
 │   │   ├── app.html       # HTML 模板
-│   │   └── app.css        # 全局样式
+│   │   └── app.css        # 全局样式（设计令牌）
 │   ├── src-tauri/         # Tauri 后端 (Rust)
 │   │   ├── src/           # Rust 源代码
 │   │   ├── Cargo.toml     # Rust 依赖配置
 │   │   ├── tauri.conf.json# Tauri 配置
 │   │   └── capabilities/  # Tauri 权限配置
-│   ├── static/            # 静态资源（logo、favicon 等）
-│   ├── build/             # 构建输出目录
+│   ├── static/            # 静态资源（字体、logo、favicon）
 │   └── package.json       # 前端依赖配置
-├── admin_panel/           # 网页管理后台 (独立系统)
-│   ├── admin-frontend/    # 管理后台前端 (Vue 3)
-│   ├── api/               # API 后端 (PHP)
-│   │   ├── controllers/   # 控制器
-│   │   ├── lib/           # 核心库
-│   │   ├── database/      # 数据库脚本
-│   │   └── tests/         # 测试文件
-│   └── websocket/         # WebSocket 服务 (PHP)
-├── backend/               # 丸子配音后端 (待开发)
-└── docs/                  # 项目文档
+├── backend/               # 桌面端后端服务 (待开发)
+├── docs/                  # 项目文档
+└── IndexTTS/              # TTS 引擎参考（仅本地，不提交 Git）
 ```
 
 ## 开发环境要求
@@ -108,10 +105,6 @@ npm run tauri build
 - 字幕生成
 - 文件管理
 - 用户认证与会员系统
-
-## 相关文档
-
-- [API 文档](./admin_panel/api/API_DOCS.md)
 
 ## 许可证
 

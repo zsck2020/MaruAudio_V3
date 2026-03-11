@@ -164,21 +164,21 @@ MaruAudio_V3/
 
 ### 1. 配音生成 (Voice Clone)
 
-**前端位置**: `src/routes/voice-clone/+page.svelte`  
-**后端位置**: `src-tauri/src/commands/audio.rs` + `src-tauri/src/services/tts/`
+**前端位置**: `src/routes/voice-clone/+page.svelte`（待创建）  
+**后端位置**: `src-tauri/src/commands/audio.rs`（仅 health 占位）+ `src-tauri/src/services/tts/`（仅 Noop 占位）
 
-**功能特性**:
-- ✅ **文本转语音 (TTS)**: 基于参考音频进行语音克隆
-- ✅ **三引擎支持**:
+**功能特性**（均为规划，待实现）:
+- [ ] **文本转语音 (TTS)**: 基于参考音频进行语音克隆
+- [ ] **三引擎支持**:
   - 轻量引擎: 快速响应，适合短文本
   - 情感引擎: 情感表达丰富，适合长文本
   - 云端引擎: 高质量，无需本地资源
-- ✅ **大文本处理**: 超过1万字符自动分批处理
-- ✅ **文本预处理**: 自动分句、停顿、拼音纠错
-- ✅ **参数调节**: 语速、音调、情感控制
-- ✅ **参考音频管理**: 支持上传、录音、从样音库选择
-- ✅ **参考文本识别**: 自动识别参考音频的文本内容 (ASR)
-- ✅ **批量生成**: 支持长文本自动分批生成并合并
+- [ ] **大文本处理**: 超过1万字符自动分批处理
+- [ ] **文本预处理**: 自动分句、停顿、拼音纠错
+- [ ] **参数调节**: 语速、音调、情感控制
+- [ ] **参考音频管理**: 支持上传、录音、从样音库选择
+- [ ] **参考文本识别**: 自动识别参考音频的文本内容 (ASR)
+- [ ] **批量生成**: 支持长文本自动分批生成并合并
 
 **技术实现**:
 - 前端: Svelte 5 + SvelteKit
@@ -189,15 +189,15 @@ MaruAudio_V3/
 
 ### 2. 样音库管理 (Sample Library)
 
-**前端位置**: `src/routes/sample-library/+page.svelte`  
-**后端位置**: `src-tauri/src/commands/file.rs`
+**前端位置**: `src/routes/sample-library/+page.svelte`（待创建）  
+**后端位置**: `src-tauri/src/commands/sample.rs`（仅 health 占位）
 
-**功能特性**:
-- ✅ **样音管理**: 创建、编辑、删除样音
-- ✅ **样音分类**: 支持分类标签
-- ✅ **样音应用**: 一键应用到配音生成页面
-- ✅ **样音预览**: 音频播放和预览
-- ✅ **样音搜索**: 按名称、标签搜索
+**功能特性**（均为规划，待实现）:
+- [ ] **样音管理**: 创建、编辑、删除样音
+- [ ] **样音分类**: 支持分类标签
+- [ ] **样音应用**: 一键应用到配音生成页面
+- [ ] **样音预览**: 音频播放和预览
+- [ ] **样音搜索**: 按名称、标签搜索
 
 **数据存储**: 本地文件系统 (`outputs/Sample/`)
 
@@ -205,61 +205,61 @@ MaruAudio_V3/
 
 ### 3. 字幕生成 (Subtitle Generation)
 
-**前端位置**: `src/routes/subtitle/+page.svelte`  
-**后端位置**: `src-tauri/src/services/subtitle.rs`
+**前端位置**: `src/routes/subtitle/+page.svelte`（待创建）  
+**后端位置**: `src-tauri/src/services/subtitle.rs`（待创建）
 
-**功能特性**:
-- ✅ **视频/音频转录**: 支持视频和音频文件转文字
-- ✅ **ASR引擎**: 必剪 ASR (免费)
-- ✅ **字幕翻译**: 支持多语言翻译
-- ✅ **字幕格式**: 支持 SRT、VTT、ASS 等格式
-- ✅ **字幕编辑**: 时间轴调整、文本编辑
-- ✅ **批量处理**: 支持批量文件处理
+**功能特性**（均为规划，待实现）:
+- [ ] **视频/音频转录**: 支持视频和音频文件转文字
+- [ ] **ASR引擎**: 必剪 ASR (免费)
+- [ ] **字幕翻译**: 支持多语言翻译
+- [ ] **字幕格式**: 支持 SRT、VTT、ASS 等格式
+- [ ] **字幕编辑**: 时间轴调整、文本编辑
+- [ ] **批量处理**: 支持批量文件处理
 
 ---
 
 ### 4. 文件管理 (File Manager)
 
-**前端位置**: `src/routes/file-manager/+page.svelte`  
-**后端位置**: `src-tauri/src/commands/file.rs`
+**前端位置**: `src/routes/file-manager/+page.svelte`（待创建）  
+**后端位置**: `src-tauri/src/commands/file.rs`（仅 health 占位）
 
-**功能特性**:
-- ✅ **文件浏览**: 浏览生成的文件
-- ✅ **文件分类**: 按类型分类显示
-- ✅ **文件操作**: 打开、删除、重命名
-- ✅ **文件搜索**: 按名称搜索
-- ✅ **文件预览**: 音频文件预览播放
+**功能特性**（均为规划，待实现）:
+- [ ] **文件浏览**: 浏览生成的文件
+- [ ] **文件分类**: 按类型分类显示
+- [ ] **文件操作**: 打开、删除、重命名
+- [ ] **文件搜索**: 按名称搜索
+- [ ] **文件预览**: 音频文件预览播放
 
 ---
 
 ### 5. 用户认证与会员系统
 
-**前端位置**: `src/lib/stores/user.ts` + `src/lib/components/common/LoginModal.svelte`  
-**后端位置**: `src-tauri/src/commands/user.rs`
+**前端位置**: `src/lib/stores/user.ts`（待创建）+ `src/lib/components/common/LoginModal.svelte`（待创建）  
+**后端位置**: `src-tauri/src/commands/user.rs`（已实现核心 API 调用）
 
 **功能特性**:
-- ✅ **用户注册/登录**: 邮箱注册、登录
-- ✅ **会员管理**: 
+- ✅ **用户注册/登录**: 后端 API 调用已实现（`user_login`、`user_register` 命令）
+- ✅ **会话管理**: Token 持久化（XOR+Base64 混淆存储）、自动刷新（`refresh_token` 命令）
+- ✅ **设备绑定**: 机器码获取已实现（`get_machine_code` 异步命令）
+- [ ] **会员管理**: 前端 UI 待实现
   - 免费用户: 500字符限制
   - 试用会员: 1000字符限制
   - 付费会员 (月卡/年卡/永久): 无限制
-- ✅ **会话管理**: Token 持久化、自动刷新
-- ✅ **设备绑定**: 机器码绑定
-- ✅ **WebSocket 实时同步**: 用户状态、配置实时同步
-- ✅ **用户中心**: 会员信息、邀请码、佣金余额
+- [ ] **WebSocket 实时同步**: 用户状态、配置实时同步（待实现）
+- [ ] **用户中心**: 会员信息、邀请码、佣金余额（前端 UI 待实现）
 
 ---
 
 ### 6. 引擎管理系统
 
-**前端位置**: `src/lib/stores/engine.ts`  
-**后端位置**: `src-tauri/src/services/tts/`
+**前端位置**: `src/lib/stores/engine.ts`（待创建）  
+**后端位置**: `src-tauri/src/services/tts/`（仅 `TtsProvider` trait 和 `NoopTtsProvider` 占位）
 
-**功能特性**:
-- ✅ **三引擎支持**: 轻量引擎 + 情感引擎 + 云端引擎
-- ✅ **热切换**: 运行时切换引擎，无需重启
-- ✅ **引擎管理器**: 统一的引擎生命周期管理
-- ✅ **引擎状态**: 实时显示引擎加载状态
+**功能特性**（均为规划，待实现）:
+- [ ] **三引擎支持**: 轻量引擎 + 情感引擎 + 云端引擎
+- [ ] **热切换**: 运行时切换引擎，无需重启
+- [ ] **引擎管理器**: 统一的引擎生命周期管理
+- [ ] **引擎状态**: 实时显示引擎加载状态
 
 **引擎代号策略** (面向用户隐藏真实模型信息):
 - 轻量引擎 → 显示为: "快速模式"
@@ -290,7 +290,7 @@ MaruAudio_V3/
 #### 2. 代码层面
 - **常量定义**: 使用代号而非真实名称
 ```typescript
-// src/lib/utils/constants.ts
+// src/lib/utils/constants.ts（待创建）
 export const ENGINE_TYPES = {
   LIGHTWEIGHT: 'lightweight',  // 内部代号
   EMOTION: 'emotion',          // 内部代号
@@ -321,7 +321,7 @@ export const ENGINE_DISPLAY_NAMES = {
 
 #### 前端调用后端
 ```typescript
-// src/lib/utils/api.ts
+// src/lib/utils/api.ts（待创建）
 import { invoke } from '@tauri-apps/api/core';
 
 // 调用 Rust 命令
@@ -663,23 +663,24 @@ impl CloudEngine {
 }
 ```
 
-### 4. 状态管理 (Svelte Stores)
+### 4. 状态管理 (Svelte 5 Runes)
+
+> 注意: 项目使用 Svelte 5，状态管理使用 `$state` runes 而非传统的 `writable` stores。
 
 ```typescript
-// src/lib/stores/engine.ts
-import { writable } from 'svelte/store';
+// src/lib/stores/engine.ts（待创建）
+// Svelte 5 使用 $state runes 进行响应式状态管理
+let currentEngine = $state('lightweight'); // 内部代号
 
-export const currentEngine = writable('lightweight'); // 内部代号
-
-export const engines = writable([
+const engines = [
   { id: 'lightweight', name: '快速模式' },
   { id: 'emotion', name: '标准模式' },
   { id: 'cloud', name: '高质量模式' },
-]);
+];
 
-export async function switchEngine(engineId: string) {
+async function switchEngine(engineId: string) {
   // 切换引擎逻辑
-  currentEngine.set(engineId);
+  currentEngine = engineId;
 }
 ```
 
@@ -1777,22 +1778,22 @@ impl VersionManager {
 ### 第一阶段: 项目基础搭建 (1-2周)
 
 #### 1.1 初始化项目
-- [ ] 创建 Tauri 2.0 项目
-- [ ] 配置 SvelteKit + TypeScript
-- [ ] 配置 Vite 构建
-- [ ] 设置项目目录结构
+- [x] 创建 Tauri 2.0 项目
+- [x] 配置 SvelteKit + TypeScript
+- [x] 配置 Vite 构建
+- [x] 设置项目目录结构
 
 #### 1.2 基础组件开发
-- [ ] 主窗口布局
-- [ ] 侧边栏导航
-- [ ] 路由配置 (SvelteKit 文件系统路由)
-- [ ] 状态管理 (Svelte Stores)
-- [ ] 主题配置 (暗色主题)
+- [x] 主窗口布局
+- [x] 侧边栏导航
+- [x] 路由配置 (SvelteKit 文件系统路由)
+- [ ] 状态管理 (Svelte 5 $state runes)
+- [x] 主题配置 (Ant Design 暗色主题)
 
 #### 1.3 Rust 后端基础
-- [ ] Tauri Commands 框架
+- [x] Tauri Commands 框架
 - [ ] 文件系统操作
-- [ ] 配置管理
+- [x] 配置管理
 - [ ] 日志系统
 
 #### 1.4 IPC 通信优化基础
@@ -1807,7 +1808,7 @@ impl VersionManager {
 #### 2.1 用户系统
 - [ ] 登录/注册界面
 - [ ] 用户状态管理
-- [ ] Token 管理
+- [x] Token 管理（XOR+Base64 混淆存储、自动刷新）
 - [ ] 会员权限控制
 
 #### 2.2 引擎集成
@@ -1882,13 +1883,14 @@ impl VersionManager {
 ## 🎨 UI/UX 设计规范
 
 ### 设计风格
-- **主题**: 暗色主题
-- **颜色方案**:
-  - 背景: `#1E1F22` / `#2C2E32`
-  - 前景: `#FFFFFF` / `#CCCCCC`
-  - 强调色: `#52C41A` (绿色)
-- **圆角**: 按钮 8px、卡片 16px、弹窗 24px
-- **字体**: HarmonyOS Sans, 14px 正文
+- **主题**: Ant Design 暗色主题
+- **颜色方案**（基于 CSS 变量）:
+  - 主色: `#1677ff`（蓝色，Ant Design Primary）
+  - 背景: `#141414`（base）/ `#1f1f1f`（container）/ `#262626`（elevated）
+  - 文字: `rgba(255,255,255,0.85)`（主）/ `rgba(255,255,255,0.65)`（次）
+  - 功能色: 成功 `#52c41a`、警告 `#faad14`、错误 `#ff4d4f`
+- **圆角**: `4px`（sm）/ `6px`（默认）/ `8px`（lg）
+- **字体**: HarmonyOS Sans SC, 14px 正文（woff2 离线内嵌）
 
 ### 组件规范
 - 使用 Svelte 组件系统
@@ -1911,9 +1913,9 @@ impl VersionManager {
 - **签名验证**: API 请求签名验证
 
 ### 数据安全
-- **本地存储**: 敏感数据加密存储
-- **网络传输**: HTTPS 加密
-- **模型保护**: 模型文件加密/混淆
+- **本地存储**: Token 使用 XOR+Base64 混淆存储（基于设备 hostname 动态密钥），非真正加密
+- **网络传输**: HTTPS 加密，CSP 策略限制为 `https://auth.wzagent.cn`
+- **模型保护**: 模型文件加密/混淆（待实现）
 
 ---
 
@@ -1923,14 +1925,24 @@ impl VersionManager {
 ```json
 {
   "dependencies": {
-    "@tauri-apps/api": "^2.0.0",
-    "@sveltejs/kit": "^2.9.0",
-    "svelte": "^5.0.0"
+    "@iconify-json/ant-design": "^1.2.5",
+    "@iconify/svelte": "^5.2.1",
+    "@lobehub/webfont-harmony-sans-sc": "^1.0.0",
+    "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-opener": "^2",
+    "svelte-carousel": "^1.0.25"
   },
   "devDependencies": {
+    "@sveltejs/adapter-static": "^3.0.6",
+    "@sveltejs/kit": "^2.9.0",
     "@sveltejs/vite-plugin-svelte": "^5.0.0",
+    "@tauri-apps/cli": "^2",
+    "concurrently": "^9.1.2",
+    "svelte": "^5.0.0",
+    "svelte-check": "^4.0.0",
     "typescript": "~5.6.2",
-    "vite": "^6.0.3"
+    "vite": "^6.0.3",
+    "wait-on": "^8.0.3"
   }
 }
 ```
@@ -1938,11 +1950,18 @@ impl VersionManager {
 ### Rust 依赖
 ```toml
 [dependencies]
-tauri = { version = "2.0", features = ["shell-all", "dialog-all", "fs-all"] }
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-tokio = { version = "1.0", features = ["full"] }
-reqwest = { version = "0.11", features = ["json"] }
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-opener = "2"
+tauri-plugin-store = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+reqwest = { version = "0.12", features = ["json"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "process", "fs"] }
+anyhow = "1"
+base64 = "0.22"
+dirs-next = "2"
+rand = "0.8"
+hostname = "0.4"
 ```
 
 ---
@@ -1951,7 +1970,7 @@ reqwest = { version = "0.11", features = ["json"] }
 
 ### 打包流程
 1. **前端构建**: `npm run build`
-2. **Tauri 打包**: `npm run tauri:build`
+2. **Tauri 打包**: `npx tauri build`
 3. **安装包**: 生成 Windows 安装包
 4. **版本信息**: 更新版本号和更新日志
 5. **发布**: 上传到发布平台
@@ -2052,8 +2071,8 @@ reqwest = { version = "0.11", features = ["json"] }
 
 ---
 
-**文档版本**: 2.1  
-**创建时间**: 2026-02-01  
-**最后更新**: 2026-02-16  
-**更新内容**: 修正项目目录结构，补充管理后台、IndexTTS 参考引擎、线上环境等信息
+**文档版本**: 2.2  
+**创建时间**: 2025-02-01  
+**最后更新**: 2025-07-17  
+**更新内容**: 全面审查修正 - 修正功能完成状态标记、依赖管理、UI设计规范颜色值、开发阶段checklist、状态管理代码示例、数据安全描述、打包命令等
 

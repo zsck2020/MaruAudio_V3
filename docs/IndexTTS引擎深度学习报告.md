@@ -1,13 +1,14 @@
 # IndexTTS 引擎深度学习报告
 
-> 最后更新: 2026-02-16  
+> 最后更新: 2025-07-17  
+> 基于本地源码 + GitHub 仓库实际代码审查  
 > ⚠️ 本报告仅供丸子配音引擎开发参考，IndexTTS 源码禁止直接调用
 
 ---
 
 ## 一、整体架构对比
 
-### IndexTTS 1.5（轻量引擎）
+### IndexTTS 1.5（轻量引擎）—— 类名 `IndexTTS`
 
 ```
 文本 → TextNormalizer → BPE Tokenizer → 分句
@@ -27,7 +28,7 @@
 
 **核心三件套**: GPT → Codes → BigVGAN
 
-### IndexTTS 2.0（情感引擎）
+### IndexTTS 2.0（情感引擎）—— 类名 `IndexTTS2`
 
 ```
 文本 → TextNormalizer → BPE Tokenizer → 分段
@@ -148,21 +149,30 @@
    - `emo_alpha` 控制情感强度 (0~1)
 
 2. **情感向量** (`emo_vector`):
-   - 直接指定 8 维情感权重
+   - 直接指定 8 维情感权重: `[happy, angry, sad, afraid, disgusted, melancholic, surprised, calm]`
    - 例: `[0.8, 0, 0, 0, 0, 0, 0, 0.2]` → 80%开心 + 20%平静
-   - 有 bias 校正（降低容易产生异常的情感权重）
-   - 总和限制在 0.8 以下
+   - `normalize_emo_vec()` 进行 bias 校正:
+     - `emo_bias = [0.9375, 0.875, 1.0, 1.0, 0.9375, 0.9375, 0.6875, 0.5625]`
+     - surprised(0.6875) 和 calm(0.5625) 被大幅削弱，避免产生异常语音
+     - 总和限制在 0.8 以下（超过则等比缩放）
+   - `use_random=True` 可引入随机性（降低音色克隆保真度）
+   - `emo_alpha` 可预缩放情感向量强度 (0.0~1.0)
 
 3. **情感文本** (`use_emo_text=True`):
    - 通过微调的 **Qwen3** 模型分析文本情感
    - 输出 JSON 格式的情感分类向量
    - 自动转换为 8 维 emo_vector
+   - 可通过 `emo_text` 参数独立指定情感描述文本（与生成文本分离）
+   - 建议 `emo_alpha=0.6` 或更低，以获得更自然的效果
 
-**QwenEmotion 类**:
-- 基于 Qwen3 的情感分类模型
-- 输入: 文本 → 输出: `{高兴: 0.7, 自然: 0.3, ...}`
+**QwenEmotion 类** (实际实现细节):
+- 基于 Qwen3 的情感分类模型，fp16 推理，`device_map="auto"`
+- 系统提示: `"文本情感分类"`
+- 输入: 文本 → 输出: `{高兴: 0.7, 自然: 0.3, ...}` (JSON 格式)
 - 情感类别映射: 高兴→happy, 愤怒→angry, 悲伤→sad, 恐惧→afraid, 反感→disgusted, 低落→melancholic, 惊讶→surprised, 自然→calm
-- 有"低落"vs"悲伤"的特殊处理逻辑
+- 分值范围: `min_score=0.0, max_score=1.2`
+- **"低落"workaround**: QwenEmotion 无法区分"悲伤"和"低落"，代码通过 `melancholic_words` 集合（低落/melancholy/gloomy/depressed等）检测文本关键词，匹配时交换"悲伤"和"低落"的向量值
+- 全部情感为零时默认 `calm=1.0`（中性语气）
 
 ---
 
@@ -179,6 +189,37 @@
 | max_mel_tokens | 600 | 1500 | 最大 mel token 数 (v2.0 更长) |
 | max_text_tokens | 100/120 | 120 | 每段最大文本 token |
 | sampling_rate | 24000 | 22050 | 输出采样率 |
+
+### v2.0 新增 API 参数（源码实际）
+
+| 参数 | 默认值 | 说明 |
+|------|---------|------|
+| `spk_audio_prompt` | 必填 | 说话人参考音频（音色源） |
+| `emo_audio_prompt` | None | 情感参考音频（与说话人分离） |
+| `emo_alpha` | 1.0 | 情感强度 (0.0~1.0) |
+| `emo_vector` | None | 8 维情感向量 |
+| `use_emo_text` | False | 是否用文本自动推断情感 |
+| `emo_text` | None | 独立的情感描述文本 |
+| `use_random` | False | 是否引入随机性（降低克隆保真度） |
+| `interval_silence` | 200 | 段间静音时长 (ms) |
+| `stream_return` | False | 是否流式返回 (generator 模式) |
+| `quick_streaming_tokens` | 0 | 快速流式分段 token 数 |
+| `verbose` | False | 详细日志输出 |
+
+### v2.0 流式推理实现
+
+`infer()` 方法内部委托给 `infer_generator()`，通过 Python generator (`yield`) 实现流式输出：
+- `stream_return=True` 时，每生成一段音频即 `yield wav` + `yield silence`
+- 非流式模式时，`list(generator)[0]` 获取完整音频
+- 段间自动插入 `interval_silence` ms 静音
+
+### v2.0 AccelEngine 加速引擎
+
+`AccelInferenceEngine` 类（`indextts/accel/accel_engine.py`）：
+- **CUDA Graph**: 预编译计算图避免重复 kernel launch 开销
+- **KV Cache Manager**: 块式 KV 缓存管理 (`block_size=256, num_blocks=128`)
+- **Sampler**: 使用 `@torch.compile` 优化的采样器，支持温度控制 + greedy/sampling 切换
+- 仅在 `use_accel=True` 时启用，需要 CUDA 环境
 
 ---
 
@@ -205,6 +246,8 @@
 | spk_matrix | 说话人嵌入矩阵 |
 | bpe.model | BPE 分词模型 |
 | qwen_emo/ | Qwen3 情感分类模型 |
+| glossary.yaml | 术语词汇表（可选） |
+| pinyin.vocab | 拼音控制词表 |
 | + HuggingFace 依赖: facebook/w2v-bert-2.0, amphion/MaskGCT, funasr/campplus, bigvgan |
 
 ---
@@ -219,6 +262,7 @@
 | **情感控制** | 不支持 | 音频/向量/文本 三种方式 |
 | **批处理** | ✅ 桶化批处理 | ❌ 逐段顺序 |
 | **流式输出** | ❌ | ✅ generator 模式 |
+| **设备支持** | CUDA, MPS, CPU | CUDA, XPU, MPS, CPU |
 | **加速** | DeepSpeed, CUDA kernel | DeepSpeed, CUDA kernel, AccelEngine, torch.compile |
 | **模型依赖** | 自包含 (3 个 pth) | 依赖 HuggingFace 多模型 + Qwen3 |
 | **VRAM 需求** | ~4GB | ~8GB+ |
@@ -283,6 +327,7 @@
 
 ### v1.5
 - Python 3.10+
+- **包管理**: pip / setup.py
 - PyTorch + torchaudio
 - sentencepiece (BPE)
 - WeTextProcessing (文本正则化)
@@ -290,13 +335,18 @@
 - DeepSpeed (可选加速)
 
 ### v2.0 (在 v1.5 基础上新增)
-- transformers (自定义 GPT2)
-- librosa
-- modelscope (AutoModelForCausalLM)
-- huggingface_hub
-- safetensors
-- facebook/w2v-bert-2.0 (语义特征)
-- amphion/MaskGCT (语义编解码)
-- funasr/campplus (说话人风格)
-- Qwen3 (情感分析)
-- bigvgan (HuggingFace 版 vocoder)
+- **包管理**: **uv** (官方唯一支持，不支持 pip/conda)
+  - `uv sync --all-extras` 安装依赖
+  - `uv run webui.py` 运行 WebUI
+  - extras: `webui`, `deepspeed`
+- transformers (自定义 GPT2 副本，解决版本兼容性)
+- librosa (音频加载和重采样)
+- modelscope (AutoModelForCausalLM, QwenEmotion 加载)
+- huggingface_hub (hf_hub_download)
+- safetensors (模型权重加载)
+- json5 (配置解析)
+- facebook/w2v-bert-2.0 (语义特征, 第17层隐藏状态)
+- amphion/MaskGCT (语义编解码, RepCodec)
+- funasr/campplus (说话人风格, 80维fbank→92维embedding)
+- Qwen3 (情感分析, fp16, enable_thinking=False)
+- bigvgan (HuggingFace 版 vocoder, from_pretrained)

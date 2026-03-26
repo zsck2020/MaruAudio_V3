@@ -4,9 +4,12 @@
   "description": "丸子配音桌面端",
   "type": "module",
   "scripts": {
+    "clean": "powershell -ExecutionPolicy Bypass -File scripts/kill-dev.ps1",
+    "predev": "npm run clean",
     "dev": "concurrently -n web,desktop --restart-tries 3 --restart-after 2000 \"npm:dev:web\" \"npm:dev:desktop\"",
     "dev:web": "vite dev --port 1420 --strictPort --host",
     "dev:desktop": "wait-on http://localhost:1420 && tauri dev",
+    "predev:web-only": "npm run clean",
     "dev:web-only": "vite dev --port 1420 --strictPort --host",
     "build": "vite build",
     "preview": "vite preview",
@@ -21,6 +24,7 @@
     "@lobehub/webfont-harmony-sans-sc": "^1.0.0",
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-opener": "^2",
+    "@tauri-apps/plugin-store": "^2.4.2",
     "svelte-carousel": "^1.0.25"
   },
   "devDependencies": {

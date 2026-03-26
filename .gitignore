@@ -12,9 +12,28 @@ vite.config.ts.timestamp-*
 # Rust/Tauri 构建输出
 frontend/src-tauri/target/
 
-# IndexTTS 参考引擎（仅本地参考，不提交）
-IndexTTS/
+# IndexTTS 参考引擎：跟踪源码与配置，忽略权重/缓存/嵌套仓库（大文件勿提交）
+IndexTTS/**/.git/
+IndexTTS/**/checkpoints/
+IndexTTS/**/__pycache__/
+IndexTTS/**/*.py[cod]
+IndexTTS/**/.venv/
+IndexTTS/**/venv/
+IndexTTS/**/*.egg-info/
+IndexTTS/**/.pytest_cache/
+IndexTTS/**/.mypy_cache/
+IndexTTS/**/.ruff_cache/
+IndexTTS/**/hf_cache/
+IndexTTS/**/.cache/
+IndexTTS/**/*.pth
+IndexTTS/**/*.pt
+IndexTTS/**/*.onnx
+IndexTTS/**/*.safetensors
+IndexTTS/**/*.ckpt
+# HuggingFace / 模型目录常见大包（按需可再细化路径）
+IndexTTS/**/*.bin
 
 
 # 禁止提交服务器敏感信息文件
 docs/服务器信息.txt
+.claude/settings.local.json

@@ -3,29 +3,31 @@
   import Logo from '../icons/Logo.svelte';
   import Tooltip from './Tooltip.svelte';
   import { onMount } from 'svelte';
-  import { getCurrentWindow, type Window as TauriWindow } from '@tauri-apps/api/window';
+  import { env } from '$lib/stores/environment.svelte';
 
   let isMaximized = $state(false);
-  let isTauriApp = $state(false);
-  let appWindow: TauriWindow | null = null;
 
-  onMount(() => {
-    (async () => {
-      try {
-        appWindow = getCurrentWindow();
-        isMaximized = await appWindow.isMaximized();
-        isTauriApp = true;
-      } catch (e) {
-        isTauriApp = false;
-      }
-    })();
+  async function getWindow() {
+    try {
+      const { getCurrentWindow } = await import('@tauri-apps/api/window');
+      return getCurrentWindow();
+    } catch {
+      return null;
+    }
+  }
+
+  onMount(async () => {
+    const win = await getWindow();
+    if (win) {
+      isMaximized = await win.isMaximized();
+    }
   });
 
-  // 窗口控制函数 - 复用缓存的 appWindow 实例
-  async function withWindow(fn: (win: TauriWindow) => Promise<void>) {
-    if (!isTauriApp || !appWindow) return;
+  async function withWindow(fn: (win: any) => Promise<void>) {
+    const win = await getWindow();
+    if (!win) return;
     try {
-      await fn(appWindow);
+      await fn(win);
     } catch (e) {
       if (import.meta.env.DEV) console.warn('Window operation failed:', e);
     }
@@ -62,18 +64,20 @@
       <div class="logo-icon">
         <Logo size={28} color="var(--color-text)" />
       </div>
-      <div class="app-title">丸子配音</div>
+      <div class="app-title">丸子配音<span class="version">V3.0.0</span></div>
     </div>
   </div>
   
   <div class="header-right">
     <Tooltip text="用户中心" position="bottom">
       <button class="icon-btn avatar-btn">
-        <Icon name="avatar" size={32} color="var(--color-text-tertiary)" />
+        <div class="avatar-circle">
+          <Icon name="avatar" size={16} color="var(--color-text-tertiary)" />
+        </div>
       </button>
     </Tooltip>
     <Tooltip text="教程" position="bottom">
-      <button class="tutorial-btn active">
+      <button class="tutorial-btn">
         <Icon name="tutorial" size={20} color="var(--color-text-tertiary)" />
         <span class="tutorial-text">教程</span>
       </button>
@@ -155,6 +159,16 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
+    display: flex;
+    align-items: flex-end;
+    gap: 6px;
+  }
+
+  .version {
+    font-size: 10px;
+    font-weight: 300;
+    color: var(--color-text-tertiary);
+    letter-spacing: 0;
   }
   
   @media (max-width: 768px) {
@@ -194,11 +208,15 @@
     margin-left: var(--spacing-sm) !important;
   }
   
-  .avatar-btn {
-    transform: translateX(-5px);
-    width: auto;
-    height: auto;
-    padding: 0;
+  .avatar-circle {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 1.5px solid var(--color-text-tertiary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: border-color var(--transition-duration) var(--transition-timing);
   }
   
   .tutorial-btn {
@@ -218,18 +236,6 @@
 
   .tutorial-btn:hover {
     background-color: var(--color-bg-spotlight);
-  }
-
-  .tutorial-btn.active {
-    background-color: var(--color-bg-spotlight);
-  }
-
-  .tutorial-btn.active .tutorial-text {
-    color: var(--color-text-secondary);
-  }
-
-  .tutorial-btn.active :global(svg) {
-    color: var(--color-text-secondary);
   }
 
   .tutorial-text {
@@ -266,6 +272,21 @@
   .icon-btn:hover :global(svg),
   .window-btn:hover :global(svg) {
     color: var(--color-text);
+  }
+
+  .icon-btn.avatar-btn {
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    border-radius: 50%;
+  }
+
+  .icon-btn.avatar-btn:hover .avatar-circle {
+    border-color: var(--color-text);
+  }
+
+  .icon-btn.avatar-btn:hover .avatar-circle :global(svg) {
+    color: var(--color-text) !important;
   }
 
   .close-btn:hover {

@@ -1,33 +1,45 @@
-<svg width="1200" height="225" xmlns="http://www.w3.org/2000/svg">
+﻿<svg viewBox="0 30 1200 195" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <linearGradient id="bg3" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#1a1a2e"/>
-      <stop offset="50%" style="stop-color:#2a1b3d"/>
-      <stop offset="100%" style="stop-color:#1f1147"/>
+      <stop offset="0%" style="stop-color:#161616"/>
+      <stop offset="100%" style="stop-color:#1a181f"/>
     </linearGradient>
-    <linearGradient id="accent3" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" style="stop-color:#b37feb"/>
-      <stop offset="100%" style="stop-color:#722ed1"/>
-    </linearGradient>
+    <radialGradient id="orb3" cx="75%" cy="50%" r="40%">
+      <stop offset="0%" style="stop-color:#722ed1;stop-opacity:0.05"/>
+      <stop offset="100%" style="stop-color:#722ed1;stop-opacity:0"/>
+    </radialGradient>
   </defs>
   <rect width="1200" height="225" fill="url(#bg3)"/>
-  <!-- 装饰 -->
-  <circle cx="1060" cy="90" r="110" fill="#722ed1" opacity="0.07"/>
-  <circle cx="1120" cy="170" r="50" fill="#b37feb" opacity="0.05"/>
-  <circle cx="120" cy="200" r="70" fill="#722ed1" opacity="0.04"/>
-  <path d="M0 190 Q250 155 500 175 T1000 160 T1200 170 V225 H0 Z" fill="#722ed1" opacity="0.04"/>
-  <!-- 图标 - 字幕/文字 -->
-  <g transform="translate(80, 60)">
-    <circle cx="45" cy="45" r="42" fill="#722ed1" opacity="0.15"/>
-    <rect x="22" y="25" width="46" height="40" rx="4" fill="none" stroke="#b37feb" stroke-width="2"/>
-    <line x1="30" y1="35" x2="60" y2="35" stroke="#b37feb" stroke-width="2" stroke-linecap="round"/>
-    <line x1="30" y1="45" x2="55" y2="45" stroke="#b37feb" stroke-width="2" stroke-linecap="round"/>
-    <line x1="30" y1="55" x2="50" y2="55" stroke="#b37feb" stroke-width="2" stroke-linecap="round"/>
+  <rect width="1200" height="225" fill="url(#orb3)"/>
+  <!-- 字幕时间轴装饰 -->
+  <g transform="translate(800, 50)" opacity="0.035">
+    <rect x="0" y="8" width="250" height="2" rx="1" fill="#b37feb"/>
+    <rect x="0" y="8" width="70" height="2" rx="1" fill="#722ed1"/>
+    <rect x="8" y="18" width="55" height="12" rx="3" fill="#722ed1" opacity="0.5"/>
+    <rect x="85" y="8" width="50" height="2" rx="1" fill="#b37feb" opacity="0.5"/>
+    <rect x="88" y="18" width="44" height="12" rx="3" fill="#722ed1" opacity="0.35"/>
+    <rect x="0" y="48" width="250" height="2" rx="1" fill="#b37feb"/>
+    <rect x="15" y="48" width="90" height="2" rx="1" fill="#722ed1"/>
+    <rect x="20" y="58" width="80" height="12" rx="3" fill="#722ed1" opacity="0.4"/>
+    <rect x="120" y="48" width="60" height="2" rx="1" fill="#b37feb" opacity="0.5"/>
+    <rect x="123" y="58" width="54" height="12" rx="3" fill="#722ed1" opacity="0.3"/>
+    <rect x="0" y="88" width="250" height="2" rx="1" fill="#b37feb"/>
+    <rect x="30" y="88" width="100" height="2" rx="1" fill="#722ed1"/>
+    <rect x="35" y="98" width="90" height="12" rx="3" fill="#722ed1" opacity="0.35"/>
   </g>
-  <!-- 文字 -->
-  <text x="200" y="90" font-family="'HarmonyOS Sans SC', Arial, sans-serif" font-size="28" fill="#ffffff" font-weight="600" opacity="0.95">智能字幕 · 精准对轴</text>
-  <text x="200" y="125" font-family="'HarmonyOS Sans SC', Arial, sans-serif" font-size="15" fill="#ffffff" opacity="0.55">AI 语音识别 · 自动时间轴 · 字幕编辑 · 多格式导出</text>
-  <!-- CTA 按钮 -->
-  <rect x="200" y="145" width="120" height="36" rx="18" fill="url(#accent3)" opacity="0.9"/>
-  <text x="260" y="168" font-family="'HarmonyOS Sans SC', Arial, sans-serif" font-size="13" fill="#ffffff" text-anchor="middle" font-weight="500">了解更多</text>
+  <!-- 图标 -->
+  <g transform="translate(72, 62)">
+    <circle cx="44" cy="44" r="40" fill="#722ed1" opacity="0.05" stroke="#722ed1" stroke-opacity="0.08" stroke-width="1"/>
+    <rect x="22" y="24" width="44" height="40" rx="4" fill="none" stroke="#b37feb" stroke-width="1.5" opacity="0.35"/>
+    <line x1="30" y1="35" x2="58" y2="35" stroke="#b37feb" stroke-width="1.5" stroke-linecap="round" opacity="0.35"/>
+    <line x1="30" y1="45" x2="52" y2="45" stroke="#b37feb" stroke-width="1.3" stroke-linecap="round" opacity="0.25"/>
+    <line x1="30" y1="55" x2="46" y2="55" stroke="#b37feb" stroke-width="1.3" stroke-linecap="round" opacity="0.2"/>
+  </g>
+  <!-- 文案 -->
+  <text x="190" y="86" font-family="'HarmonyOS Sans SC', Arial, sans-serif" font-size="26" fill="#ffffff" font-weight="600" opacity="0.8">智能字幕</text>
+  <text x="190" y="116" font-family="'HarmonyOS Sans SC', Arial, sans-serif" font-size="14" fill="#b37feb" font-weight="500" opacity="0.5" letter-spacing="1.5">精准对轴 · 多格式导出</text>
+  <text x="190" y="146" font-family="'HarmonyOS Sans SC', Arial, sans-serif" font-size="12" fill="#ffffff" opacity="0.25">AI 语音识别 · 自动时间轴 · 字幕编辑 · SRT/VTT/ASS</text>
+  <!-- CTA -->
+  <rect x="190" y="162" width="96" height="30" rx="15" fill="#722ed1" opacity="0.55"/>
+  <text x="238" y="182" font-family="'HarmonyOS Sans SC', Arial, sans-serif" font-size="12" fill="#ffffff" text-anchor="middle" font-weight="500" opacity="0.85">了解更多</text>
 </svg>

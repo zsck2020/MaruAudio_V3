@@ -1,5 +1,7 @@
 use anyhow::Result;
 
+/// TTS 提供商 trait（预留接口，暂未完全实现）
+#[allow(unused)]
 pub trait TtsProvider: Send + Sync {
     fn name(&self) -> &'static str;
     fn synthesize(&self, text: &str) -> Result<Vec<u8>>;

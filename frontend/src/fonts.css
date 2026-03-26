@@ -1,24 +1,6 @@
 /* HarmonyOS Sans SC - 离线内嵌 woff2 字体 */
 /* 来源: @lobehub/webfont-harmony-sans-sc */
 
-/* Thin */
-@font-face {
-  font-family: 'HarmonyOS Sans SC';
-  src: url('/fonts/HarmonyOS_Sans_SC_Thin.woff2') format('woff2');
-  font-weight: 100;
-  font-style: normal;
-  font-display: swap;
-}
-
-/* Light */
-@font-face {
-  font-family: 'HarmonyOS Sans SC';
-  src: url('/fonts/HarmonyOS_Sans_SC_Light.woff2') format('woff2');
-  font-weight: 300;
-  font-style: normal;
-  font-display: swap;
-}
-
 /* Regular */
 @font-face {
   font-family: 'HarmonyOS Sans SC';
@@ -42,15 +24,6 @@
   font-family: 'HarmonyOS Sans SC';
   src: url('/fonts/HarmonyOS_Sans_SC_Bold.woff2') format('woff2');
   font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
-
-/* Black */
-@font-face {
-  font-family: 'HarmonyOS Sans SC';
-  src: url('/fonts/HarmonyOS_Sans_SC_Black.woff2') format('woff2');
-  font-weight: 900;
   font-style: normal;
   font-display: swap;
 }

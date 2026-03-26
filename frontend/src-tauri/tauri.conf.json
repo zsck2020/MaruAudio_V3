@@ -15,11 +15,12 @@
         "width": 1440,
         "height": 900,
         "decorations": false,
-        "center": true
+        "center": true,
+        "resizable": false
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https://auth.wzagent.cn data:; connect-src 'self' https://auth.wzagent.cn wss://auth.wzagent.cn; font-src 'self' data:"
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https://auth.wzagent.cn data:; connect-src 'self' https://auth.wzagent.cn wss://auth.wzagent.cn; font-src 'self' data:; media-src 'self' blob:; worker-src 'self' blob:"
     }
   },
   "bundle": {

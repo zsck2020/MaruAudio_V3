@@ -1,7 +1,7 @@
 # IndexTTS 引擎深度学习报告
 
-> 最后更新: 2025-07-17  
-> 基于本地源码 + GitHub 仓库实际代码审查  
+> 最后更新: 2026-03-18  
+> 基于本地源码逐行审查 + GitHub 仓库 + arXiv 论文  
 > ⚠️ 本报告仅供丸子配音引擎开发参考，IndexTTS 源码禁止直接调用
 
 ---
@@ -57,6 +57,23 @@
 ```
 
 **核心链路**: GPT → Codes → Semantic Codec → CFM Diffusion → BigVGAN
+
+---
+
+## 附：IndexTTS 生态版本
+
+| 版本 | 定位 | GitHub Stars | 发布时间 |
+|------|------|-------------|---------|
+| **IndexTTS 1.5** | 轻量快速 | 19,400+ | 2024 |
+| **IndexTTS 2.0** | 情感引擎 | (同仓库) | 2025-09 |
+| **IndexTTS 2.5** | 多语言+极速 | (同仓库) | 2026-01 (arXiv:2601.03888) |
+
+**IndexTTS 2.5 关键改进** (未在本地参考代码中，仅论文):
+1. 语义编码压缩: 帧率 50Hz → 25Hz，序列长度减半
+2. 架构升级: U-DiT → Zipformer，参数更少速度更快
+3. 多语言: 中文/英文/日语/西班牙语 + 零样本跨语言情感迁移
+4. GRPO 强化学习: 优化发音准确性和自然度
+5. 性能: RTF 提升 2.28x
 
 ---
 
@@ -328,25 +345,233 @@
 ### v1.5
 - Python 3.10+
 - **包管理**: pip / setup.py
-- PyTorch + torchaudio
+- PyTorch ≥2.1.2 + torchaudio
 - sentencepiece (BPE)
-- WeTextProcessing (文本正则化)
+- WeTextProcessing / wetext (macOS) (文本正则化)
 - OmegaConf (配置)
+- transformers 4.36.2, accelerate 0.25.0
 - DeepSpeed (可选加速)
+- Gradio (可选 WebUI)
 
 ### v2.0 (在 v1.5 基础上新增)
 - **包管理**: **uv** (官方唯一支持，不支持 pip/conda)
   - `uv sync --all-extras` 安装依赖
   - `uv run webui.py` 运行 WebUI
   - extras: `webui`, `deepspeed`
-- transformers (自定义 GPT2 副本，解决版本兼容性)
+- Python ≥3.10, PyTorch 2.8.*, torchaudio 2.8.*
+- transformers 4.52.1 (自定义 GPT2 副本，解决版本兼容性)
 - librosa (音频加载和重采样)
 - modelscope (AutoModelForCausalLM, QwenEmotion 加载)
 - huggingface_hub (hf_hub_download)
 - safetensors (模型权重加载)
 - json5 (配置解析)
+- descript-audiotools, ffmpeg-python (音频处理)
 - facebook/w2v-bert-2.0 (语义特征, 第17层隐藏状态)
 - amphion/MaskGCT (语义编解码, RepCodec)
-- funasr/campplus (说话人风格, 80维fbank→92维embedding)
+- funasr/campplus (说话人风格, 80维fbank→192维embedding)
 - Qwen3 (情感分析, fp16, enable_thinking=False)
 - bigvgan (HuggingFace 版 vocoder, from_pretrained)
+- CUDA 12.8+ 推荐用于 GPU 加速
+
+---
+
+## 八、源码级关键实现细节
+
+### 8.1 初始化流程对比
+
+**v1.5 模型加载顺序** (`IndexTTS.__init__`):
+1. 设备检测: CUDA → MPS(强制关闭fp16) → CPU
+2. `OmegaConf.load(cfg_path)` 加载配置
+3. `UnifiedVoice(**cfg.gpt)` → `load_checkpoint(gpt, gpt_path)` → `.to(device)`
+4. 可选 DeepSpeed: `gpt.post_init_gpt2_config(use_deepspeed=True, kv_cache=True, half=True)`
+5. CUDA kernel 预加载: `anti_alias_activation_loader.load()`
+6. `Generator(cfg.bigvgan)` → `load_state_dict(vocoder_dict["generator"])` → `remove_weight_norm()`
+7. `TextNormalizer().load()` + `TextTokenizer(bpe_path, normalizer)`
+8. 缓存初始化: `cache_audio_prompt=None, cache_cond_mel=None`
+
+**v2.0 模型加载顺序** (`IndexTTS2.__init__`):
+1. 设备检测: CUDA → XPU → MPS(强制关闭fp16) → CPU
+2. `QwenEmotion(qwen_emo_path)` — Qwen3 情感分类器
+3. `UnifiedVoice(**cfg.gpt, use_accel=use_accel)` → GPT V2
+4. `SeamlessM4TFeatureExtractor.from_pretrained("facebook/w2v-bert-2.0")` — 特征提取器
+5. `build_semantic_model()` + `build_semantic_codec()` — 语义模型 + MaskGCT 编解码
+6. `MyModel(cfg.s2mel)` → S2Mel CFM 扩散模型 → `setup_caches(max_batch_size=1, max_seq_length=8192)`
+7. `CAMPPlus(feat_dim=80, embedding_size=192)` — 说话人风格提取
+8. `bigvgan.BigVGAN.from_pretrained(vocoder_name)` — HuggingFace BigVGAN
+9. `TextNormalizer(enable_glossary=True)` + `TextTokenizer` + 可选 glossary.yaml
+10. 加载 `emo_matrix` + `spk_matrix` → `torch.split(matrix, emo_num)`
+11. 缓存初始化: 6 个独立缓存字段
+
+### 8.2 GPT 模型架构对比 (config.yaml)
+
+| 参数 | v1.5 | v2.0 |
+|------|------|------|
+| `model_dim` | 1024 | **1280** |
+| `layers` | 20 | **24** |
+| `heads` | 16 | **20** |
+| `max_mel_tokens` | 605 | **1815** |
+| `max_text_tokens` | 402 | **600** |
+| `activation_function` | `gelu_pytorch_tanh` | (未指定) |
+| 条件模块 (spk) | 1×Conformer (6层, 8头, 512维) | 同 |
+| 条件模块 (emo) | ❌ | **1×Conformer (4层, 4头, 512维)** |
+| Mel 参数 | n_fft=1024, hop=256, n_mels=100, sr=24000 | n_fft=1024, hop=256, **n_mels=80**, **sr=22050** |
+| Semantic Codec | ❌ | **codebook_size=8192, hidden=1024, vocos 12层** |
+| S2Mel DiT | ❌ | **hidden=512, 8头, 13层深, CFM** |
+
+### 8.3 关键常量与魔法数字
+
+| 常量 | 值 | 用途 | 版本 |
+|------|-----|------|------|
+| `silent_token` | 52 | 静音 token ID | 两版 |
+| `start_mel_token` | 8192 | mel 起始 token | 两版 |
+| `stop_mel_token` | 8193 | mel 终止 token | 两版 |
+| `number_mel_codes` | 8194 | mel codebook 大小 | 两版 |
+| `start_text_token` | 0 | 文本起始 token | 两版 |
+| `stop_text_token` | 1 | 文本终止 token | 两版 |
+| `max_consecutive` | 30 | 最大连续静音 token 数 | 两版 |
+| `1.72` | — | S2Mel 时长对齐系数 (`code_lens * 1.72`) | v2.0 |
+| `inference_cfg_rate` | 0.7 | CFM classifier-free guidance 率 | v2.0 |
+| `diffusion_steps` | 25 | CFM 扩散步数 | v2.0 |
+| `bucket_factor` | 1.5 | 桶化分句的长度比因子 | v1.5 |
+| `chunk_size` | 2 | BigVGAN 解码的 latent 块大小 | v1.5 |
+| `mel_length_compression` | 1024 | mel token 到波形的压缩比 | 两版 |
+| `emo_bias` | [0.9375,...,0.5625] | 情感 bias 校正数组 | v2.0 |
+| `emo_sum_limit` | 0.8 | 情感向量总和上限 | v2.0 |
+| `max_audio_length` | 15s | 参考音频最大长度 | v2.0 |
+| `W2V-BERT layer` | 17 | 语义特征提取层索引 | v2.0 |
+
+### 8.4 文本前端实现细节 (TextNormalizer)
+
+**标点符号映射** (源码中的 `char_rep_map`):
+```
+：；;，→ ,    。→ .    ！→ !    ？→ ?
+...→ …    ,,,→ …    ……→ …
+"" '' () （）《》【】[] 「」→ '
+—～~ → -    · → -    \n → 空格
+```
+
+**中文检测逻辑** (`use_chinese()`):
+1. 包含中文字符 → 中文
+2. 不含英文字母 → 中文
+3. 是邮箱格式 → 中文处理
+4. 含拼音标注 (如 XUAN4) → 中文
+5. 其他 → 英文
+
+**平台差异**:
+- Windows/Linux: `WeTextProcessing` (tn.chinese.normalizer)
+- macOS: `wetext` (Normalizer)
+
+**拼音声调正则** (源码):
+```
+PINYIN_TONE_PATTERN = r"(?<![a-z])((?:[bpmfdtnlgkhjqxzcsryw]|[zcs]h)?...)(1-5])"
+```
+匹配: `xuan4`, `jve2`, `ying1`, `zhong4`, `shang5`
+不匹配: `beta1`, `voice2`
+
+### 8.5 v1.5 桶化批处理算法 (源码级)
+
+```
+bucket_sentences(sentences, bucket_max_size=4):
+  1. 为每句附加 {idx, sent, len} 元数据
+  2. 如果句数 > bucket_max_size:
+     a. 按长度升序排序
+     b. 遍历: 如果当前句长 ≥ 上一桶中位长 * 1.5 或桶已满 → 新开桶
+     c. 否则加入当前桶，更新中位长度
+     d. 合并所有只有 1 句的桶:
+        - 优先塞入未满的桶
+        - 剩余按 bucket_max_size 分组
+  3. 如果句数 ≤ bucket_max_size: 全部放入一个桶
+```
+
+### 8.6 v2.0 情感控制优先级逻辑 (源码级)
+
+```
+输入: spk_audio_prompt (必填), emo_audio_prompt, emo_alpha,
+      emo_vector, use_emo_text, emo_text
+
+处理:
+  1. if use_emo_text OR emo_vector:
+       emo_audio_prompt = None  ← 清除音频情感引用!
+  2. if use_emo_text:
+       emo_text ← text (默认用合成文本)
+       emo_dict = QwenEmotion.inference(emo_text)
+       emo_vector = list(emo_dict.values())
+  3. if emo_vector:
+       emo_vector *= emo_alpha  ← 预缩放
+  4. if emo_audio_prompt is None:
+       emo_audio_prompt = spk_audio_prompt  ← 用说话人音频代替
+       emo_alpha = 1.0  ← 强制 1.0
+  5. 推理时:
+       emovec = merge_emovec(spk_cond, emo_cond, alpha=emo_alpha)
+       if emo_vector:
+         找最近邻 → 加权混合 → emovec = emovec_mat + (1-sum) * emovec
+```
+
+### 8.7 v2.0 S2Mel CFM 推理流程 (源码级)
+
+```python
+# 1. GPT latent 投影
+latent = s2mel.models['gpt_layer'](latent)
+
+# 2. Semantic Codec VQ 解码
+S_infer = semantic_codec.quantizer.vq2emb(codes.unsqueeze(1))
+S_infer = S_infer.transpose(1, 2)
+
+# 3. 特征融合
+S_infer = S_infer + latent
+
+# 4. 时长对齐 (关键系数 1.72)
+target_lengths = (code_lens * 1.72).long()
+
+# 5. 长度调节 (使用 3 个 quantizer)
+cond = s2mel.models['length_regulator'](S_infer, ylens=target_lengths, n_quantizers=3, f0=None)[0]
+
+# 6. 拼接参考条件
+cat_condition = torch.cat([prompt_condition, cond], dim=1)
+
+# 7. CFM 扩散推理 (25 步, cfg_rate=0.7)
+vc_target = s2mel.models['cfm'].inference(
+    cat_condition, torch.LongTensor([cat_condition.size(1)]).to(device),
+    ref_mel, style, None, diffusion_steps=25, inference_cfg_rate=0.7)
+
+# 8. 裁掉参考 mel 对应的部分
+vc_target = vc_target[:, :, ref_mel.size(-1):]
+
+# 9. BigVGAN vocoder
+wav = bigvgan(vc_target.float())
+```
+
+### 8.8 缓存策略对比 (源码级)
+
+**v1.5 缓存** (2 个字段):
+| 字段 | 内容 | 失效条件 |
+|------|------|---------|
+| `cache_audio_prompt` | 参考音频路径 | 路径变化 |
+| `cache_cond_mel` | Mel 频谱 | 路径变化 |
+
+**v2.0 缓存** (6 个字段，分说话人和情感):
+| 字段 | 内容 | 失效条件 |
+|------|------|---------|
+| `cache_spk_audio_prompt` | 说话人音频路径 | 路径变化 |
+| `cache_spk_cond` | W2V-BERT 语义嵌入 | 路径变化 |
+| `cache_s2mel_style` | CAMPPlus 风格向量 | 路径变化 |
+| `cache_s2mel_prompt` | S2Mel prompt_condition | 路径变化 |
+| `cache_mel` | Mel 频谱 (ref_mel) | 路径变化 |
+| `cache_emo_audio_prompt` + `cache_emo_cond` | 情感音频路径 + 嵌入 | 路径变化 |
+
+缓存失效时 v2.0 主动调用 `torch.cuda.empty_cache()` 释放显存。
+
+### 8.9 音频输出处理
+
+两个版本的波形后处理完全相同:
+```python
+wav = torch.clamp(32767 * wav, -32767.0, 32767.0)
+wav = wav.type(torch.int16)
+torchaudio.save(output_path, wav, sampling_rate)
+```
+
+v2.0 额外的段间静音插入:
+```python
+sil_dur = int(sampling_rate * interval_silence / 1000.0)
+sil_tensor = torch.zeros(channel_size, sil_dur)  # 默认 200ms
+```

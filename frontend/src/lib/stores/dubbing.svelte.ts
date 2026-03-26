@@ -1,9 +1,16 @@
 import { appSettings } from './settings.svelte';
-
-export type EngineMode = 'lightweight' | 'emotion' | 'cloud';
-/** 情感输入：滑块 / 文本 / 音频（设计文档三种方式，默认滑块） */
-export type EmotionMethod = 'slider' | 'text' | 'audio';
-export type RightTab = 'audio' | 'params' | 'emotion';
+import {
+  normalizeEmotionVector,
+  calculateEmotionSum,
+} from '$lib/utils/emotion';
+import type {
+  EngineMode,
+  EmotionMethod,
+  RightTab,
+  GenerationMode,
+  EmotionSliders,
+} from '$lib/types/dubbing';
+import { EMOTION_SLIDER_SUM_MAX } from '$lib/types/dubbing';
 
 // 从持久化设置初始化
 let engineMode = $state<EngineMode>(appSettings.settings.dubbing.engineMode);
@@ -31,11 +38,10 @@ let topK = $state(appSettings.settings.dubbing.topK);
 /** IndexTTS 2.0：文本情感建议 emo_alpha≤0.6；默认 0.6 */
 let emoAlpha = $state(appSettings.settings.dubbing.emoAlpha);
 
-export type GenerationMode = 'normal' | 'batch';
 let generationMode = $state<GenerationMode>('normal');
 
 let emotionMethod = $state<EmotionMethod>('slider');
-let emotionSliders = $state({
+let emotionSliders = $state<EmotionSliders>({
   happy: 0, angry: 0, sad: 0, afraid: 0,
   disgusted: 0, melancholic: 0, surprised: 0, calm: 0.5
 });
@@ -112,29 +118,20 @@ function resetGeneration() {
   playerWaveformOpen = false;
 }
 
+/**
+ * @deprecated 使用 emotionUtils.calculateEmotionSum 替代
+ */
 function emotionSliderSum(): number {
-  const e = emotionSliders;
-  return e.happy + e.angry + e.sad + e.afraid + e.disgusted + e.melancholic + e.surprised + e.calm;
+  return calculateEmotionSum(emotionSliders);
 }
 
+/**
+ * 归一化情感滑块值到上限
+ * 使用 emotionUtils.normalizeEmotionVector 实现
+ */
 function clampEmotionSlidersToSumMax(): void {
-  const sum = emotionSliderSum();
-  if (sum <= EMOTION_SLIDER_SUM_MAX || sum === 0) return;
-  const scale = EMOTION_SLIDER_SUM_MAX / sum;
-  emotionSliders = {
-    happy: emotionSliders.happy * scale,
-    angry: emotionSliders.angry * scale,
-    sad: emotionSliders.sad * scale,
-    afraid: emotionSliders.afraid * scale,
-    disgusted: emotionSliders.disgusted * scale,
-    melancholic: emotionSliders.melancholic * scale,
-    surprised: emotionSliders.surprised * scale,
-    calm: emotionSliders.calm * scale,
-  };
+  emotionSliders = normalizeEmotionVector(emotionSliders, EMOTION_SLIDER_SUM_MAX);
 }
-
-/** IndexTTS 2.0 normalize_emo_vec：情感向量总和上限 0.8（与引擎一致） */
-export const EMOTION_SLIDER_SUM_MAX = 0.8;
 
 export const dubbing = {
   get engineMode() { return engineMode; },
@@ -166,7 +163,7 @@ export const dubbing = {
   get emotionMethod() { return emotionMethod; },
   set emotionMethod(v: EmotionMethod) { emotionMethod = v; },
   get emotionSliders() { return emotionSliders; },
-  set emotionSliders(v: typeof emotionSliders) { emotionSliders = v; },
+  set emotionSliders(v: EmotionSliders) { emotionSliders = v; },
   get emotionText() { return emotionText; },
   set emotionText(v: string) { emotionText = v; },
   get emotionAudioPath() { return emotionAudioPath; },
@@ -202,3 +199,13 @@ export const dubbing = {
   clampEmotionSlidersToSumMax,
   saveParams,
 };
+
+// 重新导出类型，方便其他模块使用
+export type {
+  EngineMode,
+  EmotionMethod,
+  RightTab,
+  GenerationMode,
+  EmotionSliders,
+} from '$lib/types/dubbing';
+export { EMOTION_SLIDER_SUM_MAX } from '$lib/types/dubbing';

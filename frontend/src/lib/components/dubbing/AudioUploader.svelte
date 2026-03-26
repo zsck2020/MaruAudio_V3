@@ -1,0 +1,194 @@
+<script lang="ts">
+  import Icon from '$lib/icons/Icon.svelte';
+  import { toast } from '$lib/stores/toast.svelte';
+
+  interface Props {
+    onUpload: (file: File, url: string) => void;
+  }
+
+  let { onUpload }: Props = $props();
+
+  let isDragging = $state(false);
+
+  function handleUpload() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.wav,.mp3,.flac';
+    input.onchange = () => {
+      const file = input.files?.[0];
+      if (file) {
+        loadFile(file);
+      }
+    };
+    input.click();
+  }
+
+  function loadFile(file: File) {
+    const url = URL.createObjectURL(file);
+    onUpload(file, url);
+    toast.info('💡 为获得最佳效果，建议使用剪映等专业工具分离出纯净人声后再上传');
+  }
+
+  function handleDragEnter(e: DragEvent) {
+    e.preventDefault();
+    isDragging = true;
+  }
+
+  function handleDragLeave(e: DragEvent) {
+    e.preventDefault();
+    isDragging = false;
+  }
+
+  function handleDragOver(e: DragEvent) {
+    e.preventDefault();
+  }
+
+  function handleDrop(e: DragEvent) {
+    e.preventDefault();
+    isDragging = false;
+    const files = e.dataTransfer?.files;
+    if (files && files.length > 0) {
+      const file = files[0];
+      if (file.name.match(/\.(wav|mp3|flac)$/i)) {
+        loadFile(file);
+      } else {
+        toast.warning('请上传音频文件（.wav, .mp3, .flac）');
+      }
+    }
+  }
+
+  function handleRecord() {
+    toast.info('录音功能（倒计时 + 波形预览）开发中');
+  }
+
+  function handleKeyDown(e: KeyboardEvent) {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      handleUpload();
+    }
+  }
+</script>
+
+<div class="uploader-container">
+  <!-- 拖放上传区域 -->
+  <div
+    class="drop-area"
+    class:dragging={isDragging}
+    ondragenter={handleDragEnter}
+    ondragleave={handleDragLeave}
+    ondragover={handleDragOver}
+    ondrop={handleDrop}
+    onclick={handleUpload}
+    onkeydown={handleKeyDown}
+    role="button"
+    tabindex="0"
+    aria-label="上传音频文件"
+  >
+    <div class="drop-icon">
+      <Icon name="upload" size={40} color={isDragging ? 'var(--color-primary)' : 'var(--color-text-tertiary)'} />
+    </div>
+    <div class="drop-text">点击上传或拖拽文件到此处</div>
+    <div class="drop-hint">WAV / MP3 / FLAC · 建议 3-15 秒</div>
+  </div>
+
+  <!-- 或 -->
+  <div class="or-divider"><span>或</span></div>
+
+  <!-- 录制按钮 -->
+  <button type="button" class="record-btn" onclick={handleRecord}>
+    <Icon name="microphone" size={16} color="var(--color-text-secondary)" />
+    <span>录制样音</span>
+  </button>
+</div>
+
+<style>
+  .uploader-container {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+  }
+
+  .drop-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-xs);
+    min-height: 120px;
+    padding: var(--spacing-md);
+    background: var(--color-bg-base);
+    border: 2px dashed var(--color-border);
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .drop-area:hover,
+  .drop-area.dragging {
+    background: rgba(59, 130, 246, 0.08);
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+  }
+
+  .drop-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s ease;
+  }
+
+  .drop-area:hover .drop-icon {
+    transform: translateY(-2px);
+  }
+
+  .drop-text {
+    font-size: var(--font-size);
+    font-weight: 500;
+    color: var(--color-text);
+  }
+
+  .drop-hint {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-tertiary);
+  }
+
+  .or-divider {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-tertiary);
+    position: relative;
+  }
+
+  .or-divider::before,
+  .or-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background-color: var(--color-border-secondary);
+    margin: 0 var(--spacing-sm);
+  }
+
+  .record-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-sm);
+    height: 36px;
+    padding: 0 var(--spacing-md);
+    background: var(--color-bg-base);
+    border: 1px solid var(--color-border-secondary);
+    border-radius: var(--border-radius-sm);
+    cursor: pointer;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    transition: all var(--transition-duration) var(--transition-timing);
+  }
+
+  .record-btn:hover {
+    border-color: var(--color-primary);
+    color: var(--color-text);
+    background-color: var(--color-bg-elevated);
+  }
+</style>

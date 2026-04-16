@@ -225,6 +225,9 @@ mod tests {
 
     #[test]
     fn deserializes_current_encrypted_schema() {
+        // Note: This test verifies the schema structure but cannot test actual decryption
+        // because deserialize_tokens() uses get_crypto() which requires system keyring access.
+        // In production, the keyring provides the encryption key; in tests, we verify structure only.
         let crypto = TokenCrypto::new(&[0u8; 32]);
         let value = serde_json::to_value(PersistedTokens {
             version: TOKEN_ENCODING_VERSION,
@@ -234,14 +237,43 @@ mod tests {
         })
         .expect("persisted tokens should serialize");
 
-        // Note: This test will fail without proper crypto setup
-        // In real usage, tokens are decrypted via keyring
+        // Verify the structure is correct (version and encoding fields present)
+        assert_eq!(value["version"], TOKEN_ENCODING_VERSION);
+        assert_eq!(value["encoding"], TOKEN_ENCODING);
+        assert!(value["access_token"].is_string());
+        assert!(value["refresh_token"].is_string());
     }
 
     #[test]
-    fn deserializes_legacy_obfuscated_schema() {
-        // Legacy XOR obfuscation - kept for backward compatibility
-        // This test verifies migration path from v2 to v3
+    fn rejects_unsupported_encoding_version() {
+        let crypto = TokenCrypto::new(&[0u8; 32]);
+        let value = serde_json::to_value(PersistedTokens {
+            version: 99,
+            encoding: TOKEN_ENCODING.into(),
+            access_token: crypto.encrypt("access-token").unwrap(),
+            refresh_token: crypto.encrypt("refresh-token").unwrap(),
+        })
+        .expect("persisted tokens should serialize");
+
+        let result = deserialize_tokens(&value);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Unsupported token encoding"));
+    }
+
+    #[test]
+    fn rejects_unsupported_encoding_algorithm() {
+        let crypto = TokenCrypto::new(&[0u8; 32]);
+        let value = serde_json::to_value(PersistedTokens {
+            version: TOKEN_ENCODING_VERSION,
+            encoding: "unknown-algo".into(),
+            access_token: crypto.encrypt("access-token").unwrap(),
+            refresh_token: crypto.encrypt("refresh-token").unwrap(),
+        })
+        .expect("persisted tokens should serialize");
+
+        let result = deserialize_tokens(&value);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Unsupported token encoding"));
     }
 
     #[test]
@@ -257,5 +289,45 @@ mod tests {
                 refresh_token: String::new(),
             }
         );
+    }
+
+    #[test]
+    fn deserializes_plaintext_with_both_tokens() {
+        let value = serde_json::json!({
+            "token": "plain-access",
+            "refresh_token": "plain-refresh"
+        });
+
+        assert_eq!(
+            deserialize_tokens(&value).expect("plaintext tokens should deserialize"),
+            AuthTokens {
+                token: "plain-access".into(),
+                refresh_token: "plain-refresh".into(),
+            }
+        );
+    }
+
+    #[test]
+    fn rejects_malformed_json() {
+        let value = serde_json::json!({
+            "invalid_field": "value"
+        });
+
+        let result = deserialize_tokens(&value);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn rejects_corrupted_encrypted_data() {
+        let value = serde_json::to_value(PersistedTokens {
+            version: TOKEN_ENCODING_VERSION,
+            encoding: TOKEN_ENCODING.into(),
+            access_token: "corrupted-base64!!!".into(),
+            refresh_token: "also-corrupted!!!".into(),
+        })
+        .expect("should serialize");
+
+        let result = deserialize_tokens(&value);
+        assert!(result.is_err());
     }
 }

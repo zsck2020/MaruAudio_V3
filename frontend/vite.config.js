@@ -1,5 +1,6 @@
 import { defineConfig } from "vite";
 import { sveltekit } from "@sveltejs/kit/vite";
+import { svelte } from "@sveltejs/vite-plugin-svelte";
 
 /**
  * @param {string} relativePath
@@ -44,6 +45,11 @@ export default defineConfig(() => ({
     },
     sveltekit(),
   ],
+  test: {
+    globals: true,
+    environment: "jsdom",
+    include: ["src/**/*.test.ts"],
+  },
   clearScreen: false,
   server: {
     port: 1420,

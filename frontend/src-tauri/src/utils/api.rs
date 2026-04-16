@@ -381,4 +381,70 @@ mod tests {
         let err = ApiError::from_http_status(StatusCode::BAD_GATEWAY, "gateway down");
         assert!(!err.is_authentication_error());
     }
+
+    #[test]
+    fn business_code_403_is_marked_as_auth_failure() {
+        let err = ApiError::from_api_code(403, "forbidden");
+        assert!(err.is_authentication_error());
+    }
+
+    #[test]
+    fn http_status_forbidden_is_marked_as_auth_failure() {
+        let err = ApiError::from_http_status(StatusCode::FORBIDDEN, "access denied");
+        assert!(err.is_authentication_error());
+    }
+
+    #[test]
+    fn business_error_codes_are_preserved() {
+        let err = ApiError::from_api_code(500, "internal error");
+        match err {
+            ApiError::Business { code, message } => {
+                assert_eq!(code, 500);
+                assert_eq!(message, "internal error");
+            }
+            _ => panic!("Expected Business error variant"),
+        }
+    }
+
+    #[test]
+    fn http_status_errors_preserve_status_code() {
+        let err = ApiError::from_http_status(StatusCode::BAD_REQUEST, "bad request");
+        match err {
+            ApiError::HttpStatus { status, message } => {
+                assert_eq!(status, 400);
+                assert_eq!(message, "bad request");
+            }
+            _ => panic!("Expected HttpStatus error variant"),
+        }
+    }
+
+    #[test]
+    fn api_error_display_formats_correctly() {
+        let err = ApiError::Unauthorized("token expired".into());
+        assert_eq!(err.to_string(), "Unauthorized: token expired");
+
+        let err = ApiError::Business {
+            code: 1001,
+            message: "custom error".into(),
+        };
+        assert_eq!(err.to_string(), "API error 1001: custom error");
+
+        let err = ApiError::Request("network timeout".into());
+        assert_eq!(err.to_string(), "Request failed: network timeout");
+
+        let err = ApiError::EmptyData;
+        assert_eq!(err.to_string(), "API response missing data");
+    }
+
+    #[test]
+    fn empty_data_error_is_not_auth_failure() {
+        let err = ApiError::EmptyData;
+        assert!(!err.is_authentication_error());
+    }
+
+    #[test]
+    fn request_error_is_not_auth_failure() {
+        let err = ApiError::Request("timeout".into());
+        assert!(!err.is_authentication_error());
+    }
 }

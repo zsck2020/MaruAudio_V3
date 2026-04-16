@@ -116,4 +116,119 @@ mod tests {
         assert_eq!(crypto.decrypt(&encrypted1).unwrap(), plaintext);
         assert_eq!(crypto.decrypt(&encrypted2).unwrap(), plaintext);
     }
+
+    #[test]
+    fn test_empty_string() {
+        let key = [1u8; 32];
+        let crypto = TokenCrypto::new(&key);
+
+        let plaintext = "";
+        let encrypted = crypto.encrypt(plaintext).unwrap();
+        let decrypted = crypto.decrypt(&encrypted).unwrap();
+
+        assert_eq!(plaintext, decrypted);
+    }
+
+    #[test]
+    fn test_long_string() {
+        let key = [2u8; 32];
+        let crypto = TokenCrypto::new(&key);
+
+        let plaintext = "a".repeat(10000);
+        let encrypted = crypto.encrypt(&plaintext).unwrap();
+        let decrypted = crypto.decrypt(&encrypted).unwrap();
+
+        assert_eq!(plaintext, decrypted);
+    }
+
+    #[test]
+    fn test_unicode_string() {
+        let key = [3u8; 32];
+        let crypto = TokenCrypto::new(&key);
+
+        let plaintext = "测试中文🔐密钥";
+        let encrypted = crypto.encrypt(plaintext).unwrap();
+        let decrypted = crypto.decrypt(&encrypted).unwrap();
+
+        assert_eq!(plaintext, decrypted);
+    }
+
+    #[test]
+    fn test_invalid_base64() {
+        let key = [4u8; 32];
+        let crypto = TokenCrypto::new(&key);
+
+        let result = crypto.decrypt("not-valid-base64!!!");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Invalid base64"));
+    }
+
+    #[test]
+    fn test_too_short_data() {
+        let key = [5u8; 32];
+        let crypto = TokenCrypto::new(&key);
+
+        // Base64 编码的短数据（少于 12 字节）
+        let short_data = base64::engine::general_purpose::STANDARD.encode(b"short");
+        let result = crypto.decrypt(&short_data);
+
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Invalid encrypted data"));
+    }
+
+    #[test]
+    fn test_wrong_key() {
+        let key1 = [6u8; 32];
+        let key2 = [7u8; 32];
+        let crypto1 = TokenCrypto::new(&key1);
+        let crypto2 = TokenCrypto::new(&key2);
+
+        let plaintext = "secret-data";
+        let encrypted = crypto1.encrypt(plaintext).unwrap();
+        let result = crypto2.decrypt(&encrypted);
+
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Decryption failed"));
+    }
+
+    #[test]
+    fn test_tampered_ciphertext() {
+        let key = [8u8; 32];
+        let crypto = TokenCrypto::new(&key);
+
+        let plaintext = "original-data";
+        let encrypted = crypto.encrypt(plaintext).unwrap();
+
+        // 篡改密文
+        let mut tampered = encrypted.clone();
+        tampered.push('X');
+
+        let result = crypto.decrypt(&tampered);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_multiple_encryptions() {
+        let key = [9u8; 32];
+        let crypto = TokenCrypto::new(&key);
+
+        for i in 0..100 {
+            let plaintext = format!("test-{}", i);
+            let encrypted = crypto.encrypt(&plaintext).unwrap();
+            let decrypted = crypto.decrypt(&encrypted).unwrap();
+            assert_eq!(plaintext, decrypted);
+        }
+    }
+
+    #[test]
+    fn test_special_characters() {
+        let key = [10u8; 32];
+        let crypto = TokenCrypto::new(&key);
+
+        let plaintext = "!@#$%^&*()_+-=[]{}|;':\",./<>?`~";
+        let encrypted = crypto.encrypt(plaintext).unwrap();
+        let decrypted = crypto.decrypt(&encrypted).unwrap();
+
+        assert_eq!(plaintext, decrypted);
+    }
 }

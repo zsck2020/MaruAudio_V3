@@ -1,18 +1,18 @@
 use crate::utils::config::AppConfig;
-use anyhow::{Context, Result};
+use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::fmt;
 use std::sync::LazyLock;
 use std::time::Duration;
 
-/// 全局共享的 HTTP 客户端（连接池复用，避免每次请求都创建新连接）
 static SHARED_CLIENT: LazyLock<reqwest::Client> = LazyLock::new(|| {
     reqwest::Client::builder()
         .timeout(Duration::from_secs(30))
         .connect_timeout(Duration::from_secs(10))
         .pool_max_idle_per_host(5)
         .build()
-        .expect("Failed to create HTTP client")
+        .unwrap_or_else(|_| reqwest::Client::new())
 });
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -57,6 +57,60 @@ pub struct UserInfo {
     pub invite_code: Option<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ApiError {
+    Unauthorized(String),
+    Forbidden(String),
+    HttpStatus { status: u16, message: String },
+    Business { code: i32, message: String },
+    Request(String),
+    InvalidResponse(String),
+    EmptyData,
+}
+
+impl ApiError {
+    pub fn from_http_status(status: StatusCode, message: impl Into<String>) -> Self {
+        let message = message.into();
+        match status {
+            StatusCode::UNAUTHORIZED => Self::Unauthorized(message),
+            StatusCode::FORBIDDEN => Self::Forbidden(message),
+            _ => Self::HttpStatus {
+                status: status.as_u16(),
+                message,
+            },
+        }
+    }
+
+    pub fn from_api_code(code: i32, message: impl Into<String>) -> Self {
+        let message = message.into();
+        match code {
+            401 => Self::Unauthorized(message),
+            403 => Self::Forbidden(message),
+            _ => Self::Business { code, message },
+        }
+    }
+
+    pub fn is_authentication_error(&self) -> bool {
+        matches!(self, Self::Unauthorized(_) | Self::Forbidden(_))
+    }
+}
+
+impl fmt::Display for ApiError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Unauthorized(message) => write!(f, "Unauthorized: {}", message),
+            Self::Forbidden(message) => write!(f, "Forbidden: {}", message),
+            Self::HttpStatus { status, message } => write!(f, "HTTP {}: {}", status, message),
+            Self::Business { code, message } => write!(f, "API error {}: {}", code, message),
+            Self::Request(message) => write!(f, "Request failed: {}", message),
+            Self::InvalidResponse(message) => write!(f, "Invalid response: {}", message),
+            Self::EmptyData => write!(f, "API response missing data"),
+        }
+    }
+}
+
+impl std::error::Error for ApiError {}
+
 pub struct ApiClient {
     config: AppConfig,
 }
@@ -82,19 +136,24 @@ impl ApiClient {
         path: &str,
         body: Option<Value>,
         token: Option<&str>,
-    ) -> Result<ApiResponse<T>>
+    ) -> Result<ApiResponse<T>, ApiError>
     where
         T: for<'de> Deserialize<'de>,
     {
         let url = format!("{}/{}", self.get_base_url(), path.trim_start_matches('/'));
-        
+
         let client = self.client();
         let mut request = match method {
             "GET" => client.get(&url),
             "POST" => client.post(&url),
             "PUT" => client.put(&url),
             "DELETE" => client.delete(&url),
-            _ => return Err(anyhow::anyhow!("Unsupported HTTP method: {}", method)),
+            _ => {
+                return Err(ApiError::Request(format!(
+                    "Unsupported HTTP method: {}",
+                    method
+                )))
+            }
         };
 
         if let Some(token) = token {
@@ -108,41 +167,45 @@ impl ApiClient {
         let response = request
             .send()
             .await
-            .context("Failed to send HTTP request")?;
+            .map_err(|e| ApiError::Request(format!("Failed to send HTTP request: {}", e)))?;
 
         let status = response.status();
-        let text = response.text().await.context("Failed to read response body")?;
+        let text = response
+            .text()
+            .await
+            .map_err(|e| ApiError::Request(format!("Failed to read response body: {}", e)))?;
+
+        if !status.is_success() {
+            let message = extract_error_message(&text)
+                .unwrap_or_else(|| fallback_status_message(status, &text));
+            return Err(ApiError::from_http_status(status, message));
+        }
 
         let api_response: ApiResponse<T> = serde_json::from_str(&text)
-            .context(format!("Failed to parse response: {}", text))?;
+            .map_err(|e| ApiError::InvalidResponse(format!("{} | body: {}", e, text)))?;
 
-        if !status.is_success() || api_response.code != 0 {
-            return Err(anyhow::anyhow!(
-                "API error: {} (code: {})",
-                api_response.message,
-                api_response.code
-            ));
+        if api_response.code != 0 {
+            return Err(ApiError::from_api_code(api_response.code, api_response.message));
         }
 
         Ok(api_response)
     }
 
-    /// 发送请求并解包 data 字段（消除 7 处重复的 ok_or_else 调用）
     async fn request_data<T>(
         &self,
         method: &str,
         path: &str,
         body: Option<Value>,
         token: Option<&str>,
-    ) -> Result<T>
+    ) -> Result<T, ApiError>
     where
         T: for<'de> Deserialize<'de>,
     {
         let response: ApiResponse<T> = self.request(method, path, body, token).await?;
-        response.data.ok_or_else(|| anyhow::anyhow!("No data in response"))
+        response.data.ok_or(ApiError::EmptyData)
     }
 
-    pub async fn login(&self, username: String, password: String) -> Result<LoginResponse> {
+    pub async fn login(&self, username: String, password: String) -> Result<LoginResponse, ApiError> {
         let machine_code = Self::get_machine_code().await;
         let request = LoginRequest {
             username,
@@ -150,7 +213,7 @@ impl ApiClient {
             machine_code: Some(machine_code),
         };
 
-        self.request_data("POST", "auth/login", Some(serde_json::to_value(request)?), None).await
+        self.request_data("POST", "auth/login", Some(serde_json::to_value(request).map_err(|e| ApiError::Request(e.to_string()))?), None).await
     }
 
     pub async fn register(
@@ -160,7 +223,7 @@ impl ApiClient {
         email: Option<String>,
         phone: Option<String>,
         invite_code: Option<String>,
-    ) -> Result<LoginResponse> {
+    ) -> Result<LoginResponse, ApiError> {
         let machine_code = Self::get_machine_code().await;
         let request = RegisterRequest {
             username,
@@ -171,10 +234,10 @@ impl ApiClient {
             machine_code: Some(machine_code),
         };
 
-        self.request_data("POST", "auth/register", Some(serde_json::to_value(request)?), None).await
+        self.request_data("POST", "auth/register", Some(serde_json::to_value(request).map_err(|e| ApiError::Request(e.to_string()))?), None).await
     }
 
-    pub async fn refresh_token(&self, refresh_token: &str) -> Result<LoginResponse> {
+    pub async fn refresh_token(&self, refresh_token: &str) -> Result<LoginResponse, ApiError> {
         let body = serde_json::json!({
             "refresh_token": refresh_token
         });
@@ -183,25 +246,25 @@ impl ApiClient {
     }
 
     #[allow(dead_code)]
-    pub async fn get_user_info(&self, token: &str) -> Result<UserInfo> {
+    pub async fn get_user_info(&self, token: &str) -> Result<UserInfo, ApiError> {
         self.request_data("GET", "user/info", None, Some(token)).await
     }
 
-    pub async fn sync_user(&self, token: &str) -> Result<UserInfo> {
+    pub async fn sync_user(&self, token: &str) -> Result<UserInfo, ApiError> {
         self.request_data("POST", "user/sync", None, Some(token)).await
     }
 
     #[allow(dead_code)]
-    pub async fn get_public_config(&self) -> Result<Value> {
+    pub async fn get_public_config(&self) -> Result<Value, ApiError> {
         self.request_data("GET", "config", None, None).await
     }
 
     #[allow(dead_code)]
-    pub async fn get_announcements(&self) -> Result<Vec<Value>> {
+    pub async fn get_announcements(&self) -> Result<Vec<Value>, ApiError> {
         self.request_data("GET", "announcements", None, None).await
     }
 
-    pub async fn get_banners(&self) -> Result<Vec<Value>> {
+    pub async fn get_banners(&self) -> Result<Vec<Value>, ApiError> {
         self.request_data("GET", "banners?product_code=dubbing", None, None).await
     }
 
@@ -212,7 +275,7 @@ impl ApiClient {
                 .args(&["-NoProfile", "-Command", "(Get-CimInstance -ClassName Win32_ComputerSystemProduct).UUID"])
                 .output()
                 .await;
-            
+
             if let Ok(output) = output {
                 let uuid = String::from_utf8_lossy(&output.stdout);
                 let uuid = uuid.trim();
@@ -221,14 +284,14 @@ impl ApiClient {
                 }
             }
         }
-        
+
         #[cfg(target_os = "macos")]
         {
             let output = tokio::process::Command::new("system_profiler")
                 .args(&["SPHardwareDataType"])
                 .output()
                 .await;
-            
+
             if let Ok(output) = output {
                 let text = String::from_utf8_lossy(&output.stdout);
                 if let Some(line) = text.lines().find(|l| l.contains("Hardware UUID")) {
@@ -238,15 +301,14 @@ impl ApiClient {
                 }
             }
         }
-        
+
         #[cfg(target_os = "linux")]
         {
             if let Ok(machine_id) = tokio::fs::read_to_string("/etc/machine-id").await {
                 return machine_id.trim().to_string();
             }
         }
-        
-        // 所有平台方法均失败时，生成并持久化一个随机 UUID，确保每台设备唯一
+
         Self::get_or_create_fallback_id()
     }
 
@@ -256,7 +318,6 @@ impl ApiClient {
             .join("MaruAudio")
             .join(".machine_id");
 
-        // 尝试读取已持久化的 ID
         if let Ok(id) = std::fs::read_to_string(&fallback_path) {
             let id = id.trim().to_string();
             if !id.is_empty() {
@@ -264,7 +325,6 @@ impl ApiClient {
             }
         }
 
-        // 生成新的随机 UUID 并持久化
         let id = format!(
             "{:08x}-{:04x}-{:04x}-{:04x}-{:012x}",
             rand::random::<u32>(),
@@ -280,5 +340,45 @@ impl ApiClient {
         let _ = std::fs::write(&fallback_path, &id);
 
         id
+    }
+}
+
+fn extract_error_message(text: &str) -> Option<String> {
+    serde_json::from_str::<ApiResponse<Value>>(text)
+        .ok()
+        .map(|response| response.message)
+        .filter(|message| !message.trim().is_empty())
+}
+
+fn fallback_status_message(status: StatusCode, text: &str) -> String {
+    let trimmed = text.trim();
+    if trimmed.is_empty() {
+        format!("HTTP {}", status.as_u16())
+    } else {
+        trimmed.to_string()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ApiError;
+    use reqwest::StatusCode;
+
+    #[test]
+    fn unauthorized_http_status_is_marked_as_auth_failure() {
+        let err = ApiError::from_http_status(StatusCode::UNAUTHORIZED, "expired");
+        assert!(err.is_authentication_error());
+    }
+
+    #[test]
+    fn business_code_401_is_marked_as_auth_failure() {
+        let err = ApiError::from_api_code(401, "expired");
+        assert!(err.is_authentication_error());
+    }
+
+    #[test]
+    fn non_auth_failures_do_not_trigger_refresh_logic() {
+        let err = ApiError::from_http_status(StatusCode::BAD_GATEWAY, "gateway down");
+        assert!(!err.is_authentication_error());
     }
 }

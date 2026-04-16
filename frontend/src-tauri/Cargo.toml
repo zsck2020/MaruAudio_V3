@@ -33,6 +33,8 @@ dirs-next = "2"
 rand = "0.8"
 hostname = "0.4"
 thiserror = "1"
+aes-gcm = "0.10"
+keyring = "3.6"
 
 [profile.release]
 opt-level = "s"

@@ -1,4 +1,5 @@
 import { appSettings } from './settings.svelte';
+import type { DubbingSettings } from './settings.svelte';
 import {
   normalizeEmotionVector,
   calculateEmotionSum,
@@ -12,31 +13,44 @@ import type {
 } from '$lib/types/dubbing';
 import { EMOTION_SLIDER_SUM_MAX } from '$lib/types/dubbing';
 
-// 从持久化设置初始化
-let engineMode = $state<EngineMode>(appSettings.settings.dubbing.engineMode);
-/** 引擎是否可用（绿点）；云端常因未登录为 false */
-let engineAvailable = $state({ lightweight: true, emotion: true, cloud: false });
-/** 引擎检测中（黄点），对接 tts_engine_status 时可置 true */
+function getPersistedSettings(): DubbingSettings {
+  return appSettings.settings.dubbing;
+}
+
+function applyPersistedSettings(persisted: DubbingSettings): void {
+  engineMode = persisted.engineMode;
+  intervalSilence = persisted.intervalSilence;
+  maxTextTokens = persisted.maxTextTokens;
+  bucketMaxSize = persisted.bucketMaxSize;
+  temperature = persisted.temperature;
+  topP = persisted.topP;
+  topK = persisted.topK;
+  emoAlpha = persisted.emoAlpha;
+}
+
+let engineMode = $state<EngineMode>(getPersistedSettings().engineMode);
+let engineAvailable = $state({
+  lightweight: { available: true, message: '本地轻量模式可用', provider: 'v15' },
+  emotion: { available: true, message: '情感模式可用', provider: 'v20' },
+  cloud: { available: false, message: '云端模式尚未配置', provider: null },
+});
 let engineChecking = $state(false);
 
 let text = $state('');
 let wordCount = $derived(text.replace(/\s/g, '').length);
 
 let voiceId = $state<string | null>(null);
-let voiceName = $state('默认音色');
+let voiceName = $state('默认角色');
 let voiceAudioUrl = $state<string | null>(null);
+voiceName = '未选择参考音频';
 
-// 从持久化设置初始化参数
-let intervalSilence = $state(appSettings.settings.dubbing.intervalSilence);
-/** IndexTTS：1.5/2.0 常用每段 max_text_tokens 约 100~120；UI 保守上限 200 */
-let maxTextTokens = $state(appSettings.settings.dubbing.maxTextTokens);
-let bucketMaxSize = $state(appSettings.settings.dubbing.bucketMaxSize);
-/** IndexTTS 1.5 默认温度 1.0；2.0 默认 0.8 — 默认按当前主引擎 1.5 */
-let temperature = $state(appSettings.settings.dubbing.temperature);
-let topP = $state(appSettings.settings.dubbing.topP);
-let topK = $state(appSettings.settings.dubbing.topK);
-/** IndexTTS 2.0：文本情感建议 emo_alpha≤0.6；默认 0.6 */
-let emoAlpha = $state(appSettings.settings.dubbing.emoAlpha);
+let intervalSilence = $state(getPersistedSettings().intervalSilence);
+let maxTextTokens = $state(getPersistedSettings().maxTextTokens);
+let bucketMaxSize = $state(getPersistedSettings().bucketMaxSize);
+let temperature = $state(getPersistedSettings().temperature);
+let topP = $state(getPersistedSettings().topP);
+let topK = $state(getPersistedSettings().topK);
+let emoAlpha = $state(getPersistedSettings().emoAlpha);
 
 let generationMode = $state<GenerationMode>('normal');
 
@@ -51,11 +65,9 @@ let emotionAudioPath = $state<string | null>(null);
 let isGenerating = $state(false);
 let progress = $state(0);
 let progressMessage = $state('');
-/** 生成进度：当前段 / 总段（设计文档播放器文案） */
 let generationSegmentCurrent = $state(0);
 let generationSegmentTotal = $state(0);
 let generatedAudioPath = $state<string | null>(null);
-/** 底部栏波形区展开 */
 let playerWaveformOpen = $state(false);
 
 let isPlaying = $state(false);
@@ -65,14 +77,15 @@ let duration = $state(0);
 let activeTab = $state<RightTab>('audio');
 
 let showEmotionTab = $derived(engineMode !== 'lightweight');
-
-/** IndexTTS 1.5 支持 infer_fast 桶化批处理；2.0 为逐段顺序推理，前端不提供批次模式 */
 let supportsBatchGeneration = $derived(engineMode === 'lightweight');
+
+function syncSettings() {
+  applyPersistedSettings(getPersistedSettings());
+}
 
 function setEngine(mode: EngineMode) {
   engineMode = mode;
-  // 持久化设置
-  appSettings.saveDubbing({ engineMode: mode });
+  void appSettings.saveDubbing({ engineMode: mode });
   if (mode === 'lightweight' && activeTab === 'emotion') {
     activeTab = 'audio';
   }
@@ -81,9 +94,8 @@ function setEngine(mode: EngineMode) {
   }
 }
 
-/** 保存当前参数到持久化存储 */
 function saveParams() {
-  appSettings.saveDubbing({
+  void appSettings.saveDubbing({
     engineMode,
     intervalSilence,
     maxTextTokens,
@@ -118,17 +130,10 @@ function resetGeneration() {
   playerWaveformOpen = false;
 }
 
-/**
- * @deprecated 使用 emotionUtils.calculateEmotionSum 替代
- */
 function emotionSliderSum(): number {
   return calculateEmotionSum(emotionSliders);
 }
 
-/**
- * 归一化情感滑块值到上限
- * 使用 emotionUtils.normalizeEmotionVector 实现
- */
 function clampEmotionSlidersToSumMax(): void {
   emotionSliders = normalizeEmotionVector(emotionSliders, EMOTION_SLIDER_SUM_MAX);
 }
@@ -192,6 +197,7 @@ export const dubbing = {
   get supportsBatchGeneration() { return supportsBatchGeneration; },
   get playerWaveformOpen() { return playerWaveformOpen; },
   set playerWaveformOpen(v: boolean) { playerWaveformOpen = v; },
+  syncSettings,
   setEngine,
   setText,
   setVoice,
@@ -200,7 +206,6 @@ export const dubbing = {
   saveParams,
 };
 
-// 重新导出类型，方便其他模块使用
 export type {
   EngineMode,
   EmotionMethod,

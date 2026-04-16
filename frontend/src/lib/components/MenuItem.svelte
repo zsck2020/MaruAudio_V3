@@ -19,20 +19,20 @@
   } = $props();
 </script>
 
-<Tooltip text={tooltip} position={isMobile ? "top" : "right"} delay={100}>
-  <div 
-    class="menu-item" 
+<Tooltip text={tooltip} position={isMobile ? 'top' : 'right'} delay={100}>
+  <button
+    type="button"
+    class="menu-item"
     class:active
-    role="button"
-    tabindex="0"
+    aria-label={label}
+    aria-pressed={active}
     onclick={onclick}
-    onkeydown={(e) => e.key === 'Enter' && onclick()}
   >
     <div class="menu-icon">
       <Icon name={icon} size={20} color={active ? 'var(--color-text-active)' : 'var(--color-text-tertiary)'} />
     </div>
     <div class="menu-text">{label}</div>
-  </div>
+  </button>
 </Tooltip>
 
 <style>
@@ -43,21 +43,24 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
+    border: none;
     border-radius: var(--border-radius);
+    background: transparent;
     cursor: pointer;
-    transition: all var(--transition-duration) var(--transition-timing);
+    transition: background-color var(--transition-duration) var(--transition-timing);
     position: relative;
     -webkit-app-region: no-drag;
     gap: var(--spacing-xs);
     margin: 0 auto;
   }
 
-  .menu-item:hover {
+  .menu-item:hover,
+  .menu-item.active {
     background-color: var(--color-bg-spotlight);
   }
 
-  .menu-item.active {
-    background-color: var(--color-bg-spotlight);
+  .menu-item:focus-visible {
+    box-shadow: inset 0 0 0 1px var(--color-primary);
   }
 
   .menu-item.active::before {
@@ -81,7 +84,6 @@
     height: 24px;
   }
 
-  /* 强制统一左侧菜单图标的视觉大小并确保垂直居中 */
   .menu-icon :global(svg) {
     flex-shrink: 0;
     display: block;
@@ -111,9 +113,9 @@
     .menu-item.active::before {
       display: none;
     }
-    
+
     .menu-item.active {
-      border-top: 2px solid var(--color-bg-spotlight);
+      border-top: 2px solid var(--color-primary);
     }
   }
 

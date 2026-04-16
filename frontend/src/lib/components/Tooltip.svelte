@@ -18,6 +18,7 @@
   let visible = $state(false);
   let timeout: ReturnType<typeof setTimeout> | null = null;
   let isHovering = $state(false);
+  const tooltipId = 'tooltip-' + Math.random().toString(36).slice(2, 10);
 
   function show() {
     timeout = setTimeout(() => {
@@ -43,10 +44,9 @@
     hide();
   }
 
-  function handleFocusIn(e: FocusEvent) {
-    // 仅在键盘导航（Tab）聚焦时显示，避免鼠标点击或窗口激活误触发
-    const target = e.target as HTMLElement;
-    if (target && target.matches(':focus-visible')) {
+  function handleFocusIn(event: FocusEvent) {
+    const target = event.target as HTMLElement | null;
+    if (target?.matches(':focus-visible')) {
       show();
     }
   }
@@ -60,7 +60,7 @@
 
 <div
   class="tooltip-wrapper {wrapperClass}"
-  role="group"
+  role="presentation"
   onmouseenter={handleMouseEnter}
   onmouseleave={handleMouseLeave}
   onfocusin={handleFocusIn}
@@ -68,7 +68,7 @@
 >
   {@render children()}
   {#if visible}
-    <div class="tooltip-content {position}">
+    <div id={tooltipId} class="tooltip-content {position}" role="tooltip" aria-hidden={!visible}>
       <span class="tooltip-text">{text}</span>
       <div class="tooltip-arrow"></div>
     </div>
@@ -116,12 +116,12 @@
     transform: rotate(45deg);
   }
 
-  /* Right position */
   .tooltip-content.right {
     left: calc(100% + 10px);
     top: 50%;
     transform: translateY(-50%);
   }
+
   .tooltip-content.right .tooltip-arrow {
     left: -3px;
     top: 50%;
@@ -130,12 +130,12 @@
     border-bottom: none;
   }
 
-  /* Left position */
   .tooltip-content.left {
     right: calc(100% + 10px);
     top: 50%;
     transform: translateY(-50%);
   }
+
   .tooltip-content.left .tooltip-arrow {
     right: -3px;
     top: 50%;
@@ -144,12 +144,12 @@
     border-top: none;
   }
 
-  /* Bottom position */
   .tooltip-content.bottom {
     top: calc(100% + 10px);
     left: 50%;
     transform: translateX(-50%);
   }
+
   .tooltip-content.bottom .tooltip-arrow {
     top: -3px;
     left: 50%;
@@ -158,12 +158,12 @@
     border-left: none;
   }
 
-  /* Top position */
   .tooltip-content.top {
     bottom: calc(100% + 10px);
     left: 50%;
     transform: translateX(-50%);
   }
+
   .tooltip-content.top .tooltip-arrow {
     bottom: -3px;
     left: 50%;
@@ -178,7 +178,6 @@
     user-select: none;
   }
 
-  /* 优化移动端显示 */
   @media (max-width: 768px) {
     .tooltip-content {
       padding: 6px 10px;

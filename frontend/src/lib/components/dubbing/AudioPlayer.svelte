@@ -194,7 +194,7 @@
     border: none;
     border-radius: var(--border-radius-sm);
     cursor: pointer;
-    transition: all var(--transition-duration) var(--transition-timing);
+    transition: background-color var(--transition-duration) var(--transition-timing);
   }
 
   .audio-file-remove:hover {
@@ -226,12 +226,18 @@
     border-radius: 50%;
     cursor: pointer;
     flex-shrink: 0;
-    transition: all var(--transition-duration) var(--transition-timing);
+    transition:
+      background-color var(--transition-duration) var(--transition-timing),
+      transform var(--transition-duration) var(--transition-timing);
   }
 
   .play-btn:hover {
     background-color: var(--color-primary-hover);
     transform: scale(1.05);
+  }
+
+  .play-btn :global(svg) {
+    color: var(--color-bg-elevated);
   }
 
   .progress-bar {

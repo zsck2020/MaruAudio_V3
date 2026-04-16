@@ -30,6 +30,24 @@
 
   let showEngineMenu = $state(false);
   const engines: EngineMode[] = ['lightweight', 'emotion', 'cloud'];
+  const engineMenuId = 'toolbar-engine-menu';
+
+  function handleEngineToggleKeydown(event: KeyboardEvent) {
+    if (event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      showEngineMenu = true;
+    }
+
+    if (event.key === 'Escape') {
+      showEngineMenu = false;
+    }
+  }
+
+  function handleEngineFocusOut(event: FocusEvent) {
+    const nextTarget = event.relatedTarget;
+    if (nextTarget instanceof HTMLElement && nextTarget.closest('.engine-selector')) return;
+    showEngineMenu = false;
+  }
 
   function selectEngine(mode: EngineMode) {
     if (mode === 'cloud' && !dubbing.engineAvailable.cloud) {
@@ -47,25 +65,25 @@
 <div class="text-toolbar">
   <div class="toolbar-left">
     <Tooltip text="按语义自动分段" position="bottom">
-      <button class="tool-btn" onclick={onSegment}>
+      <button type="button" class="tool-btn" onclick={onSegment}>
         <Icon name="scissor" size={16} color="var(--color-text-tertiary)" />
         <span class="tool-label">文义分段</span>
       </button>
     </Tooltip>
     <Tooltip text="在光标位置插入停顿标记" position="bottom">
-      <button class="tool-btn" onclick={onPause}>
+      <button type="button" class="tool-btn" onclick={onPause}>
         <Icon name="pause" size={16} color="var(--color-text-tertiary)" />
         <span class="tool-label">插入停顿</span>
       </button>
     </Tooltip>
     <Tooltip text="选中文字后标注拼音" position="bottom">
-      <button class="tool-btn" onclick={onPinyin}>
+      <button type="button" class="tool-btn" onclick={onPinyin}>
         <Icon name="font-size" size={16} color="var(--color-text-tertiary)" />
         <span class="tool-label">拼音标注</span>
       </button>
     </Tooltip>
     <Tooltip text="切换数字朗读规则" position="bottom">
-      <button class="tool-btn" onclick={onNumber}>
+      <button type="button" class="tool-btn" onclick={onNumber}>
         <Icon name="number" size={16} color="var(--color-text-tertiary)" />
         <span class="tool-label">数字读法</span>
       </button>
@@ -73,8 +91,16 @@
   </div>
 
   <div class="toolbar-right">
-    <div class="engine-selector">
-      <button type="button" class="engine-btn" onclick={() => (showEngineMenu = !showEngineMenu)}>
+    <div class="engine-selector" onfocusout={handleEngineFocusOut}>
+      <button
+        type="button"
+        class="engine-btn"
+        aria-haspopup="menu"
+        aria-expanded={showEngineMenu}
+        aria-controls={engineMenuId}
+        onclick={() => (showEngineMenu = !showEngineMenu)}
+        onkeydown={handleEngineToggleKeydown}
+      >
         <span
           class="status-dot"
           class:loading={dubbing.engineChecking}
@@ -87,12 +113,14 @@
       </button>
       {#if showEngineMenu}
         <!-- svelte-ignore a11y_no_static_element_interactions -->
-        <div class="engine-menu" onmouseleave={() => (showEngineMenu = false)}>
+        <div id={engineMenuId} class="engine-menu" role="menu" tabindex="-1" onmouseleave={() => (showEngineMenu = false)}>
           {#each engines as eng (eng)}
             <button
               type="button"
               class="engine-option"
               class:active={dubbing.engineMode === eng}
+              role="menuitemradio"
+              aria-checked={dubbing.engineMode === eng}
               onclick={() => selectEngine(eng)}
             >
               <Icon
@@ -145,12 +173,18 @@
     border: none;
     border-radius: var(--border-radius);
     cursor: pointer;
-    transition: all var(--transition-duration) var(--transition-timing);
+    transition: background-color var(--transition-duration) var(--transition-timing), color var(--transition-duration) var(--transition-timing), border-color var(--transition-duration) var(--transition-timing);
     flex-shrink: 0;
   }
 
   .tool-btn:hover {
     background-color: var(--color-bg-spotlight);
+  }
+
+  .tool-btn:focus-visible,
+  .engine-btn:focus-visible,
+  .engine-option:focus-visible {
+    box-shadow: inset 0 0 0 1px var(--color-primary);
   }
 
   .tool-btn:hover :global(svg) {
@@ -182,7 +216,7 @@
     border: 1px solid var(--color-border-secondary);
     border-radius: var(--border-radius-sm);
     cursor: pointer;
-    transition: all var(--transition-duration) var(--transition-timing);
+    transition: background-color var(--transition-duration) var(--transition-timing), color var(--transition-duration) var(--transition-timing), border-color var(--transition-duration) var(--transition-timing);
   }
 
   .engine-btn:hover {

@@ -1,0 +1,1 @@
+MaruAudio_V3 是一个基于 Tauri 2 + SvelteKit 2 + Svelte 5 + TypeScript + Rust 的 AI 配音桌面应用。仓库核心集中在 frontend/：src/ 为 SvelteKit 前端，src-tauri/ 为 Rust/Tauri 命令与服务层，docs/ 为设计与审查文档，backend/ 当前为空。当前状态更接近“桌面壳 + 配音页原型 + 用户认证/Banner 接入”的中期项目，而非业务闭环完成版。前端使用 Ant Design 风格暗色主题、CSS 变量、HarmonyOS Sans SC、@iconify/svelte 图标；后端 Rust 依赖 reqwest/tokio/serde/tauri-plugin-store/fs/dialog/opener。

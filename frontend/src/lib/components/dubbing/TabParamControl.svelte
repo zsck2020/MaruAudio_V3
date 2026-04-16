@@ -249,7 +249,9 @@
     cursor: pointer;
     font-size: 11px;
     color: var(--color-text-secondary);
-    transition: all var(--transition-duration) var(--transition-timing);
+    transition:
+      border-color var(--transition-duration) var(--transition-timing),
+      color var(--transition-duration) var(--transition-timing);
   }
 
   .preset-chip:hover {
@@ -311,7 +313,7 @@
     width: 12px;
     height: 12px;
     border-radius: 50%;
-    background: #fff;
+    background: var(--color-bg-elevated);
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
     cursor: pointer;
   }

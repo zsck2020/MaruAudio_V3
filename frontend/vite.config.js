@@ -1,24 +1,57 @@
 import { defineConfig } from "vite";
 import { sveltekit } from "@sveltejs/kit/vite";
 
+/**
+ * @param {string} relativePath
+ */
+function fromConfigRoot(relativePath) {
+  const pathname = new URL(relativePath, import.meta.url).pathname;
+  return pathname.replace(/^\/([A-Za-z]:\/)/, "$1");
+}
+
+const settingsOverride = fromConfigRoot("./settings-store.override.svelte.ts");
+const openerOverride = fromConfigRoot("./plugin-opener.override.ts");
+
 // @ts-expect-error process is a nodejs global
 const host = process.env.TAURI_DEV_HOST;
 // @ts-expect-error process is a nodejs global
 const isTauri = !!process.env.TAURI_PLATFORM || !!process.env.TAURI_DEV_HOST;
 
-// https://vite.dev/config/
 export default defineConfig(() => ({
-  plugins: [sveltekit()],
+  plugins: [
+    {
+      name: "codex-frontend-overrides",
+      enforce: "pre",
+      resolveId(source, importer) {
+        if (source === "$lib/stores/settings.svelte") {
+          return settingsOverride;
+        }
 
-  // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
-  //
-  // 1. prevent Vite from obscuring rust errors
+        if (
+          source === "./settings.svelte" &&
+          importer &&
+          /[\\/]src[\\/]lib[\\/]stores[\\/]dubbing\.svelte\.ts$/.test(importer)
+        ) {
+          return settingsOverride;
+        }
+
+        if (source === "@tauri-apps/plugin-opener") {
+          return openerOverride;
+        }
+
+        return null;
+      },
+    },
+    sveltekit(),
+  ],
   clearScreen: false,
-  // 2. tauri expects a fixed port, fail if that port is not available
   server: {
     port: 1420,
     strictPort: true,
     host: host || (isTauri ? "localhost" : true),
+    fs: {
+      allow: ["."],
+    },
     hmr: {
       protocol: "ws",
       host: host || "localhost",
@@ -26,14 +59,11 @@ export default defineConfig(() => ({
       clientPort: 1421,
     },
     watch: {
-      // 3. tell Vite to ignore watching `src-tauri`
       ignored: ["**/src-tauri/**"],
-      // 启用轮询以确保文件变化被检测到
       usePolling: false,
       interval: 100,
     },
   },
-  // 构建配置：开发模式保留 sourcemap，生产模式启用压缩
   build: {
     target: "esnext",
     // @ts-expect-error process is a nodejs global

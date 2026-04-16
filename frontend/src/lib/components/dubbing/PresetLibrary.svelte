@@ -151,7 +151,10 @@
     cursor: pointer;
     font-size: var(--font-size-sm);
     color: var(--color-text-secondary);
-    transition: all var(--transition-duration) var(--transition-timing);
+    transition:
+      background-color var(--transition-duration) var(--transition-timing),
+      border-color var(--transition-duration) var(--transition-timing),
+      color var(--transition-duration) var(--transition-timing);
   }
 
   .category-btn:hover {
@@ -182,7 +185,9 @@
     border: 1px solid var(--color-border-secondary);
     border-radius: var(--border-radius-sm);
     cursor: pointer;
-    transition: all var(--transition-duration) var(--transition-timing);
+    transition:
+      background-color var(--transition-duration) var(--transition-timing),
+      border-color var(--transition-duration) var(--transition-timing);
   }
 
   .recent-item:hover {
@@ -221,8 +226,11 @@
     cursor: pointer;
     font-size: var(--font-size);
     font-weight: 500;
-    color: #fff;
-    transition: all var(--transition-duration) var(--transition-timing);
+    color: var(--color-bg-elevated);
+    transition:
+      background-color var(--transition-duration) var(--transition-timing),
+      transform var(--transition-duration) var(--transition-timing),
+      box-shadow var(--transition-duration) var(--transition-timing);
     margin-top: var(--spacing-xs);
   }
 
@@ -235,5 +243,9 @@
   .browse-all-btn:active {
     background-color: var(--color-primary-active);
     transform: translateY(0);
+  }
+
+  .browse-all-btn :global(svg) {
+    color: var(--color-bg-elevated);
   }
 </style>

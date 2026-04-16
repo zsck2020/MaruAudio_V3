@@ -18,12 +18,12 @@
 </script>
 
 {#if toast.items.length > 0}
-  <div class="toast-container">
+  <div class="toast-container" aria-live="polite" aria-atomic="false">
     {#each toast.items as item (item.id)}
       <div class="toast-item" role="alert">
         <Icon name={TYPE_ICONS[item.type]} size={16} color={TYPE_COLORS[item.type]} />
         <span class="toast-message">{item.message}</span>
-        <button class="toast-close" onclick={() => toast.remove(item.id)} aria-label="关闭">
+        <button type="button" class="toast-close" onclick={() => toast.remove(item.id)} aria-label="关闭">
           <Icon name="close" size={12} color="var(--color-text-tertiary)" />
         </button>
       </div>
@@ -92,5 +92,9 @@
 
   .toast-close:hover {
     background-color: var(--color-bg-spotlight);
+  }
+
+  .toast-close:focus-visible {
+    box-shadow: inset 0 0 0 1px var(--color-primary);
   }
 </style>

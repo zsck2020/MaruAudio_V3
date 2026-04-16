@@ -3,7 +3,7 @@
   import Logo from '../icons/Logo.svelte';
   import Tooltip from './Tooltip.svelte';
   import { onMount } from 'svelte';
-  import { env } from '$lib/stores/environment.svelte';
+  import { toast } from '$lib/stores/toast.svelte';
 
   let isMaximized = $state(false);
 
@@ -29,7 +29,7 @@
     try {
       await fn(win);
     } catch (e) {
-      if (import.meta.env.DEV) console.warn('Window operation failed:', e);
+      if (import.meta.env.DEV) console.warn('窗口操作失败：', e);
     }
   }
 
@@ -46,6 +46,10 @@
 
   async function handleClose() {
     await withWindow(w => w.close());
+  }
+
+  function handleComingSoon(feature: string) {
+    toast.info(`${feature} 功能即将开放`);
   }
 
   // 双击标题栏最大化/还原
@@ -70,36 +74,36 @@
   
   <div class="header-right">
     <Tooltip text="用户中心" position="bottom">
-      <button class="icon-btn avatar-btn">
+      <button type="button" class="icon-btn avatar-btn" aria-label="用户中心" onclick={() => handleComingSoon('用户中心')}>
         <div class="avatar-circle">
           <Icon name="avatar" size={16} color="var(--color-text-tertiary)" />
         </div>
       </button>
     </Tooltip>
     <Tooltip text="教程" position="bottom">
-      <button class="tutorial-btn">
+      <button type="button" class="tutorial-btn" aria-label="教程" onclick={() => handleComingSoon('教程')}>
         <Icon name="tutorial" size={20} color="var(--color-text-tertiary)" />
         <span class="tutorial-text">教程</span>
       </button>
     </Tooltip>
     <Tooltip text="通知" position="bottom">
-      <button class="icon-btn">
+      <button type="button" class="icon-btn" aria-label="通知" onclick={() => handleComingSoon('通知')}>
         <Icon name="bell" size={20} color="var(--color-text-tertiary)" />
       </button>
     </Tooltip>
     <div class="divider"></div>
     <Tooltip text="最小化" position="bottom">
-      <button class="window-btn minimize-btn" onclick={handleMinimize}>
+      <button type="button" class="window-btn minimize-btn" aria-label="最小化" onclick={handleMinimize}>
         <Icon name="minimize" size={20} color="var(--color-text-tertiary)" />
       </button>
     </Tooltip>
     <Tooltip text="最大化" position="bottom">
-      <button class="window-btn maximize-btn" onclick={handleMaximize}>
+      <button type="button" class="window-btn maximize-btn" aria-label={isMaximized ? '还原窗口' : '最大化'} onclick={handleMaximize}>
         <Icon name={isMaximized ? "restore" : "maximize"} size={20} color="var(--color-text-tertiary)" />
       </button>
     </Tooltip>
     <Tooltip text="关闭" position="bottom">
-      <button class="window-btn close-btn" onclick={handleClose}>
+      <button type="button" class="window-btn close-btn" aria-label="关闭" onclick={handleClose}>
         <Icon name="close" size={20} color="var(--color-text-tertiary)" />
       </button>
     </Tooltip>
@@ -229,13 +233,19 @@
     border: none;
     border-radius: var(--border-radius);
     cursor: pointer;
-    transition: all var(--transition-duration) var(--transition-timing);
+    transition: background-color var(--transition-duration) var(--transition-timing), color var(--transition-duration) var(--transition-timing), border-color var(--transition-duration) var(--transition-timing);
     -webkit-app-region: no-drag;
     flex-shrink: 0;
   }
 
   .tutorial-btn:hover {
     background-color: var(--color-bg-spotlight);
+  }
+
+  .tutorial-btn:focus-visible,
+  .icon-btn:focus-visible,
+  .window-btn:focus-visible {
+    box-shadow: inset 0 0 0 1px var(--color-primary);
   }
 
   .tutorial-text {
@@ -259,7 +269,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all var(--transition-duration) var(--transition-timing);
+    transition: background-color var(--transition-duration) var(--transition-timing), color var(--transition-duration) var(--transition-timing), border-color var(--transition-duration) var(--transition-timing);
     -webkit-app-region: no-drag;
     flex-shrink: 0;
   }

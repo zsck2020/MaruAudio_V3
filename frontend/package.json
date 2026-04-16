@@ -6,13 +6,10 @@
   "scripts": {
     "clean": "powershell -ExecutionPolicy Bypass -File scripts/kill-dev.ps1",
     "predev": "npm run clean",
-    "dev": "concurrently -n web,desktop --restart-tries 3 --restart-after 2000 \"npm:dev:web\" \"npm:dev:desktop\"",
-    "dev:web": "vite dev --port 1420 --strictPort --host",
+    "dev": "concurrently -n frontend,desktop --restart-tries 3 --restart-after 2000 \"npm:dev:frontend\" \"npm:dev:desktop\"",
+    "dev:frontend": "vite dev --port 1420 --strictPort --host localhost",
     "dev:desktop": "wait-on http://localhost:1420 && tauri dev",
-    "predev:web-only": "npm run clean",
-    "dev:web-only": "vite dev --port 1420 --strictPort --host",
     "build": "vite build",
-    "preview": "vite preview",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
     "tauri": "tauri"

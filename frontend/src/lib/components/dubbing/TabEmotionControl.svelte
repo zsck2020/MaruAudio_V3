@@ -47,7 +47,11 @@
   // 情感强度可视化计算
   let emotionIntensity = $derived(Math.min(emotionSum / EMOTION_SLIDER_SUM_MAX, 1));
 
+  // 防抖定时器
+  let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+
   function updateSlider(key: string, value: number) {
+    // 立即更新本地显示值（无防抖）
     dubbing.emotionSliders = { ...dubbing.emotionSliders, [key]: value };
   }
 
@@ -68,8 +72,21 @@
     input.accept = '.wav,.mp3,audio/wav,audio/mpeg';
     input.onchange = () => {
       const file = input.files?.[0];
-      if (file) {
+      if (!file) return;
+
+      // 文件大小限制：50MB
+      const MAX_FILE_SIZE = 50 * 1024 * 1024;
+      if (file.size > MAX_FILE_SIZE) {
+        toast.warning('音频文件大小不能超过 50MB');
+        return;
+      }
+
+      try {
         dubbing.emotionAudioPath = URL.createObjectURL(file);
+        toast.success(`已加载情感参考音频: ${file.name}`);
+      } catch (error) {
+        console.error('情感音频加载失败:', error);
+        toast.warning(`加载失败: ${error instanceof Error ? error.message : '未知错误'}`);
       }
     };
     input.click();
@@ -271,7 +288,10 @@
     cursor: pointer;
     font-size: var(--font-size-sm);
     color: var(--color-text-tertiary);
-    transition: all var(--transition-duration) var(--transition-timing);
+    transition:
+      background-color var(--transition-duration) var(--transition-timing),
+      color var(--transition-duration) var(--transition-timing),
+      box-shadow var(--transition-duration) var(--transition-timing);
   }
 
   .method-btn:hover {
@@ -336,7 +356,7 @@
     width: 12px;
     height: 12px;
     border-radius: 50%;
-    background: #fff;
+    background: var(--color-bg-elevated);
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
     cursor: pointer;
     transition: transform 0.2s ease;
@@ -398,7 +418,10 @@
     border: 1px solid var(--color-border-secondary);
     border-radius: var(--border-radius-sm);
     cursor: pointer;
-    transition: all var(--transition-duration) var(--transition-timing);
+    transition:
+      border-color var(--transition-duration) var(--transition-timing),
+      background-color var(--transition-duration) var(--transition-timing),
+      color var(--transition-duration) var(--transition-timing);
   }
 
   .action-btn:hover {
@@ -483,7 +506,9 @@
     cursor: pointer;
     font-size: 11px;
     color: var(--color-text-secondary);
-    transition: all var(--transition-duration) var(--transition-timing);
+    transition:
+      border-color var(--transition-duration) var(--transition-timing),
+      color var(--transition-duration) var(--transition-timing);
   }
 
   .preset-chip:hover {
@@ -529,7 +554,9 @@
     border: 1px dashed var(--color-border);
     border-radius: var(--border-radius);
     cursor: pointer;
-    transition: all var(--transition-duration) var(--transition-timing);
+    transition:
+      border-color var(--transition-duration) var(--transition-timing),
+      background-color var(--transition-duration) var(--transition-timing);
   }
 
   .upload-icon {

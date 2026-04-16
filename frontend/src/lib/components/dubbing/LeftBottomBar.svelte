@@ -18,6 +18,24 @@
   ];
 
   let showInferenceDropdown = $state(false);
+  const inferenceMenuId = 'inference-mode-menu';
+
+  function handleInferenceToggleKeydown(event: KeyboardEvent) {
+    if (event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      showInferenceDropdown = true;
+    }
+
+    if (event.key === 'Escape') {
+      showInferenceDropdown = false;
+    }
+  }
+
+  function handleInferenceFocusOut(event: FocusEvent) {
+    const nextTarget = event.relatedTarget;
+    if (nextTarget instanceof HTMLElement && nextTarget.closest('.inference-dropdown-wrapper')) return;
+    showInferenceDropdown = false;
+  }
 
   function selectInferenceMode(mode: GenerationMode) {
     dubbing.generationMode = mode;
@@ -35,23 +53,29 @@
     {#if dubbing.supportsBatchGeneration}
       <div class="inference-selector">
         <span class="inference-label">推理模式：</span>
-        <div class="inference-dropdown-wrapper">
+        <div class="inference-dropdown-wrapper" onfocusout={handleInferenceFocusOut}>
           <button
             type="button"
             class="inference-dropdown"
+            aria-haspopup="menu"
+            aria-expanded={showInferenceDropdown}
+            aria-controls={inferenceMenuId}
             onclick={() => showInferenceDropdown = !showInferenceDropdown}
+            onkeydown={handleInferenceToggleKeydown}
           >
             <span>{getCurrentInferenceLabel()}</span>
             <Icon name="ant-design:down-outlined" size={10} color="var(--color-text-tertiary)" />
           </button>
           {#if showInferenceDropdown}
             <!-- svelte-ignore a11y_no_static_element_interactions -->
-            <div class="inference-menu" onmouseleave={() => showInferenceDropdown = false}>
+            <div id={inferenceMenuId} class="inference-menu" role="menu" tabindex="-1" onmouseleave={() => showInferenceDropdown = false}>
               {#each INFERENCE_OPTIONS as option (option.value)}
                 <button
                   type="button"
                   class="inference-option"
                   class:active={dubbing.generationMode === option.value}
+                  role="menuitemradio"
+                  aria-checked={dubbing.generationMode === option.value}
                   onclick={() => selectInferenceMode(option.value)}
                 >
                   {option.label}
@@ -142,11 +166,18 @@
     cursor: pointer;
     font-size: var(--font-size-sm);
     color: var(--color-text);
-    transition: all var(--transition-duration) var(--transition-timing);
+    transition: background-color var(--transition-duration) var(--transition-timing), color var(--transition-duration) var(--transition-timing), border-color var(--transition-duration) var(--transition-timing);
   }
 
   .inference-dropdown:hover {
     border-color: var(--color-primary);
+  }
+
+  .inference-dropdown:focus-visible,
+  .inference-option:focus-visible,
+  .action-btn:focus-visible,
+  .generate-btn:focus-visible {
+    box-shadow: inset 0 0 0 1px var(--color-primary);
   }
 
   .inference-menu {
@@ -174,7 +205,7 @@
     font-size: var(--font-size-sm);
     color: var(--color-text-secondary);
     text-align: left;
-    transition: all var(--transition-duration) var(--transition-timing);
+    transition: background-color var(--transition-duration) var(--transition-timing), color var(--transition-duration) var(--transition-timing), border-color var(--transition-duration) var(--transition-timing);
   }
 
   .inference-option:hover {
@@ -199,7 +230,7 @@
     cursor: pointer;
     font-size: var(--font-size-sm);
     color: var(--color-text-secondary);
-    transition: all var(--transition-duration) var(--transition-timing);
+    transition: background-color var(--transition-duration) var(--transition-timing), color var(--transition-duration) var(--transition-timing), border-color var(--transition-duration) var(--transition-timing);
   }
 
   .action-btn:hover {
@@ -227,13 +258,13 @@
     height: 32px;
     padding: 0 20px;
     background-color: var(--color-primary);
-    color: #fff;
+    color: var(--color-bg-elevated);
     border: none;
     border-radius: var(--border-radius);
     font-size: var(--font-size);
     font-weight: 500;
     cursor: pointer;
-    transition: all var(--transition-duration) var(--transition-timing);
+    transition: background-color var(--transition-duration) var(--transition-timing), color var(--transition-duration) var(--transition-timing), border-color var(--transition-duration) var(--transition-timing);
     flex-shrink: 0;
   }
 

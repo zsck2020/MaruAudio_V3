@@ -1,8 +1,10 @@
 import { browser } from '$app/environment';
+import { isTauri as detectTauri } from '@tauri-apps/api/core';
 
-let isTauri = $state(false);
+let isTauri = $state(browser ? detectTauri() : false);
 let isMobile = $state(false);
 let isTablet = $state(false);
+let resizeListenerInstalled = false;
 
 function checkScreenSize() {
   if (!browser) return;
@@ -12,16 +14,25 @@ function checkScreenSize() {
 }
 
 function init() {
-  if (!browser) return;
-  isTauri = !!window.__TAURI__;
+  if (!browser) return () => {};
+  isTauri = detectTauri();
   checkScreenSize();
-  window.addEventListener('resize', checkScreenSize);
+
+  if (!resizeListenerInstalled) {
+    window.addEventListener('resize', checkScreenSize);
+    resizeListenerInstalled = true;
+  }
+
+  return () => {
+    if (!resizeListenerInstalled) return;
+    window.removeEventListener('resize', checkScreenSize);
+    resizeListenerInstalled = false;
+  };
 }
 
 export const env = {
   get isTauri() { return isTauri; },
   get isMobile() { return isMobile; },
   get isTablet() { return isTablet; },
-  get isWeb() { return !isTauri; },
   init,
 };

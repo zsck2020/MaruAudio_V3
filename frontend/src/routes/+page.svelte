@@ -38,12 +38,8 @@
       if (!/^https?:\/\//i.test(url)) {
         url = 'https://' + url;
       }
-      try {
-        const { openUrl } = await import('@tauri-apps/plugin-opener');
-        await openUrl(url);
-      } catch {
-        window.open(url, '_blank');
-      }
+      const { openUrl } = await import('@tauri-apps/plugin-opener');
+      await openUrl(url);
     } else if (banner.link_type === 'page' && banner.link_url) {
       const route = MENU_ROUTES[banner.link_url as MenuKey];
       if (route) goto(route);

@@ -29,13 +29,18 @@
 </script>
 
 <div class="editor-wrapper">
+  <label class="sr-only" for="dubbing-text-editor">Dubbing text</label>
   <textarea
     bind:this={textareaEl}
+    id="dubbing-text-editor"
     class="text-editor"
+    aria-label="Dubbing text"
     value={text}
     oninput={handleInput}
     placeholder="在此输入或粘贴要配音的文案..."
     spellcheck="false"
+    data-allow-contextmenu
+    data-allow-shortcuts
   ></textarea>
 </div>
 
@@ -66,6 +71,22 @@
     resize: none;
     outline: none;
     -webkit-font-smoothing: antialiased;
+  }
+
+  .text-editor:focus-visible {
+    box-shadow: inset 0 0 0 1px var(--color-primary);
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
   }
 
   .text-editor::placeholder {

@@ -1,0 +1,1 @@
+代码风格与完成后检查：遵循仓库 CLAUDE.md，先读后写、事实驱动、最小修复。前端采用 Svelte 5 runes（如 `$state`），组件/页面以 Svelte 文件组织；后端为 Rust commands/services/utils 分层。完成任务后优先在 frontend/ 运行 `npm run check`，必要时再运行 `npm run build`；若涉及 Tauri/Rust 侧能力，需同时核对 src-tauri 命令接线与前端 invoke 调用是否闭环。注意项目要求回答常给 2~4 个后续选项，并在多文件/复杂任务中显式跟踪任务进度。

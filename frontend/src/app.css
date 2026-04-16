@@ -78,8 +78,8 @@ body {
   background-color: var(--color-bg-base);
   color: var(--color-text);
   overflow: hidden;
-  user-select: none;
-  -webkit-user-select: none;
+  user-select: text;
+  -webkit-user-select: text;
   /* 文字渲染优化 — 抗锯齿 */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -132,9 +132,44 @@ input, textarea, select, button {
   -moz-osx-font-smoothing: grayscale;
 }
 
+::selection {
+  background-color: color-mix(in srgb, var(--color-primary) 45%, transparent);
+  color: #fff;
+}
+
+button,
+input,
+textarea,
+select,
+a,
+[role="button"],
+[tabindex]:not([tabindex="-1"]) {
+  outline: none;
+}
+
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible,
+[tabindex]:not([tabindex="-1"]):focus-visible {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 65%, transparent);
+}
+
 /* 标题文字优化 — 更锐利的渲染 */
 h1, h2, h3, h4, h5, h6 {
   text-rendering: optimizeLegibility;
   font-feature-settings: 'liga' 1, 'kern' 1;
   letter-spacing: -0.01em;
+}
+
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
 }

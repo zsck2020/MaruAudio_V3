@@ -94,7 +94,9 @@
     cursor: pointer;
     font-size: var(--font-size-sm);
     color: var(--color-text-tertiary);
-    transition: all var(--transition-duration) var(--transition-timing);
+    transition:
+      color var(--transition-duration) var(--transition-timing),
+      border-bottom-color var(--transition-duration) var(--transition-timing);
   }
 
   .tab-btn:hover {

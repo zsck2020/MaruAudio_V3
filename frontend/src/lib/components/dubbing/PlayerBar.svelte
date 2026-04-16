@@ -116,19 +116,19 @@
       </button>
     </Tooltip>
 
-    <button
-      type="button"
-      class="play-btn"
-      disabled={!transportEnabled}
-      aria-label={transportEnabled ? '播放 / 暂停' : '暂无可用音频'}
-      onclick={togglePlay}
-    >
-      <Icon
-        name={dubbing.isPlaying ? 'pause-fill' : 'play-fill'}
-        size={28}
-        color={transportEnabled ? 'var(--color-primary)' : 'var(--color-text-disabled)'}
-      />
-    </button>
+      <button
+        type="button"
+        class="play-btn"
+        disabled={!transportEnabled}
+        aria-label={transportEnabled ? '播放 / 暂停' : '暂无可用音频'}
+        onclick={togglePlay}
+      >
+        <Icon
+          name={dubbing.isPlaying ? 'pause-fill' : 'play-fill'}
+          size={28}
+          color={transportEnabled ? 'var(--color-primary)' : 'var(--color-text-disabled)'}
+        />
+      </button>
 
     <Tooltip text={transportEnabled ? '前进 5 秒' : '生成完成后可用'} position="top">
       <button
@@ -389,7 +389,7 @@
     width: 12px;
     height: 12px;
     border-radius: 50%;
-    background: #fff;
+    background: var(--color-bg-elevated);
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
     cursor: pointer;
   }
@@ -423,7 +423,9 @@
     border: none;
     border-radius: var(--border-radius);
     cursor: pointer;
-    transition: all var(--transition-duration) var(--transition-timing);
+    transition:
+      background-color var(--transition-duration) var(--transition-timing),
+      color var(--transition-duration) var(--transition-timing);
     color: var(--color-text-tertiary);
   }
 

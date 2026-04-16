@@ -78,7 +78,7 @@
     border: none;
     border-radius: var(--border-radius);
     cursor: pointer;
-    transition: all var(--transition-duration) var(--transition-timing);
+    transition: background-color var(--transition-duration) var(--transition-timing), color var(--transition-duration) var(--transition-timing), box-shadow var(--transition-duration) var(--transition-timing), opacity var(--transition-duration) var(--transition-timing);
     position: relative;
   }
 
@@ -89,6 +89,10 @@
   .engine-option.active {
     background-color: var(--color-bg-elevated);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  }
+
+  .engine-option:focus-visible {
+    box-shadow: inset 0 0 0 1px var(--color-primary);
   }
 
   .engine-option.unavailable {

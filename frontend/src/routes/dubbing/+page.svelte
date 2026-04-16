@@ -11,6 +11,17 @@
   const PAUSE_MARKER = '[#0.5s#]';
 
   let editorRef: { insertAtCursor: (s: string) => void } | undefined = $state();
+  let generationTimer: ReturnType<typeof setInterval> | null = $state(null);
+
+  // 清理定时器，防止内存泄漏
+  $effect(() => {
+    return () => {
+      if (generationTimer) {
+        clearInterval(generationTimer);
+        generationTimer = null;
+      }
+    };
+  });
 
   function handleGenerate() {
     if (dubbing.wordCount === 0) {
@@ -25,6 +36,12 @@
 
     if (dubbing.showEmotionTab && dubbing.emotionMethod === 'slider') {
       dubbing.clampEmotionSlidersToSumMax();
+    }
+
+    // 清理之前的定时器
+    if (generationTimer) {
+      clearInterval(generationTimer);
+      generationTimer = null;
     }
 
     dubbing.generatedAudioPath = null;
@@ -42,7 +59,7 @@
       { msg: '正在生成音频…', seg: 4 },
       { msg: '正在合并音频…', seg: 5 },
     ];
-    const timer = setInterval(() => {
+    generationTimer = setInterval(() => {
       step++;
       if (step <= steps.length) {
         const cur = steps[step - 1];
@@ -50,7 +67,10 @@
         dubbing.progressMessage = cur.msg;
         dubbing.generationSegmentCurrent = cur.seg;
       } else {
-        clearInterval(timer);
+        if (generationTimer) {
+          clearInterval(generationTimer);
+          generationTimer = null;
+        }
         dubbing.isGenerating = false;
         dubbing.progress = 100;
         dubbing.progressMessage = '';
@@ -68,16 +88,34 @@
     input.onchange = async () => {
       const file = input.files?.[0];
       if (!file) return;
+
+      // 文件大小限制：10MB
+      const MAX_FILE_SIZE = 10 * 1024 * 1024;
+      if (file.size > MAX_FILE_SIZE) {
+        toast.warning('文件大小不能超过 10MB');
+        return;
+      }
+
       if (file.name.toLowerCase().endsWith('.docx')) {
         toast.info('Word (.docx) 导入开发中，请暂存为 .txt 后导入');
         return;
       }
+
       try {
         const text = await file.text();
+
+        // 文本长度限制：50000字
+        const MAX_TEXT_LENGTH = 50000;
+        if (text.length > MAX_TEXT_LENGTH) {
+          toast.warning(`文本长度不能超过 ${MAX_TEXT_LENGTH} 字`);
+          return;
+        }
+
         dubbing.setText(dubbing.text ? `${dubbing.text}\n${text}` : text);
         toast.success(`已导入 ${file.name}`);
-      } catch {
-        toast.warning('读取文件失败');
+      } catch (error) {
+        console.error('文件导入失败:', error);
+        toast.warning(`读取文件失败: ${error instanceof Error ? error.message : '未知错误'}`);
       }
     };
     input.click();
@@ -178,5 +216,36 @@
     flex-direction: column;
     overflow: hidden;
     min-width: 320px;
+  }
+
+  /* 响应式设计 - 平板和移动端 */
+  @media (max-width: 1024px) {
+    .dubbing-main {
+      flex-direction: column;
+    }
+
+    .left-panel {
+      flex: 1;
+      border-right: none;
+      border-bottom: 1px solid var(--color-border-secondary);
+      min-height: 300px;
+    }
+
+    .right-panel {
+      flex: 0 0 auto;
+      min-width: 100%;
+      max-height: 50vh;
+      overflow-y: auto;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .left-panel {
+      min-height: 200px;
+    }
+
+    .right-panel {
+      max-height: 60vh;
+    }
   }
 </style>

@@ -1,7 +1,15 @@
 import { Store } from '@tauri-apps/plugin-store';
+import {
+  createRetriableInitializer,
+  createSettingsState,
+  defaultSettings,
+  loadSettingsSnapshot,
+  type AppSettingsState,
+  type DubbingSettings,
+  type UiSettings,
+} from './settings-core.ts';
 
 let store: Store | null = null;
-let initPromise: Promise<void> | null = null;
 
 async function getStore(): Promise<Store> {
   if (!store) {
@@ -10,58 +18,17 @@ async function getStore(): Promise<Store> {
   return store;
 }
 
-const defaultSettings = {
-  dubbing: {
-    engineMode: 'lightweight' as 'lightweight' | 'emotion' | 'cloud',
-    intervalSilence: 200,
-    maxTextTokens: 100,
-    bucketMaxSize: 4,
-    temperature: 1.0,
-    topP: 0.8,
-    topK: 30,
-    emoAlpha: 0.6,
-  },
-  ui: {
-    sidebarCollapsed: false,
-  },
-};
-
-export type DubbingSettings = typeof defaultSettings.dubbing;
-export type UiSettings = typeof defaultSettings.ui;
-export type AppSettingsState = {
-  dubbing: DubbingSettings;
-  ui: UiSettings;
-};
-
-function createSettingsState(): AppSettingsState {
-  return {
-    dubbing: { ...defaultSettings.dubbing },
-    ui: { ...defaultSettings.ui },
-  };
-}
-
 let settings = $state(createSettingsState());
 
 async function loadSettings(): Promise<void> {
   const s = await getStore();
-
-  const savedDubbing = await s.get<DubbingSettings>('dubbing');
-  settings.dubbing = savedDubbing
-    ? { ...defaultSettings.dubbing, ...savedDubbing }
-    : { ...defaultSettings.dubbing };
-
-  const savedUi = await s.get<UiSettings>('ui');
-  settings.ui = savedUi
-    ? { ...defaultSettings.ui, ...savedUi }
-    : { ...defaultSettings.ui };
+  settings = await loadSettingsSnapshot({
+    loadDubbing: async () => await s.get<DubbingSettings>('dubbing'),
+    loadUi: async () => await s.get<UiSettings>('ui'),
+  });
 }
 
-function initSettings(): Promise<void> {
-  if (!initPromise) {
-    initPromise = loadSettings();
-  }
-  return initPromise;
-}
+const initSettings = createRetriableInitializer(loadSettings);
 
 async function saveDubbingSettings(dubbingSettings: Partial<DubbingSettings>): Promise<void> {
   await initSettings();
@@ -95,3 +62,5 @@ export const appSettings = {
   saveUi: saveUiSettings,
   reset: resetSettings,
 };
+
+export type { AppSettingsState, DubbingSettings, UiSettings };

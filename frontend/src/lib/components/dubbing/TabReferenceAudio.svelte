@@ -69,7 +69,7 @@
       class:active={sourceType === 'upload'}
       onclick={() => onSourceChange('upload')}
     >
-      <Icon name="upload" size={14} color={sourceType === 'upload' ? '#fff' : 'var(--color-text-secondary)'} />
+      <Icon name="upload" size={14} color={sourceType === 'upload' ? 'var(--color-bg-elevated)' : 'var(--color-text-secondary)'} />
       <span>上传本地样音</span>
     </button>
     <button
@@ -79,7 +79,7 @@
       class:active={sourceType === 'preset'}
       onclick={() => onSourceChange('preset')}
     >
-      <Icon name="library" size={14} color={sourceType === 'preset' ? '#fff' : 'var(--color-text-secondary)'} />
+      <Icon name="library" size={14} color={sourceType === 'preset' ? 'var(--color-bg-elevated)' : 'var(--color-text-secondary)'} />
       <span>选择预置样音</span>
     </button>
   </div>
@@ -130,7 +130,10 @@
     cursor: pointer;
     font-size: var(--font-size-sm);
     color: var(--color-text-secondary);
-    transition: all var(--transition-duration) var(--transition-timing);
+    transition:
+      background-color var(--transition-duration) var(--transition-timing),
+      color var(--transition-duration) var(--transition-timing),
+      box-shadow var(--transition-duration) var(--transition-timing);
   }
 
   .source-tab:hover {
@@ -139,7 +142,7 @@
 
   .source-tab.active {
     background-color: var(--color-primary);
-    color: #fff;
+    color: var(--color-bg-elevated);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
   }
 

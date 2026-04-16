@@ -57,31 +57,33 @@ npm install
 
 ### 开发模式
 
-启动完整的开发环境（前端 + Tauri 桌面应用）：
+启动完整的桌面开发环境（Tauri 桌面应用 + 前端供应层）：
 
 ```bash
 cd frontend
 npm run dev
 ```
 
-或者分别启动：
+如需单独排查前端供应层或单独启动桌面壳，可分别执行：
 
 ```bash
 cd frontend
 
-# 仅启动前端开发服务器（端口 1420）
-npm run dev:web-only
+# 启动供 Tauri 使用的前端开发服务器（端口 1420）
+npm run dev:frontend
 
 # 启动 Tauri 开发模式（会自动等待前端服务器就绪）
 npm run dev:desktop
 ```
+
+说明：前端开发服务器仅作为 Tauri 桌面端的渲染供应层，不再作为独立网页端运行目标。
 
 ### 构建应用
 
 ```bash
 cd frontend
 
-# 构建前端
+# 构建供 Tauri 使用的前端静态产物
 npm run build
 
 # 构建 Tauri 桌面应用
@@ -92,12 +94,10 @@ npm run tauri build
 
 所有命令需在 `frontend/` 目录下执行：
 
-- `npm run dev` - 同时启动前端开发服务器和 Tauri 开发模式（推荐）
-- `npm run dev:web` - 启动前端开发服务器（端口 1420）
+- `npm run dev` - 同时启动前端供应层和 Tauri 桌面开发模式（推荐）
+- `npm run dev:frontend` - 启动供 Tauri 使用的前端开发服务器（端口 1420）
 - `npm run dev:desktop` - 启动 Tauri 开发模式（自动等待前端就绪）
-- `npm run dev:web-only` - 仅启动前端开发服务器（不等待 desktop）
-- `npm run build` - 构建前端
-- `npm run preview` - 预览构建后的前端
+- `npm run build` - 构建供 Tauri 使用的前端静态产物
 - `npm run check` - 运行 TypeScript 类型检查
 - `npm run check:watch` - 运行 TypeScript 类型检查（监听模式）
 - `npm run tauri build` - 构建 Tauri 桌面应用

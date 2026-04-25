@@ -10,8 +10,8 @@ function fromConfigRoot(relativePath) {
   return pathname.replace(/^\/([A-Za-z]:\/)/, "$1");
 }
 
-const settingsOverride = fromConfigRoot("./settings-store.override.svelte.ts");
-const openerOverride = fromConfigRoot("./plugin-opener.override.ts");
+const settingsOverride = fromConfigRoot("./src/lib/overrides/settings-store.override.svelte.ts");
+const openerOverride = fromConfigRoot("./src/lib/overrides/plugin-opener.override.ts");
 
 // @ts-expect-error process is a nodejs global
 const host = process.env.TAURI_DEV_HOST;

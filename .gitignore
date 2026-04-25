@@ -12,6 +12,9 @@ vite.config.ts.timestamp-*
 # Rust/Tauri 构建输出
 frontend/src-tauri/target/
 
+# 生成的音视频字幕输出目录
+output/
+
 # IndexTTS 参考引擎：跟踪源码与配置，忽略权重/缓存/嵌套仓库（大文件勿提交）
 IndexTTS/**/.git/
 IndexTTS/**/checkpoints/
@@ -37,3 +40,9 @@ IndexTTS/**/*.bin
 # 禁止提交服务器敏感信息文件
 docs/服务器信息.txt
 .claude/settings.local.json
+.agents/
+skills-lock.json
+src-tauri.codex-probe/
+write-test.txt
+CLAUDE.md
+memory/

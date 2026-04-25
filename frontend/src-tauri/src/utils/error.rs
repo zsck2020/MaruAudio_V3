@@ -60,5 +60,11 @@ impl From<String> for AppError {
     }
 }
 
+impl From<anyhow::Error> for AppError {
+    fn from(err: anyhow::Error) -> Self {
+        AppError::Tts(err.to_string())
+    }
+}
+
 /// 命令结果类型别名
 pub type AppResult<T> = std::result::Result<T, AppError>;

@@ -8,9 +8,6 @@
   import AudioPlayer from './AudioPlayer.svelte';
   import PresetLibrary from './PresetLibrary.svelte';
 
-  // 跟踪 URL.createObjectURL 创建的对象 URL，用于释放内存
-  let objectUrl: string | null = $state(null);
-
   // 来源选择：upload = 上传本地样音, preset = 选择预置样音
   let sourceType = $state<VoiceSourceType>('upload');
 
@@ -31,32 +28,63 @@
     toast.success(`已选择：${voiceName}`);
   }
 
-  function handleUpload(file: File, url: string) {
-    // 释放之前的 URL 以避免内存泄漏
-    if (objectUrl) {
-      URL.revokeObjectURL(objectUrl);
+  async function handleUpload(file: File, url: string) {
+    try {
+      const { writeFile, mkdir, exists } = await import('@tauri-apps/plugin-fs');
+      const { join } = await import('@tauri-apps/api/path');
+      const { getOutputDir } = await import('$lib/api/tts');
+
+      // 从 TTS Server 获取 output 目录路径
+      const outputDir = await getOutputDir();
+      const refDir = outputDir.ref_audio;
+      // 确保目录存在
+      if (!await exists(refDir)) {
+        await mkdir(refDir, { recursive: true });
+      }
+
+      // 生成唯一文件名
+      const ext = file.name.split('.').pop() || 'wav';
+      const uniqueName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const filePath = await join(refDir, uniqueName);
+
+      // 读取文件内容并写入
+      const arrayBuffer = await file.arrayBuffer();
+      const uint8 = new Uint8Array(arrayBuffer);
+      await writeFile(filePath, uint8);
+
+      // 使用文件路径作为 voiceAudioUrl（供 TTS 引擎读取）
+      dubbing.setVoice('uploaded', file.name, filePath);
+    } catch {
+      // TTS Server 不可用时降级到 $APPDATA
+      try {
+        const { writeFile, mkdir, exists } = await import('@tauri-apps/plugin-fs');
+        const { appDataDir, join } = await import('@tauri-apps/api/path');
+
+        const dataDir = await appDataDir();
+        const refDir = await join(dataDir, 'ref_audio');
+        if (!await exists(refDir)) {
+          await mkdir(refDir, { recursive: true });
+        }
+
+        const ext = file.name.split('.').pop() || 'wav';
+        const uniqueName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+        const filePath = await join(refDir, uniqueName);
+
+        const arrayBuffer = await file.arrayBuffer();
+        await writeFile(filePath, new Uint8Array(arrayBuffer));
+
+        dubbing.setVoice('uploaded', file.name, filePath);
+      } catch {
+        // 最终降级：使用 blob URL（仅能播放，无法推理）
+        dubbing.setVoice('uploaded', file.name, url);
+        toast.info('音频已加载，但本地保存失败，推理可能不可用');
+      }
     }
-    objectUrl = url;
-    dubbing.setVoice('uploaded', file.name, url);
   }
 
   function handleRemove() {
-    // 释放对象 URL 以避免内存泄漏
-    if (objectUrl) {
-      URL.revokeObjectURL(objectUrl);
-      objectUrl = null;
-    }
     dubbing.setVoice(null, '默认音色', null);
   }
-
-  // 组件卸载时释放资源
-  $effect(() => {
-    return () => {
-      if (objectUrl) {
-        URL.revokeObjectURL(objectUrl);
-      }
-    };
-  });
 </script>
 
 <div class="ref-audio-panel">

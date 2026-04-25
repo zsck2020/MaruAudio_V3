@@ -1,6 +1,7 @@
 <script lang="ts">
   import Icon from '$lib/icons/Icon.svelte';
   import { dubbing, type EmotionMethod, EMOTION_SLIDER_SUM_MAX } from '$lib/stores/dubbing.svelte';
+  import { toast } from '$lib/stores/toast.svelte';
 
   const EMOTION_LABELS: Record<string, string> = {
     happy: '开心',
@@ -66,11 +67,11 @@
     };
   }
 
-  function handleEmotionAudioUpload() {
+  async function handleEmotionAudioUpload() {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.wav,.mp3,audio/wav,audio/mpeg';
-    input.onchange = () => {
+    input.onchange = async () => {
       const file = input.files?.[0];
       if (!file) return;
 
@@ -82,7 +83,25 @@
       }
 
       try {
-        dubbing.emotionAudioPath = URL.createObjectURL(file);
+        const { writeFile, mkdir, exists } = await import('@tauri-apps/plugin-fs');
+        const { join } = await import('@tauri-apps/api/path');
+        const { getOutputDir } = await import('$lib/api/tts');
+
+        // 从 TTS Server 获取 output 目录路径
+        const outputDir = await getOutputDir();
+        const emoDir = outputDir.emo_audio;
+        if (!await exists(emoDir)) {
+          await mkdir(emoDir, { recursive: true });
+        }
+
+        const ext = file.name.split('.').pop() || 'wav';
+        const uniqueName = `emo-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+        const filePath = await join(emoDir, uniqueName);
+
+        const arrayBuffer = await file.arrayBuffer();
+        await writeFile(filePath, new Uint8Array(arrayBuffer));
+
+        dubbing.emotionAudioPath = filePath;
         toast.success(`已加载情感参考音频: ${file.name}`);
       } catch (error) {
         console.error('情感音频加载失败:', error);
@@ -205,7 +224,7 @@
         rows={4}
       ></textarea>
       <p class="text-mode-hint">
-        对应 IndexTTS 2.0 的 Qwen3 情感分类；建议在「参数控制」中将情感强度 (emo_alpha) 调至 ≤0.6，听感更自然。
+        通过自然语言描述控制情感语气；建议在「参数控制」中将情感强度调至 ≤0.6，听感更自然。
       </p>
     </div>
   {/if}

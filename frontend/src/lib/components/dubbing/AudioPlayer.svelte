@@ -1,6 +1,7 @@
 <script lang="ts">
   import Icon from '$lib/icons/Icon.svelte';
   import { dubbing } from '$lib/stores/dubbing.svelte';
+  import { convertFileSrc } from '@tauri-apps/api/core';
 
   interface Props {
     audioUrl: string;
@@ -8,6 +9,13 @@
   }
 
   let { audioUrl, onRemove }: Props = $props();
+
+  // 将本地文件路径转为浏览器可播放的 URL
+  let playableUrl = $derived(
+    audioUrl.startsWith('blob:') || audioUrl.startsWith('http')
+      ? audioUrl
+      : convertFileSrc(audioUrl)
+  );
 
   let audioPreviewEl: HTMLAudioElement | undefined = $state();
   let isPlaying = $state(false);
@@ -112,7 +120,7 @@
 
   <!-- 隐藏的原生音频元素 -->
   <audio
-    src={audioUrl}
+    src={playableUrl}
     preload="metadata"
     bind:this={audioPreviewEl}
     onloadedmetadata={handleAudioMeta}

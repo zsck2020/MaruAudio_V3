@@ -12,6 +12,8 @@ import type {
   EmotionSliders,
 } from '$lib/types/dubbing';
 import { EMOTION_SLIDER_SUM_MAX } from '$lib/types/dubbing';
+import * as ttsApi from '$lib/api/tts';
+import type { EngineStatus } from '$lib/api/tts';
 
 function getPersistedSettings(): DubbingSettings {
   return appSettings.settings.dubbing;
@@ -40,9 +42,8 @@ let text = $state('');
 let wordCount = $derived(text.replace(/\s/g, '').length);
 
 let voiceId = $state<string | null>(null);
-let voiceName = $state('默认角色');
+let voiceName = $state('未选择参考音频');
 let voiceAudioUrl = $state<string | null>(null);
-voiceName = '未选择参考音频';
 
 let intervalSilence = $state(getPersistedSettings().intervalSilence);
 let maxTextTokens = $state(getPersistedSettings().maxTextTokens);
@@ -138,6 +139,34 @@ function clampEmotionSlidersToSumMax(): void {
   emotionSliders = normalizeEmotionVector(emotionSliders, EMOTION_SLIDER_SUM_MAX);
 }
 
+async function checkEngineAvailability(): Promise<void> {
+  engineChecking = true;
+  try {
+    const health = await ttsApi.checkHealth();
+    for (const eng of health.engines) {
+      if (eng.engine === 'lightweight') {
+        engineAvailable.lightweight = {
+          available: eng.available,
+          message: eng.available ? '轻量引擎可用' : eng.message,
+          provider: 'v15',
+        };
+      } else if (eng.engine === 'emotion') {
+        engineAvailable.emotion = {
+          available: eng.available,
+          message: eng.available ? '情感引擎可用' : eng.message,
+          provider: 'v20',
+        };
+      }
+    }
+  } catch {
+    // TTS Server 未运行
+    engineAvailable.lightweight = { available: false, message: 'TTS 服务未启动', provider: 'v15' };
+    engineAvailable.emotion = { available: false, message: 'TTS 服务未启动', provider: 'v20' };
+  } finally {
+    engineChecking = false;
+  }
+}
+
 export const dubbing = {
   get engineMode() { return engineMode; },
   get engineAvailable() { return engineAvailable; },
@@ -203,6 +232,7 @@ export const dubbing = {
   setVoice,
   resetGeneration,
   clampEmotionSlidersToSumMax,
+  checkEngineAvailability,
   saveParams,
 };
 

@@ -6,24 +6,19 @@
   import PlayerBar from '$lib/components/dubbing/PlayerBar.svelte';
   import { dubbing } from '$lib/stores/dubbing.svelte';
   import { toast } from '$lib/stores/toast.svelte';
+  import * as ttsApi from '$lib/api/tts';
 
   /** 与 TextEditor 插入逻辑一致的停顿标记 */
   const PAUSE_MARKER = '[#0.5s#]';
 
   let editorRef: { insertAtCursor: (s: string) => void } | undefined = $state();
-  let generationTimer: ReturnType<typeof setInterval> | null = $state(null);
 
-  // 清理定时器，防止内存泄漏
+  // 页面加载时自动检测引擎可用性
   $effect(() => {
-    return () => {
-      if (generationTimer) {
-        clearInterval(generationTimer);
-        generationTimer = null;
-      }
-    };
+    void dubbing.checkEngineAvailability();
   });
 
-  function handleGenerate() {
+  async function handleGenerate() {
     if (dubbing.wordCount === 0) {
       toast.warning('请输入要配音的文案');
       return;
@@ -34,51 +29,80 @@
       return;
     }
 
+    // 检查本地引擎可用性
+    if (dubbing.engineMode !== 'cloud') {
+      const engineKey = dubbing.engineMode as 'lightweight' | 'emotion';
+      if (!dubbing.engineAvailable[engineKey]?.available) {
+        toast.warning('当前引擎不可用，请检查 TTS 服务是否启动');
+        return;
+      }
+    }
+
+    // 检查参考音频
+    if (!dubbing.voiceAudioUrl) {
+      toast.warning('请先选择或上传参考音频');
+      return;
+    }
+
+    // 情感向量归一化
     if (dubbing.showEmotionTab && dubbing.emotionMethod === 'slider') {
       dubbing.clampEmotionSlidersToSumMax();
     }
 
-    // 清理之前的定时器
-    if (generationTimer) {
-      clearInterval(generationTimer);
-      generationTimer = null;
-    }
-
+    // 重置生成状态
     dubbing.generatedAudioPath = null;
     dubbing.isPlaying = false;
     dubbing.isGenerating = true;
     dubbing.progress = 0;
     dubbing.progressMessage = '正在预处理文本…';
-    dubbing.generationSegmentTotal = 5;
+    dubbing.generationSegmentTotal = 0;
     dubbing.generationSegmentCurrent = 0;
 
-    let step = 0;
-    const steps = [
-      { msg: '正在预处理文本…', seg: 0 },
-      { msg: '正在生成音频…', seg: 2 },
-      { msg: '正在生成音频…', seg: 4 },
-      { msg: '正在合并音频…', seg: 5 },
-    ];
-    generationTimer = setInterval(() => {
-      step++;
-      if (step <= steps.length) {
-        const cur = steps[step - 1];
-        dubbing.progress = Math.round((step / (steps.length + 1)) * 100);
-        dubbing.progressMessage = cur.msg;
-        dubbing.generationSegmentCurrent = cur.seg;
-      } else {
-        if (generationTimer) {
-          clearInterval(generationTimer);
-          generationTimer = null;
-        }
-        dubbing.isGenerating = false;
-        dubbing.progress = 100;
-        dubbing.progressMessage = '';
-        dubbing.generationSegmentCurrent = 0;
-        dubbing.generationSegmentTotal = 0;
-        toast.success('配音生成完成（演示进度，尚未写入真实音频文件）');
-      }
-    }, 700);
+    try {
+      // 构建推理请求
+      const req: ttsApi.SynthesizeRequest = {
+        engine: dubbing.engineMode,
+        text: dubbing.text,
+        speaker_audio_path: dubbing.voiceAudioUrl!,
+        inference_mode: dubbing.generationMode === 'batch' ? 'batch' : 'normal',
+        interval_silence: dubbing.intervalSilence,
+        max_text_tokens_per_segment: dubbing.maxTextTokens,
+        bucket_max_size: dubbing.bucketMaxSize,
+        emotion_method: dubbing.emotionMethod,
+        emotion_vector: dubbing.emotionMethod === 'slider'
+          ? [dubbing.emotionSliders.happy, dubbing.emotionSliders.angry, dubbing.emotionSliders.sad,
+             dubbing.emotionSliders.afraid, dubbing.emotionSliders.disgusted, dubbing.emotionSliders.melancholic,
+             dubbing.emotionSliders.surprised, dubbing.emotionSliders.calm]
+          : undefined,
+        emotion_text: dubbing.emotionMethod === 'text' ? dubbing.emotionText || undefined : undefined,
+        emotion_audio_path: dubbing.emotionMethod === 'audio' ? dubbing.emotionAudioPath || undefined : undefined,
+        emo_alpha: dubbing.emoAlpha,
+        temperature: dubbing.temperature,
+        top_p: dubbing.topP,
+        top_k: dubbing.topK,
+        num_beams: 3,
+        repetition_penalty: 10.0,
+        max_mel_tokens: 600,
+      };
+
+      dubbing.progressMessage = '正在生成音频…';
+      dubbing.progress = 10;
+
+      const outputPath = await ttsApi.synthesize(req);
+
+      dubbing.progress = 100;
+      dubbing.progressMessage = '';
+      dubbing.generatedAudioPath = outputPath;
+      dubbing.isGenerating = false;
+      toast.success('配音生成完成');
+
+    } catch (err) {
+      dubbing.isGenerating = false;
+      dubbing.progress = 0;
+      dubbing.progressMessage = '';
+      const msg = err instanceof Error ? err.message : String(err);
+      toast.warning(`生成失败: ${msg}`);
+    }
   }
 
   function handleImport() {
@@ -144,12 +168,29 @@
     toast.info('数字读法规则切换（引擎对接后生效）');
   }
 
-  function handleDownload() {
+  async function handleDownload() {
     if (!dubbing.generatedAudioPath) {
       toast.info('暂无已生成音频可下载');
       return;
     }
-    toast.info('下载到本地（对接 Tauri 保存对话框后生效）');
+    try {
+      const { save } = await import('@tauri-apps/plugin-dialog');
+      const { readFile, writeFile } = await import('@tauri-apps/plugin-fs');
+      const path = dubbing.generatedAudioPath;
+      const fileName = path.split(/[/\\]/).pop() || 'audio.wav';
+      const savePath = await save({
+        defaultPath: fileName,
+        filters: [{ name: 'WAV 音频', extensions: ['wav'] }],
+      });
+      if (savePath) {
+        const data = await readFile(path);
+        await writeFile(savePath, data);
+        toast.success('音频已保存');
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      toast.warning(`保存失败: ${msg}`);
+    }
   }
 
   function handleSubtitle() {

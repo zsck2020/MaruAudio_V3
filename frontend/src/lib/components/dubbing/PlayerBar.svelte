@@ -2,6 +2,7 @@
   import Icon from '$lib/icons/Icon.svelte';
   import Tooltip from '../Tooltip.svelte';
   import { dubbing } from '$lib/stores/dubbing.svelte';
+  import { convertFileSrc } from '@tauri-apps/api/core';
 
   let {
     onRegenerate = () => {},
@@ -16,6 +17,15 @@
   let audioEl: HTMLAudioElement | undefined = $state();
 
   let hasAudio = $derived(!!dubbing.generatedAudioPath);
+
+  // 将本地文件路径转为浏览器可播放的 URL
+  let playableAudioSrc = $derived(
+    dubbing.generatedAudioPath
+      ? (dubbing.generatedAudioPath.startsWith('http') || dubbing.generatedAudioPath.startsWith('blob:')
+          ? dubbing.generatedAudioPath
+          : convertFileSrc(dubbing.generatedAudioPath))
+      : ''
+  );
   /** 底部播放器控件：有音频且非生成中才可操作 transport */
   let transportEnabled = $derived(hasAudio && !dubbing.isGenerating);
   let actionsEnabled = $derived(hasAudio && !dubbing.isGenerating);
@@ -92,7 +102,7 @@
   {#if dubbing.generatedAudioPath}
     <audio
       bind:this={audioEl}
-      src={dubbing.generatedAudioPath}
+      src={playableAudioSrc}
       ontimeupdate={handleTimeUpdate}
       onloadedmetadata={handleLoadedMetadata}
       onended={handleEnded}

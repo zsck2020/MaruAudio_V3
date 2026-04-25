@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::fmt;
 use std::sync::LazyLock;
+use std::sync::OnceLock;
 use std::time::Duration;
 
 static SHARED_CLIENT: LazyLock<reqwest::Client> = LazyLock::new(|| {
@@ -14,6 +15,8 @@ static SHARED_CLIENT: LazyLock<reqwest::Client> = LazyLock::new(|| {
         .build()
         .unwrap_or_else(|_| reqwest::Client::new())
 });
+
+static MACHINE_CODE: OnceLock<String> = OnceLock::new();
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ApiResponse<T> {
@@ -111,14 +114,26 @@ impl fmt::Display for ApiError {
 
 impl std::error::Error for ApiError {}
 
+static SHARED_API_CLIENT: LazyLock<ApiClient> = LazyLock::new(ApiClient::new_internal);
+
 pub struct ApiClient {
     config: AppConfig,
 }
 
 impl ApiClient {
-    pub fn new() -> Self {
+    fn new_internal() -> Self {
         Self {
             config: AppConfig::from_env(),
+        }
+    }
+
+    pub fn new() -> Self {
+        SHARED_API_CLIENT.clone_config()
+    }
+
+    fn clone_config(&self) -> Self {
+        Self {
+            config: self.config.clone(),
         }
     }
 
@@ -206,7 +221,7 @@ impl ApiClient {
     }
 
     pub async fn login(&self, username: String, password: String) -> Result<LoginResponse, ApiError> {
-        let machine_code = Self::get_machine_code().await;
+        let machine_code = MACHINE_CODE.get_or_init(|| Self::get_machine_code_sync()).clone();
         let request = LoginRequest {
             username,
             password,
@@ -224,7 +239,7 @@ impl ApiClient {
         phone: Option<String>,
         invite_code: Option<String>,
     ) -> Result<LoginResponse, ApiError> {
-        let machine_code = Self::get_machine_code().await;
+        let machine_code = MACHINE_CODE.get_or_init(|| Self::get_machine_code_sync()).clone();
         let request = RegisterRequest {
             username,
             password,
@@ -268,13 +283,12 @@ impl ApiClient {
         self.request_data("GET", "banners?product_code=dubbing", None, None).await
     }
 
-    async fn get_machine_code() -> String {
+    fn get_machine_code_sync() -> String {
         #[cfg(target_os = "windows")]
         {
-            let output = tokio::process::Command::new("powershell")
+            let output = std::process::Command::new("powershell")
                 .args(&["-NoProfile", "-Command", "(Get-CimInstance -ClassName Win32_ComputerSystemProduct).UUID"])
-                .output()
-                .await;
+                .output();
 
             if let Ok(output) = output {
                 let uuid = String::from_utf8_lossy(&output.stdout);
@@ -287,10 +301,9 @@ impl ApiClient {
 
         #[cfg(target_os = "macos")]
         {
-            let output = tokio::process::Command::new("system_profiler")
+            let output = std::process::Command::new("system_profiler")
                 .args(&["SPHardwareDataType"])
-                .output()
-                .await;
+                .output();
 
             if let Ok(output) = output {
                 let text = String::from_utf8_lossy(&output.stdout);
@@ -304,7 +317,7 @@ impl ApiClient {
 
         #[cfg(target_os = "linux")]
         {
-            if let Ok(machine_id) = tokio::fs::read_to_string("/etc/machine-id").await {
+            if let Ok(machine_id) = std::fs::read_to_string("/etc/machine-id") {
                 return machine_id.trim().to_string();
             }
         }

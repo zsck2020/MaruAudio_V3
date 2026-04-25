@@ -130,8 +130,8 @@
 {:else}
   <div class="desktop-only-shell">
     <div class="desktop-only-card">
-      <h1>妗岄潰瀹㈡埛绔笓鐢?/h1>
-      <p>褰撳墠鐣岄潰渚濊禆 Tauri 妗岄潰杩愯鏃躲€傝鍦ㄦ闈㈠簲鐢ㄤ腑鍚姩 MaruAudio 浠ヨ幏寰楀畬鏁村姛鑳姐€?/p>
+      <h1>桌面客户端专用</h1>
+      <p>当前界面依赖 Tauri 桌面运行时。请在桌面应用中启动丸子配音以获得完整功能。</p>
     </div>
   </div>
 {/if}

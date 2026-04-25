@@ -1,1 +1,0 @@
-Windows 项目，常用开发命令主要在 frontend/ 下执行：`npm run dev` 启动 web + Tauri；`npm run dev:web-only` 仅启动前端；`npm run dev:desktop` 启动桌面端；`npm run check` 运行 Svelte/TS 检查；`npm run build` 构建前端；`npm run tauri build` 构建桌面包。仓库级常用命令：`git status`、`git log --oneline -n 12`、`ls`。项目当前 shell 使用 Unix 风格语法，但运行在 Windows 环境。

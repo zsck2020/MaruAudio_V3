@@ -22,10 +22,11 @@
     "@iconify-json/ant-design": "^1.2.5",
     "@iconify/svelte": "^5.2.1",
     "@lobehub/webfont-harmony-sans-sc": "^1.0.0",
-    "@tauri-apps/api": "^2",
+    "@tauri-apps/api": "2.9",
+    "@tauri-apps/plugin-dialog": "2.6",
+    "@tauri-apps/plugin-fs": "2.4",
     "@tauri-apps/plugin-opener": "^2",
-    "@tauri-apps/plugin-store": "^2.4.2",
-    "svelte-carousel": "^1.0.25"
+    "@tauri-apps/plugin-store": "^2.4.2"
   },
   "devDependencies": {
     "@sveltejs/adapter-static": "^3.0.6",

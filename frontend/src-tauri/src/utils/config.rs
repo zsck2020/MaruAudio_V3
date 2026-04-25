@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::sync::LazyLock;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppConfig {
@@ -13,13 +14,16 @@ impl Default for AppConfig {
     }
 }
 
+static APP_CONFIG: LazyLock<AppConfig> = LazyLock::new(|| {
+    let default = AppConfig::default();
+    let api_base_url = std::env::var("MARUAUDIO_API_URL")
+        .unwrap_or(default.api_base_url);
+    AppConfig { api_base_url }
+});
+
 impl AppConfig {
     pub fn from_env() -> Self {
-        let default = Self::default();
-        let api_base_url = std::env::var("MARUAUDIO_API_URL")
-            .unwrap_or(default.api_base_url);
-        
-        Self { api_base_url }
+        APP_CONFIG.clone()
     }
 }
 

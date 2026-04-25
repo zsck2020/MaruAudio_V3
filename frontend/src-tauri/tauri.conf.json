@@ -16,8 +16,10 @@
         "height": 900,
         "decorations": false,
         "center": true,
-        "resizable": false,
-        "devtools": false
+        "resizable": true,
+        "minWidth": 1024,
+        "minHeight": 700,
+        "devtools": true
       }
     ],
     "security": {

@@ -20,12 +20,6 @@ struct PersistedTokens {
     refresh_token: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-struct LegacyEncodedTokens {
-    t: String,
-    r: String,
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AuthTokens {
     pub token: String,
@@ -48,34 +42,6 @@ fn decrypt_token(encrypted: &str) -> Result<String, String> {
     crypto.decrypt(encrypted)
 }
 
-// Legacy XOR obfuscation for backward compatibility
-fn legacy_deobfuscate(encoded: &str) -> Result<String, String> {
-    use base64::Engine;
-
-    const OBFUSCATION_SALT: &[u8] = b"MaruAudio_V3_LocalStore_Key";
-
-    let hostname = hostname::get()
-        .map(|h| h.to_string_lossy().into_owned())
-        .unwrap_or_else(|_| "fallback_host".to_string());
-    let mut key = OBFUSCATION_SALT.to_vec();
-
-    for (i, b) in hostname.bytes().enumerate() {
-        let idx = i % key.len();
-        key[idx] ^= b;
-    }
-
-    let decoded = base64::engine::general_purpose::STANDARD
-        .decode(encoded)
-        .map_err(|e| format!("Failed to decode token: {}", e))?;
-    let xored: Vec<u8> = decoded
-        .iter()
-        .enumerate()
-        .map(|(i, b)| b ^ key[i % key.len()])
-        .collect();
-
-    String::from_utf8(xored).map_err(|e| format!("Failed to decode token string: {}", e))
-}
-
 fn deserialize_tokens(value: &serde_json::Value) -> Result<AuthTokens, String> {
     if let Ok(persisted) = serde_json::from_value::<PersistedTokens>(value.clone()) {
         if persisted.version != TOKEN_ENCODING_VERSION || persisted.encoding != TOKEN_ENCODING {
@@ -88,14 +54,6 @@ fn deserialize_tokens(value: &serde_json::Value) -> Result<AuthTokens, String> {
         return Ok(AuthTokens {
             token: decrypt_token(&persisted.access_token)?,
             refresh_token: decrypt_token(&persisted.refresh_token)?,
-        });
-    }
-
-    if let Ok(legacy) = serde_json::from_value::<LegacyEncodedTokens>(value.clone()) {
-        // Legacy XOR obfuscation - migrate to AES-GCM
-        return Ok(AuthTokens {
-            token: legacy_deobfuscate(&legacy.t)?,
-            refresh_token: legacy_deobfuscate(&legacy.r)?,
         });
     }
 

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
-  import Carousel from 'svelte-carousel';
+  import BannerCarousel from '$lib/components/BannerCarousel.svelte';
   import { invoke } from '@tauri-apps/api/core';
   import type { BannerItem } from '$lib/types';
   import { MENU_ROUTES } from '$lib/utils/navigation';
@@ -17,9 +17,9 @@
 
   async function loadBanners() {
     try {
-      const data: any[] = await invoke('get_banners');
+      const data = await invoke<BannerItem[]>('get_banners');
       if (Array.isArray(data) && data.length > 0) {
-        banners = data.map((b: any) => ({
+        banners = data.map((b) => ({
           id: b.id,
           title: b.title,
           image_url: b.image_url?.startsWith('http') ? b.image_url : `https://auth.wzagent.cn${b.image_url?.startsWith('/') ? '' : '/'}${b.image_url}`,
@@ -67,17 +67,8 @@
 </script>
 
 <div class="carousel-container">
-  <Carousel
-    autoplay
-    autoplayDuration={5000}
-    autoplayDirection="prev"
-    pauseOnFocus
-    arrows={false}
-    dots={banners.length > 1}
-    swiping={true}
-    duration={500}
-  >
-    {#each banners as banner (banner.id)}
+  <BannerCarousel items={banners} autoplayDuration={5000} duration={500}>
+    {#snippet children(banner)}
       <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
       <div
         class="carousel-item"
@@ -85,13 +76,13 @@
         role={banner.link_type !== 'none' ? 'button' : 'img'}
         tabindex={banner.link_type !== 'none' ? 0 : -1}
         onpointerdown={handleBannerPointerDown}
-        onpointerup={(e) => handleBannerPointerUp(e, banner)}
-        onkeydown={(e) => e.key === 'Enter' && handleBannerClick(banner)}
+        onpointerup={(e) => handleBannerPointerUp(e, banner as BannerItem)}
+        onkeydown={(e) => e.key === 'Enter' && handleBannerClick(banner as BannerItem)}
       >
-        <img src={banner.image_url} alt={banner.title} class="carousel-image" />
+        <img src={(banner as BannerItem).image_url} alt={(banner as BannerItem).title} class="carousel-image" />
       </div>
-    {/each}
-  </Carousel>
+    {/snippet}
+  </BannerCarousel>
 </div>
 
 <style>
@@ -103,14 +94,6 @@
     overflow: hidden;
     flex-shrink: 0;
     border: 1px solid var(--color-border-secondary);
-  }
-
-  .carousel-container :global(.sc-carousel-dots__container) {
-    display: none !important;
-  }
-
-  .carousel-container :global(.sc-carousel-button__container) {
-    display: none !important;
   }
 
   @media (max-width: 768px) {

@@ -20,7 +20,7 @@ export const VOICE_CATEGORIES: VoiceCategory[] = [
 ];
 
 /**
- * 最近使用样音（模拟数据）
+ * 最近使用样音
  * TODO: 接入实际的历史记录存储
  */
 export interface RecentVoice {
@@ -29,7 +29,4 @@ export interface RecentVoice {
   usageCount: number;
 }
 
-export const RECENT_VOICES: RecentVoice[] = [
-  { id: '1', name: '男声沉稳', usageCount: 3 },
-  { id: '2', name: '女声温柔', usageCount: 1 },
-];
+export const RECENT_VOICES: RecentVoice[] = [];

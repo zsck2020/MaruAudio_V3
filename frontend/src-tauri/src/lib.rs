@@ -5,11 +5,13 @@ mod services;
 mod utils;
 
 use crate::utils::session::SessionState;
+use crate::services::tts::TtsState;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .manage(SessionState::default())
+        .manage(TtsState::new())
         .setup(|app| {
             let show_item =
                 tauri::menu::MenuItemBuilder::with_id("show_main", "显示主窗口").build(app)?;
@@ -71,7 +73,10 @@ pub fn run() {
             commands::engine::engine_health,
             commands::file::file_health,
             commands::sample::sample_health,
-            commands::tts::tts_health,
+            commands::tts::tts_check_health,
+            commands::tts::tts_synthesize,
+            commands::tts::tts_preload_engine,
+            commands::tts::tts_cancel,
             commands::user::user_health,
             commands::user::user_login,
             commands::user::user_register,

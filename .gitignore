@@ -15,6 +15,19 @@ frontend/src-tauri/target/
 # 生成的音视频字幕输出目录
 output/
 
+# 模型权重存放目录（保留 .gitkeep 跟踪目录结构）
+checkpoints/**
+!checkpoints/.gitkeep
+!checkpoints/v15/.gitkeep
+!checkpoints/v20/.gitkeep
+
+# 引擎虚拟环境（忽略 .venv，保留 requirements.txt）
+envs/**/.venv/
+
+# Python 字节码缓存
+backend/**/__pycache__/
+backend/**/*.py[cod]
+
 # IndexTTS 参考引擎：跟踪源码与配置，忽略权重/缓存/嵌套仓库（大文件勿提交）
 IndexTTS/**/.git/
 IndexTTS/**/checkpoints/
@@ -36,6 +49,9 @@ IndexTTS/**/*.ckpt
 # HuggingFace / 模型目录常见大包（按需可再细化路径）
 IndexTTS/**/*.bin
 
+
+# 历史参考代码快照（V2 IndexTTS 恢复源码等，不纳入 V3 主仓库）
+references/
 
 # 禁止提交服务器敏感信息文件
 docs/服务器信息.txt

@@ -6,12 +6,14 @@ mod utils;
 
 use crate::utils::session::SessionState;
 use crate::services::tts::TtsState;
+use crate::services::subtitle::SubtitleState;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .manage(SessionState::default())
         .manage(TtsState::new())
+        .manage(SubtitleState::new())
         .setup(|app| {
             let show_item =
                 tauri::menu::MenuItemBuilder::with_id("show_main", "显示主窗口").build(app)?;
@@ -78,6 +80,9 @@ pub fn run() {
             commands::tts::tts_synthesize_stream,
             commands::tts::tts_preload_engine,
             commands::tts::tts_cancel,
+            commands::subtitle::subtitle_transcribe_stream,
+            commands::subtitle::subtitle_cancel,
+            commands::subtitle::subtitle_read_output,
             commands::user::user_health,
             commands::user::user_login,
             commands::user::user_register,

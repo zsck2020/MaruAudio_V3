@@ -3,6 +3,7 @@ pub mod audio;
 pub mod engine;
 pub mod file;
 pub mod sample;
+pub mod subtitle;
 pub mod tts;
 pub mod user;
 

@@ -1,0 +1,2 @@
+# IndexTTS v2.0 情感引擎依赖
+# 安装: cd envs/v20 && python -m venv .venv && .venv\Scripts\activate && pip install -r requirements.txt

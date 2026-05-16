@@ -16,7 +16,11 @@
 #### 前端层
 - **框架**: SvelteKit + TypeScript（轻量、高性能、编译优化）
 - **构建工具**: Vite 6
-- **UI设计规范**: 参考 Element Plus 设计风格（组件设计参考其设计语言）
+- **UI设计规范**: 自有"丸子配音"设计语言。原则：
+  - 控件偏大、舒展、有呼吸感（避免过于紧凑细窄）
+  - 不依赖描边线条分割层级，统一使用背景层级 + 微阴影表达深度
+  - 设置/个人/账户等"配置型"页面避免长滚动，复杂操作走统一弹窗
+  - 主色调与亮度阶梯协调统一（基于 `#3b6eaf` 声波蓝）
 - **图标库**: Ant Design Icons（通过 @iconify/svelte + @iconify-json/ant-design 离线使用，禁止使用 emoji）
 - **字体**: HarmonyOS Sans SC（woff2 离线内嵌，来源 @lobehub/webfont-harmony-sans-sc）
 - **状态管理**: Svelte Stores
@@ -262,9 +266,11 @@ MaruAudio_V3/
 - [ ] **引擎状态**: 实时显示引擎加载状态
 
 **引擎代号策略** (面向用户隐藏真实模型信息):
-- 轻量引擎 → 显示为: "快速模式"
-- 情感引擎 → 显示为: "标准模式"
-- 云端引擎 → 显示为: "高质量模式"
+- 轻量引擎 → 显示为: "轻量引擎"（内部 = IndexTTS 1.5）
+- 情感引擎 → 显示为: "情感引擎"（内部 = IndexTTS 2.0）
+- 云端引擎 → 显示为: "云端引擎"（内部 = 阿里云百炼 Qwen3-TTS 远程推理 = 情感引擎云端版）
+
+> 历史方案曾使用"快速模式 / 标准模式 / 高质量模式"作为面向用户的代号，2026-05 调整为更直接体现"本地 vs 云端"和"轻量 vs 情感"区分的命名，仍严格隐藏 IndexTTS / 阿里云百炼 / Qwen3-TTS 等真实模型与厂商信息。
 
 ---
 
@@ -280,10 +286,10 @@ MaruAudio_V3/
 ### 实施策略
 
 #### 1. 用户界面层面
-- **引擎选择器**: 使用通用名称
-  - "快速模式" (轻量引擎)
-  - "标准模式" (情感引擎)
-  - "高质量模式" (云端引擎)
+- **引擎选择器**: 使用面向用户的中文名（不出现 IndexTTS / Qwen / 阿里云字样）
+  - "轻量引擎" (内部 = IndexTTS 1.5，本地)
+  - "情感引擎" (内部 = IndexTTS 2.0，本地)
+  - "云端引擎" (内部 = 阿里云百炼 Qwen3-TTS 远程推理，云端)
 - **错误提示**: 使用通用错误信息，不暴露引擎细节
 - **日志输出**: 生产环境不输出模型相关信息
 
@@ -298,9 +304,9 @@ export const ENGINE_TYPES = {
 } as const;
 
 export const ENGINE_DISPLAY_NAMES = {
-  [ENGINE_TYPES.LIGHTWEIGHT]: '快速模式',
-  [ENGINE_TYPES.EMOTION]: '标准模式',
-  [ENGINE_TYPES.CLOUD]: '高质量模式'
+  [ENGINE_TYPES.LIGHTWEIGHT]: '轻量引擎',
+  [ENGINE_TYPES.EMOTION]: '情感引擎',
+  [ENGINE_TYPES.CLOUD]: '云端引擎'
 } as const;
 ```
 
@@ -673,9 +679,9 @@ impl CloudEngine {
 let currentEngine = $state('lightweight'); // 内部代号
 
 const engines = [
-  { id: 'lightweight', name: '快速模式' },
-  { id: 'emotion', name: '标准模式' },
-  { id: 'cloud', name: '高质量模式' },
+  { id: 'lightweight', name: '轻量引擎' },
+  { id: 'emotion', name: '情感引擎' },
+  { id: 'cloud', name: '云端引擎' },
 ];
 
 async function switchEngine(engineId: string) {

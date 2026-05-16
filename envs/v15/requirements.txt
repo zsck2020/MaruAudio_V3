@@ -1,0 +1,2 @@
+# IndexTTS v1.5 轻量引擎依赖
+# 安装: cd envs/v15 && python -m venv .venv && .venv\Scripts\activate && pip install -r requirements.txt

@@ -9,7 +9,7 @@
     sidebarCollapsed = false,
     onMenuClick
   }: {
-    activeMenu?: MenuKey;
+    activeMenu?: MenuKey | null;
     isMobile?: boolean;
     isTablet?: boolean;
     sidebarCollapsed?: boolean;

@@ -12,14 +12,24 @@
   import { getMenuKeyFromPath, MENU_ROUTES } from '$lib/utils/navigation';
   import { env } from '$lib/stores/environment.svelte';
   import { appSettings } from '$lib/stores/settings.svelte';
-  import { dubbing } from '$lib/stores/dubbing.svelte';
+  import { dubbing, type EngineMode } from '$lib/stores/dubbing.svelte';
+  import { toast } from '$lib/stores/toast.svelte';
+
+  const ENGINE_CYCLE: EngineMode[] = ['lightweight', 'emotion', 'cloud'];
+  const ENGINE_LABELS: Record<EngineMode, string> = {
+    lightweight: '轻量',
+    emotion: '情感',
+    cloud: '云端',
+  };
 
   let { children }: { children: Snippet } = $props();
 
   let sidebarCollapsed = $state(false);
   let desktopReady = $state(env.isTauri);
 
-  let activeMenu: MenuKey = $derived(getMenuKeyFromPath($page.url.pathname));
+  let activeMenu: MenuKey | null = $derived(
+    $page.url.pathname === '/profile' ? null : getMenuKeyFromPath($page.url.pathname)
+  );
 
   function isDesktopGuardEnabled() {
     return env.isTauri;
@@ -42,6 +52,26 @@
     if (hasPrimaryModifier && key === 'u') return true;
 
     return false;
+  }
+
+  function installAppShortcuts() {
+    const handleKeydown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.isComposing) return;
+      const hasPrimaryModifier = event.ctrlKey || event.metaKey;
+      if (!hasPrimaryModifier || !event.shiftKey) return;
+
+      const key = event.key.toLowerCase();
+      if (key === 'e') {
+        event.preventDefault();
+        const idx = ENGINE_CYCLE.indexOf(dubbing.engineMode);
+        const next = ENGINE_CYCLE[(idx + 1) % ENGINE_CYCLE.length];
+        dubbing.setEngine(next);
+        toast.success(`已切换到${ENGINE_LABELS[next]}引擎`);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeydown);
+    return () => window.removeEventListener('keydown', handleKeydown);
   }
 
   function installDesktopInteractionGuards() {
@@ -98,15 +128,29 @@
 
     void hydrateDesktopSettings();
     const cleanupGuards = installDesktopInteractionGuards();
+    const cleanupShortcuts = installAppShortcuts();
 
     return () => {
       cleanupGuards?.();
+      cleanupShortcuts?.();
       cleanupEnv?.();
     };
   });
 </script>
 
+<script lang="ts" module>
+  const IS_DEV_BACKDOOR =
+    typeof window !== 'undefined' &&
+    import.meta.env.DEV &&
+    new URLSearchParams(window.location.search).has('dev_force_tauri');
+</script>
+
 {#if desktopReady}
+  {#if IS_DEV_BACKDOOR}
+    <div class="dev-banner" role="status">
+      DEV · 浏览器模拟桌面环境 · Tauri API 调用将失败 · 仅供自动化测试
+    </div>
+  {/if}
   <div class="window-container">
     <div class="window">
       <div class="page">
@@ -137,6 +181,22 @@
 {/if}
 
 <style>
+  .dev-banner {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 10000;
+    text-align: center;
+    padding: 4px 12px;
+    font-size: 12px;
+    color: #fff;
+    background: linear-gradient(90deg, var(--color-warning), color-mix(in srgb, var(--color-warning) 70%, var(--color-error)));
+    letter-spacing: 1px;
+    pointer-events: none;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  }
+
   .desktop-only-shell {
     min-height: 100vh;
     display: flex;
@@ -217,10 +277,24 @@
   .content {
     flex: 1;
     background-color: var(--color-bg-container);
-    overflow-y: auto;
-    overflow-x: hidden;
+    overflow: hidden;
     display: flex;
     flex-direction: column;
+    min-height: 0;
+  }
+
+  /* 内容区底部统一保留 25px 空白，避免触底 */
+  /* 适用于所有非全屏布局页面；dubbing 因有固定 PlayerBar 排除 */
+  :global(.content > .home-page),
+  :global(.content > .profile-page),
+  :global(.content > .roles-page),
+  :global(.content > .library-page),
+  :global(.content > .files-page),
+  :global(.content > .subtitle-page),
+  :global(.content > .align-page),
+  :global(.content > .about-page),
+  :global(.content > .settings-page) {
+    padding-bottom: 25px;
   }
 
   @media (max-width: 768px) {

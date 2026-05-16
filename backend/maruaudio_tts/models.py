@@ -95,3 +95,50 @@ class ErrorEvent(BaseModel):
 
     type: str = "error"
     message: str
+
+
+# ==================== 人声分离 ====================
+
+class VocalSeparateRequest(BaseModel):
+    """人声分离请求"""
+
+    input_path: str = Field(..., description="输入音频或视频文件的绝对路径")
+    output_path: Optional[str] = Field(
+        default=None, description="输出 WAV 路径；不传则自动生成到 output/ref_audio/"
+    )
+
+
+class VocalSeparateCompleteEvent(BaseModel):
+    """人声分离完成事件"""
+
+    type: str = "complete"
+    output_path: str
+    method: str = Field(default="demucs", description="实际使用的分离算法")
+
+
+# ==================== 字幕生成（ASR） ====================
+
+class TranscribeRequest(BaseModel):
+    """字幕转录请求"""
+
+    input_path: str = Field(..., description="音频或视频文件的绝对路径")
+    asr_model: str = Field(
+        default="BIJIAN",
+        pattern=r"^(BIJIAN|FasterWhisper|WhisperAPI)$",
+        description="ASR 引擎，默认必剪",
+    )
+    language: str = Field(default="zh", description="识别语言")
+    need_word_timestamp: bool = Field(default=False, description="生成词级时间戳")
+    output_format: str = Field(
+        default="srt", pattern=r"^(srt|vtt|ass|json)$",
+        description="字幕导出格式",
+    )
+
+
+class TranscribeCompleteEvent(BaseModel):
+    """字幕转录完成事件"""
+
+    type: str = "complete"
+    output_path: str
+    segment_count: int = 0
+    duration_ms: int = 0

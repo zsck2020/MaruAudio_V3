@@ -75,6 +75,7 @@ pub fn run() {
             commands::sample::sample_health,
             commands::tts::tts_check_health,
             commands::tts::tts_synthesize,
+            commands::tts::tts_synthesize_stream,
             commands::tts::tts_preload_engine,
             commands::tts::tts_cancel,
             commands::user::user_health,

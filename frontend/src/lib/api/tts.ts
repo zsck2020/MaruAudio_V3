@@ -3,6 +3,7 @@
  */
 
 import { invoke } from '@tauri-apps/api/core';
+import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 
 // ---- 类型定义 ----
 
@@ -56,6 +57,77 @@ export async function synthesize(req: SynthesizeRequest): Promise<string> {
   return invoke<string>('tts_synthesize', { req });
 }
 
+/** SSE 流式推理事件类型 */
+export interface TtsProgressEvent {
+  type: 'progress';
+  progress: number;
+  message: string;
+  segmentCurrent: number;
+  segmentTotal: number;
+}
+
+export interface TtsCompleteEvent {
+  type: 'complete';
+  outputPath: string;
+}
+
+export interface TtsErrorEvent {
+  type: 'error';
+  message: string;
+}
+
+export type TtsStreamEvent = TtsProgressEvent | TtsCompleteEvent | TtsErrorEvent;
+
+export interface TtsStreamCallbacks {
+  onProgress?: (evt: TtsProgressEvent) => void;
+  onComplete?: (evt: TtsCompleteEvent) => void;
+  onError?: (evt: TtsErrorEvent) => void;
+}
+
+/**
+ * SSE 流式推理 — 调用 Rust 命令，监听 Tauri 事件获取进度
+ * 返回取消监听函数和 Promise
+ */
+export function synthesizeStream(
+  req: SynthesizeRequest,
+  callbacks: TtsStreamCallbacks,
+): { promise: Promise<string>; cancel: () => void } {
+  let unlisteners: UnlistenFn[] = [];
+  let cancelled = false;
+
+  const promise = (async () => {
+    // 监听 Tauri 事件
+    const unProgress = await listen<TtsProgressEvent>('tts-progress', (e) => {
+      if (!cancelled) callbacks.onProgress?.(e.payload);
+    });
+    const unComplete = await listen<TtsCompleteEvent>('tts-complete', (e) => {
+      if (!cancelled) callbacks.onComplete?.(e.payload);
+    });
+    const unError = await listen<TtsErrorEvent>('tts-error', (e) => {
+      if (!cancelled) callbacks.onError?.(e.payload);
+    });
+    unlisteners = [unProgress, unComplete, unError];
+
+    try {
+      const outputPath = await invoke<string>('tts_synthesize_stream', { req });
+      return outputPath;
+    } finally {
+      for (const fn of unlisteners) fn();
+      unlisteners = [];
+    }
+  })();
+
+  return {
+    promise,
+    cancel: () => {
+      cancelled = true;
+      for (const fn of unlisteners) fn();
+      unlisteners = [];
+      void invoke('tts_cancel');
+    },
+  };
+}
+
 /**
  * 预加载指定引擎
  */
@@ -94,4 +166,161 @@ export async function getOutputDir(): Promise<OutputDirResponse> {
   const resp = await fetch('http://127.0.0.1:9880/output-dir');
   if (!resp.ok) throw new Error('获取 output 目录失败');
   return resp.json();
+}
+
+// ==================== 人声分离 ====================
+
+const TTS_SERVER_BASE = 'http://127.0.0.1:9880';
+
+export interface VocalSeparateInfo {
+  available: boolean;
+  /** 'demucs' | 'librosa' | 'none' */
+  method: string;
+  supports_video: boolean;
+  cut_duration_seconds: number;
+}
+
+export async function vocalSeparateInfo(): Promise<VocalSeparateInfo> {
+  const resp = await fetch(`${TTS_SERVER_BASE}/vocal-separate/info`);
+  if (!resp.ok) throw new Error('查询人声分离能力失败');
+  return resp.json();
+}
+
+export interface VocalSeparateRequest {
+  input_path: string;
+  output_path?: string;
+}
+
+export interface VocalSeparateCompleteEvent {
+  type: 'complete';
+  output_path: string;
+  method: string;
+}
+
+export interface StreamProgressEvent {
+  type: 'progress';
+  progress: number;
+  message: string;
+}
+
+export interface StreamErrorEvent {
+  type: 'error';
+  message: string;
+}
+
+interface SseCallbacks<TComplete> {
+  onProgress?: (evt: StreamProgressEvent) => void;
+  onComplete?: (evt: TComplete) => void;
+  onError?: (evt: StreamErrorEvent) => void;
+}
+
+async function consumeSseStream<TComplete extends { type: 'complete' }>(
+  url: string,
+  body: unknown,
+  callbacks: SseCallbacks<TComplete>,
+): Promise<TComplete> {
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
+    body: JSON.stringify(body),
+  });
+
+  if (!resp.ok || !resp.body) {
+    const detail = await resp.text().catch(() => '');
+    throw new Error(`HTTP ${resp.status}: ${detail.slice(0, 200)}`);
+  }
+
+  const reader = resp.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let completePayload: TComplete | null = null;
+  let errorMessage: string | null = null;
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    let idx: number;
+    while ((idx = buffer.indexOf('\n\n')) !== -1) {
+      const rawEvent = buffer.slice(0, idx);
+      buffer = buffer.slice(idx + 2);
+
+      for (const line of rawEvent.split('\n')) {
+        if (!line.startsWith('data: ')) continue;
+        const json = line.slice(6).trim();
+        if (!json) continue;
+
+        let evt: { type: string } & Record<string, unknown>;
+        try {
+          evt = JSON.parse(json);
+        } catch {
+          continue;
+        }
+
+        if (evt.type === 'progress') {
+          callbacks.onProgress?.(evt as unknown as StreamProgressEvent);
+        } else if (evt.type === 'complete') {
+          completePayload = evt as unknown as TComplete;
+          callbacks.onComplete?.(completePayload);
+        } else if (evt.type === 'error') {
+          errorMessage = (evt as unknown as StreamErrorEvent).message;
+          callbacks.onError?.(evt as unknown as StreamErrorEvent);
+        }
+      }
+    }
+  }
+
+  if (errorMessage) throw new Error(errorMessage);
+  if (!completePayload) throw new Error('未收到完成事件');
+  return completePayload;
+}
+
+/**
+ * 人声分离 — 视频/音频 → 提取 → 裁剪 15s → 分离人声 → 输出
+ * 返回完整事件，进度通过 callbacks.onProgress 推送
+ */
+export function vocalSeparate(
+  req: VocalSeparateRequest,
+  callbacks: SseCallbacks<VocalSeparateCompleteEvent> = {},
+): Promise<VocalSeparateCompleteEvent> {
+  return consumeSseStream(`${TTS_SERVER_BASE}/vocal-separate`, req, callbacks);
+}
+
+// ==================== 字幕生成 ====================
+
+export type AsrModel = 'BIJIAN' | 'FasterWhisper' | 'WhisperAPI';
+export type SubtitleFormat = 'srt' | 'vtt' | 'ass' | 'json';
+
+export interface TranscribeRequest {
+  input_path: string;
+  asr_model?: AsrModel;
+  language?: string;
+  need_word_timestamp?: boolean;
+  output_format?: SubtitleFormat;
+}
+
+export interface TranscribeCompleteEvent {
+  type: 'complete';
+  output_path: string;
+  segment_count: number;
+  duration_ms: number;
+}
+
+/**
+ * 字幕转录 — 音频/视频 → ASR → 字幕文件
+ * 默认走必剪 (BIJIAN)，输出 SRT。
+ */
+export function transcribe(
+  req: TranscribeRequest,
+  callbacks: SseCallbacks<TranscribeCompleteEvent> = {},
+): Promise<TranscribeCompleteEvent> {
+  const payload: TranscribeRequest = {
+    asr_model: 'BIJIAN',
+    language: 'zh',
+    need_word_timestamp: false,
+    output_format: 'srt',
+    ...req,
+  };
+  return consumeSseStream(`${TTS_SERVER_BASE}/transcribe`, payload, callbacks);
 }

@@ -4,6 +4,7 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
+use tauri::{AppHandle, Emitter};
 use tokio::sync::Mutex;
 
 // Python TTS Server 默认地址
@@ -182,4 +183,91 @@ pub async fn set_cancel_token(state: &TtsState, ct: tokio_util::sync::Cancellati
 pub async fn clear_cancel_token(state: &TtsState) {
     let mut token = state.cancel_token.lock().await;
     *token = None;
+}
+
+/// SSE 流式推理 — 调用 Python Server 的 /synthesize/stream，
+/// 解析 SSE 事件并通过 Tauri 事件系统推送到前端
+pub async fn synthesize_stream(
+    state: &TtsState,
+    app: &AppHandle,
+    req: SynthesizeRequest,
+) -> Result<String> {
+    let url = format!("{}/synthesize/stream", tts_server_url());
+    let ct = tokio_util::sync::CancellationToken::new();
+    set_cancel_token(state, ct.clone()).await;
+
+    let resp = state
+        .client
+        .post(&url)
+        .json(&req)
+        .send()
+        .await?;
+
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let body = resp.text().await.unwrap_or_default();
+        clear_cancel_token(state).await;
+        return Err(anyhow::anyhow!("TTS Server 错误 ({}): {}", status, body));
+    }
+
+    let mut stream = resp.bytes_stream();
+    let mut output_path = String::new();
+    let mut buffer = String::new();
+
+    use futures_util::StreamExt;
+
+    while let Some(chunk) = stream.next().await {
+        if ct.is_cancelled() {
+            clear_cancel_token(state).await;
+            return Err(anyhow::anyhow!("推理已取消"));
+        }
+
+        let chunk = chunk?;
+        buffer.push_str(&String::from_utf8_lossy(&chunk));
+
+        // 解析 SSE 事件（以 "data: " 开头，"\n\n" 结尾）
+        while let Some(event_end) = buffer.find("\n\n") {
+            let raw_event = buffer[..event_end].to_string();
+            buffer = buffer[event_end + 2..].to_string();
+
+            for line in raw_event.lines() {
+                if let Some(data) = line.strip_prefix("data: ") {
+                    if let Ok(evt) = serde_json::from_str::<SseEvent>(data) {
+                        match &evt {
+                            SseEvent::Progress { progress, message, segment_current, segment_total } => {
+                                let _ = app.emit("tts-progress", serde_json::json!({
+                                    "type": "progress",
+                                    "progress": (*progress * 100.0) as i32,
+                                    "message": message,
+                                    "segmentCurrent": segment_current,
+                                    "segmentTotal": segment_total,
+                                }));
+                            }
+                            SseEvent::Complete { output_path: path, .. } => {
+                                output_path = path.clone();
+                                let _ = app.emit("tts-complete", serde_json::json!({
+                                    "type": "complete",
+                                    "outputPath": path,
+                                }));
+                            }
+                            SseEvent::Error { message } => {
+                                let _ = app.emit("tts-error", serde_json::json!({
+                                    "type": "error",
+                                    "message": message,
+                                }));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    clear_cancel_token(state).await;
+
+    if output_path.is_empty() {
+        return Err(anyhow::anyhow!("推理完成但未返回输出路径"));
+    }
+
+    Ok(output_path)
 }

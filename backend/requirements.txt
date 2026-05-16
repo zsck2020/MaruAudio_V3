@@ -6,3 +6,12 @@ torch>=2.1.0
 torchaudio>=2.1.0
 transformers>=4.40.0
 numpy>=1.24.0
+
+# 字幕生成（必剪 ASR 异步客户端）
+httpx>=0.27.0
+
+# 人声分离
+# demucs 需要 PyTorch >= 1.13，由上面的 torch 提供
+demucs>=4.0.0
+librosa>=0.10.0
+soundfile>=0.12.0

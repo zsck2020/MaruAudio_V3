@@ -1,6 +1,6 @@
 use crate::services::tts::{self, TtsState, SynthesizeRequest, HealthResponse};
 use crate::utils::error::AppResult;
-use tauri::State;
+use tauri::{AppHandle, State};
 
 /// 检查 TTS Server 健康状态及引擎可用性
 #[tauri::command]
@@ -34,6 +34,30 @@ pub async fn tts_synthesize(state: State<'_, TtsState>, req: SynthesizeRequest) 
 pub async fn tts_preload_engine(state: State<'_, TtsState>, engine_name: String) -> AppResult<()> {
     tts::preload_engine(&state, &engine_name).await?;
     Ok(())
+}
+
+/// SSE 流式推理 — 通过 Tauri 事件系统推送进度到前端
+#[tauri::command]
+pub async fn tts_synthesize_stream(
+    state: State<'_, TtsState>,
+    app: AppHandle,
+    req: SynthesizeRequest,
+) -> AppResult<String> {
+    if state.is_synthesizing() {
+        return Err(crate::utils::error::AppError::Tts("已有推理任务进行中".to_string()));
+    }
+    state.set_synthesizing(true);
+
+    let result = match tts::synthesize_stream(&state, &app, req).await {
+        Ok(path) => path,
+        Err(e) => {
+            state.set_synthesizing(false);
+            return Err(crate::utils::error::AppError::Tts(e.to_string()));
+        }
+    };
+
+    state.set_synthesizing(false);
+    Ok(result)
 }
 
 /// 取消当前推理

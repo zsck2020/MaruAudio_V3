@@ -2097,6 +2097,7 @@ dependencies = [
  "anyhow",
  "base64 0.22.1",
  "dirs-next",
+ "futures-util",
  "keyring",
  "rand 0.8.5",
  "reqwest",

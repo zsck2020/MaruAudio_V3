@@ -1,7 +1,10 @@
-import { openExternalUrl } from './open-external-url.ts';
+import { openExternalUrl } from './open-external-url';
+import type * as OpenerModule from '@tauri-apps/plugin-opener';
 
-async function getRealOpenerModule() {
-  return await import('./node_modules/@tauri-apps/plugin-opener/dist-js/index.js');
+type RealOpenerModule = typeof OpenerModule;
+
+async function getRealOpenerModule(): Promise<RealOpenerModule> {
+  return await import('../../../node_modules/@tauri-apps/plugin-opener/dist-js/index.js') as RealOpenerModule;
 }
 
 export async function openUrl(url: string): Promise<void> {

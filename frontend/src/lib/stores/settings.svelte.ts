@@ -20,6 +20,14 @@ const defaultSettings = {
     topP: 0.8,
     topK: 30,
     emoAlpha: 0.6,
+    /** 计算设备：auto / gpu / cpu */
+    device: 'auto' as 'auto' | 'gpu' | 'cpu',
+    /** 显存使用上限百分比 50-95 */
+    vramLimit: 85,
+    /** 并行推理任务数 1-8 */
+    parallelTasks: 2,
+    /** 半精度推理 FP16 */
+    halfPrecision: true,
   },
   ui: {
     sidebarCollapsed: false,

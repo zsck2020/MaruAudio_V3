@@ -1,6 +1,5 @@
 import { defineConfig } from "vite";
 import { sveltekit } from "@sveltejs/kit/vite";
-import { svelte } from "@sveltejs/vite-plugin-svelte";
 
 /**
  * @param {string} relativePath
@@ -13,10 +12,11 @@ function fromConfigRoot(relativePath) {
 const settingsOverride = fromConfigRoot("./src/lib/overrides/settings-store.override.svelte.ts");
 const openerOverride = fromConfigRoot("./src/lib/overrides/plugin-opener.override.ts");
 
-// @ts-expect-error process is a nodejs global
-const host = process.env.TAURI_DEV_HOST;
-// @ts-expect-error process is a nodejs global
-const isTauri = !!process.env.TAURI_PLATFORM || !!process.env.TAURI_DEV_HOST;
+/** @type {{ env?: Record<string, string | undefined> } | undefined} */
+const nodeProcess = /** @type {any} */ (globalThis).process;
+const env = nodeProcess?.env ?? {};
+const host = env.TAURI_DEV_HOST;
+const isTauri = !!env.TAURI_PLATFORM || !!env.TAURI_DEV_HOST;
 
 export default defineConfig(() => ({
   plugins: [
@@ -72,7 +72,6 @@ export default defineConfig(() => ({
   },
   build: {
     target: "esnext",
-    // @ts-expect-error process is a nodejs global
-    sourcemap: !!process.env.TAURI_DEBUG,
+    sourcemap: !!env.TAURI_DEBUG,
   },
 }));

@@ -7,7 +7,7 @@ import {
   type AppSettingsState,
   type DubbingSettings,
   type UiSettings,
-} from './settings-core.ts';
+} from './settings-core';
 
 let store: Store | null = null;
 

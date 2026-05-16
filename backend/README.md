@@ -5,7 +5,7 @@
 ## 规划中的功能
 
 - IndexTTS 1.5 / 2.0 引擎封装（仅参考 IndexTTS/ 目录，禁止直接调用）
-- 阿里云百炼 Qwen3-TTS 云端引擎对接
+- 云端引擎对接（默认通过仙宫云上自部署的 IndexTTS 2.0 远程实例，环境变量 `XIANGONG_TTS_BASE` + 可选 `XIANGONG_TTS_TOKEN`）
 - 统一 TTS 引擎接口 Trait
 - 文本预处理管线（分词、正则化、拼音纠错）
 

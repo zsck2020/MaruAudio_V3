@@ -1,41 +1,53 @@
-"""云端 TTS 引擎 — 阿里云百炼 Qwen3-TTS 接口
+"""云端 TTS 引擎 — 仙宫云上自部署的 IndexTTS 2.0 远程实例
 
 设计要点:
-- 用户面不暴露「阿里云百炼」「Qwen3-TTS」等真实厂商/模型名
-- 统一走 EngineProtocol 接口，与本地引擎平级
-- API Key 从环境变量 DASHSCOPE_API_KEY 读取
-- 支持 voice cloning（传入参考音频）
-- 支持情感控制（emotion_vector / emotion_text）
+- 用户面统一称「云端引擎」，不暴露底层是哪家算力平台
+- 云端引擎本质上是远程的 IndexTTS 2.0 推理服务（与本地情感引擎协议一致），
+  跑在用户自有的 GPU 实例上（默认仙宫云）
+- 配置仅需两个环境变量：
+    XIANGONG_TTS_BASE   — 远程 server 的 base URL（如 http://1.2.3.4:9880）
+    XIANGONG_TTS_TOKEN  — 可选鉴权 Bearer Token，没配就裸 HTTP
+- 协议与本地后端的 `/synthesize/stream` 完全一致，相当于把请求"扔到远端 GPU"
 """
 
 from __future__ import annotations
 
-import asyncio
+import json
 import logging
 import os
-import tempfile
-import uuid
-from pathlib import Path
-from typing import Awaitable, Callable, Optional
+from typing import Any, AsyncIterator, Awaitable, Callable, Optional
+
+import httpx
 
 logger = logging.getLogger(__name__)
 
 ProgressCallback = Callable[[float, str], Awaitable[None]]
 
-# 输出目录
-_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
-_OUTPUT_DIR = _PROJECT_ROOT / "output"
-_OUTPUT_CLOUD_DIR = _OUTPUT_DIR / "audio"
+
+def _get_base_url() -> Optional[str]:
+    """获取远程 server 的 base URL（去掉末尾斜杠）"""
+    raw = os.environ.get("XIANGONG_TTS_BASE")
+    if not raw:
+        return None
+    return raw.rstrip("/")
 
 
-def _get_api_key() -> Optional[str]:
-    """获取 DashScope API Key"""
-    return os.environ.get("DASHSCOPE_API_KEY")
+def _get_token() -> Optional[str]:
+    """获取鉴权 Token（可选）"""
+    return os.environ.get("XIANGONG_TTS_TOKEN")
+
+
+def _build_headers() -> dict[str, str]:
+    headers = {"Content-Type": "application/json"}
+    token = _get_token()
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    return headers
 
 
 def is_configured() -> bool:
-    """检查云端引擎是否已配置 API Key"""
-    return _get_api_key() is not None
+    """判断云端引擎是否已配置远程实例端点"""
+    return _get_base_url() is not None
 
 
 async def check_availability() -> dict:
@@ -44,28 +56,85 @@ async def check_availability() -> dict:
     Returns:
         {"engine": "cloud", "available": bool, "message": str}
     """
-    api_key = _get_api_key()
-    if not api_key:
+    base = _get_base_url()
+    if not base:
         return {
             "engine": "cloud",
             "available": False,
-            "message": "未配置 API Key",
+            "message": "未配置远程实例端点（XIANGONG_TTS_BASE）",
         }
 
-    # 尝试导入 dashscope
+    url = f"{base}/health"
     try:
-        import dashscope  # noqa: F401
-    except ImportError:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(5.0)) as client:
+            resp = await client.get(url, headers=_build_headers())
+            if resp.status_code == 200:
+                return {
+                    "engine": "cloud",
+                    "available": True,
+                    "message": "云端引擎可用",
+                }
+            return {
+                "engine": "cloud",
+                "available": False,
+                "message": f"远程服务返回 {resp.status_code}",
+            }
+    except httpx.ConnectError:
         return {
             "engine": "cloud",
             "available": False,
-            "message": "未安装 dashscope SDK",
+            "message": "无法连接远程实例（请检查端点是否运行）",
+        }
+    except httpx.TimeoutException:
+        return {
+            "engine": "cloud",
+            "available": False,
+            "message": "远程实例响应超时",
+        }
+    except Exception as exc:  # pragma: no cover - 兜底
+        logger.warning("check_cloud failed: %s", exc)
+        return {
+            "engine": "cloud",
+            "available": False,
+            "message": f"远程检查异常：{exc}",
         }
 
+
+def _build_remote_payload(
+    text: str,
+    speaker_audio_path: Optional[str],
+    emotion_method: str,
+    emotion_vector: Optional[list[float]],
+    emotion_text: Optional[str],
+    emotion_audio_path: Optional[str],
+    emo_alpha: float,
+    temperature: float,
+    top_p: float,
+) -> dict[str, Any]:
+    """构造转发到远程的 SynthesizeRequest payload
+
+    远程实例运行的是本项目同款 backend.maruaudio_tts.server，所以请求体
+    与本地后端 `/synthesize/stream` 一致：engine 强制为 "emotion"。
+    """
     return {
-        "engine": "cloud",
-        "available": True,
-        "message": "云端引擎可用",
+        "engine": "emotion",
+        "text": text,
+        "speaker_audio_path": speaker_audio_path or "",
+        "inference_mode": "normal",
+        "interval_silence": 200,
+        "max_text_tokens_per_segment": 120,
+        "bucket_max_size": 4,
+        "emotion_method": emotion_method,
+        "emotion_vector": emotion_vector,
+        "emotion_text": emotion_text,
+        "emotion_audio_path": emotion_audio_path,
+        "emo_alpha": emo_alpha,
+        "temperature": temperature,
+        "top_p": top_p,
+        "top_k": 30,
+        "num_beams": 3,
+        "repetition_penalty": 10.0,
+        "max_mel_tokens": 600,
     }
 
 
@@ -81,136 +150,28 @@ async def synthesize(
     top_p: float = 0.8,
     progress: Optional[ProgressCallback] = None,
 ) -> str:
-    """调用云端 TTS 引擎生成音频
+    """同步式云端推理 — 内部走 SSE，收到 complete 事件后返回输出路径"""
+    final_path: Optional[str] = None
+    async for evt in synthesize_stream(
+        text=text,
+        speaker_audio_path=speaker_audio_path,
+        emotion_method=emotion_method,
+        emotion_vector=emotion_vector,
+        emotion_text=emotion_text,
+        emotion_audio_path=emotion_audio_path,
+        emo_alpha=emo_alpha,
+        temperature=temperature,
+        top_p=top_p,
+        progress=progress,
+    ):
+        if evt.get("type") == "complete":
+            final_path = evt.get("output_path")
+        elif evt.get("type") == "error":
+            raise RuntimeError(str(evt.get("message", "云端推理失败")))
 
-    Args:
-        text: 待合成文本
-        speaker_audio_path: 参考音频路径（用于 voice cloning）
-        emotion_method: 情感控制方式
-        emotion_vector: 情感向量
-        emotion_text: 情感描述文本
-        emotion_audio_path: 情感参考音频
-        emo_alpha: 情感强度
-        temperature: 采样温度
-        top_p: top_p 采样
-        progress: 进度回调
-
-    Returns:
-        输出音频文件路径
-
-    Raises:
-        RuntimeError: API Key 未配置或调用失败
-        ImportError: dashscope SDK 未安装
-    """
-    api_key = _get_api_key()
-    if not api_key:
-        raise RuntimeError("云端引擎 API Key 未配置（请设置环境变量 DASHSCOPE_API_KEY）")
-
-    try:
-        import dashscope
-        from dashscope.audio.tts_v2 import SpeechSynthesizer
-    except ImportError:
-        raise ImportError("未安装 dashscope SDK，请执行: pip install dashscope")
-
-    async def emit(p: float, msg: str) -> None:
-        if progress is not None:
-            await progress(p, msg)
-
-    await emit(0.1, "正在准备云端推理…")
-
-    # 设置 API Key
-    dashscope.api_key = api_key
-
-    # 构建请求参数
-    model = "qwen3-tts"
-
-    # 情感文本处理
-    emo_prompt = None
-    if emotion_method == "text" and emotion_text:
-        emo_prompt = emotion_text
-    elif emotion_method == "audio" and emotion_audio_path:
-        # 情感参考音频通过 extra 参数传递
-        pass
-
-    await emit(0.3, "正在调用云端引擎…")
-
-    # 在线程池中运行阻塞的 API 调用
-    loop = asyncio.get_event_loop()
-
-    try:
-        output_path = await loop.run_in_executor(
-            None,
-            _synthesize_blocking,
-            model,
-            text,
-            speaker_audio_path,
-            emo_prompt,
-            emo_alpha,
-            temperature,
-            top_p,
-        )
-    except Exception as e:
-        logger.exception("cloud TTS failed")
-        raise RuntimeError(f"云端推理失败: {e}") from e
-
-    await emit(1.0, "云端推理完成")
-    return output_path
-
-
-def _synthesize_blocking(
-    model: str,
-    text: str,
-    speaker_audio_path: Optional[str],
-    emo_prompt: Optional[str],
-    emo_alpha: float,
-    temperature: float,
-    top_p: float,
-) -> str:
-    """同步调用 DashScope TTS API（在线程池中运行）"""
-    from dashscope.audio.tts_v2 import SpeechSynthesizer
-
-    _OUTPUT_CLOUD_DIR.mkdir(parents=True, exist_ok=True)
-    output_path = str(_OUTPUT_CLOUD_DIR / f"cloud_{uuid.uuid4().hex}.wav")
-
-    # 构建合成器
-    synthesizer = SpeechSynthesizer(
-        model=model,
-        voice="Chelsie",  # 默认音色，可被参考音频覆盖
-        format="wav",
-    )
-
-    # 如果有参考音频，设置 voice cloning
-    if speaker_audio_path and Path(speaker_audio_path).exists():
-        # 读取参考音频
-        with open(speaker_audio_path, "rb") as f:
-            ref_audio = f.read()
-        # 设置参考音频进行声音克隆
-        synthesizer.set_reference_audio(ref_audio)
-
-    # 设置情感提示
-    if emo_prompt:
-        synthesizer.set_emotion_prompt(emo_prompt)
-
-    # 执行合成
-    audio_data = synthesizer.call(text)
-
-    if audio_data is None:
-        raise RuntimeError("云端引擎未返回音频数据")
-
-    # 写入文件
-    with open(output_path, "wb") as f:
-        if isinstance(audio_data, bytes):
-            f.write(audio_data)
-        elif hasattr(audio_data, "read"):
-            f.write(audio_data.read())
-        else:
-            # 尝试从 response 对象获取音频
-            if hasattr(audio_data, "get_audio_data"):
-                f.write(audio_data.get_audio_data())
-            else:
-                raise RuntimeError(f"无法解析云端返回的音频数据: {type(audio_data)}")
-
-    return output_path
+    if not final_path:
+        raise RuntimeError("云端推理结束但未返回输出路径")
+    return final_path
 
 
 async def synthesize_stream(
@@ -224,23 +185,78 @@ async def synthesize_stream(
     temperature: float = 1.0,
     top_p: float = 0.8,
     progress: Optional[ProgressCallback] = None,
-):
-    """流式合成（生成器，逐步推送进度）"""
-    yield {"type": "progress", "progress": 0.05, "message": "正在准备云端推理…"}
+) -> AsyncIterator[dict]:
+    """流式云端推理 — 转发到远程 IndexTTS 2.0 实例的 SSE 接口
+
+    Yields:
+        SSE 事件 dict（与本地后端一致）：
+            {"type": "progress", "progress": float, "message": str, ...}
+            {"type": "complete", "output_path": str, ...}
+            {"type": "error", "message": str}
+    """
+    base = _get_base_url()
+    if not base:
+        yield {"type": "error", "message": "未配置远程实例端点（XIANGONG_TTS_BASE）"}
+        return
+
+    payload = _build_remote_payload(
+        text=text,
+        speaker_audio_path=speaker_audio_path,
+        emotion_method=emotion_method,
+        emotion_vector=emotion_vector,
+        emotion_text=emotion_text,
+        emotion_audio_path=emotion_audio_path,
+        emo_alpha=emo_alpha,
+        temperature=temperature,
+        top_p=top_p,
+    )
+
+    url = f"{base}/synthesize/stream"
+    headers = _build_headers()
+
+    async def emit(p: float, msg: str) -> None:
+        if progress is not None:
+            await progress(p, msg)
 
     try:
-        output_path = await synthesize(
-            text=text,
-            speaker_audio_path=speaker_audio_path,
-            emotion_method=emotion_method,
-            emotion_vector=emotion_vector,
-            emotion_text=emotion_text,
-            emotion_audio_path=emotion_audio_path,
-            emo_alpha=emo_alpha,
-            temperature=temperature,
-            top_p=top_p,
-            progress=progress,
-        )
-        yield {"type": "complete", "output_path": output_path}
-    except Exception as e:
-        yield {"type": "error", "message": str(e)}
+        async with httpx.AsyncClient(timeout=httpx.Timeout(600.0)) as client:
+            async with client.stream("POST", url, headers=headers, json=payload) as resp:
+                if resp.status_code != 200:
+                    body = await resp.aread()
+                    text_body = body.decode("utf-8", errors="ignore")
+                    yield {
+                        "type": "error",
+                        "message": f"云端服务返回 {resp.status_code}: {text_body[:200]}",
+                    }
+                    return
+
+                await emit(0.05, "已连接云端实例…")
+
+                buffer = ""
+                async for chunk in resp.aiter_text():
+                    buffer += chunk
+                    while "\n\n" in buffer:
+                        raw_event, buffer = buffer.split("\n\n", 1)
+                        for line in raw_event.splitlines():
+                            if not line.startswith("data: "):
+                                continue
+                            data = line[len("data: "):]
+                            try:
+                                evt = json.loads(data)
+                            except json.JSONDecodeError:
+                                logger.warning("远程 SSE 解析失败: %r", data[:120])
+                                continue
+
+                            if evt.get("type") == "progress" and progress is not None:
+                                await emit(
+                                    float(evt.get("progress", 0.0)),
+                                    str(evt.get("message", "")),
+                                )
+                            yield evt
+    except httpx.ConnectError:
+        yield {"type": "error", "message": "无法连接云端实例（请检查端点）"}
+    except httpx.TimeoutException:
+        yield {"type": "error", "message": "云端实例响应超时"}
+    except Exception as exc:
+        logger.exception("cloud synthesize_stream failed")
+        yield {"type": "error", "message": f"云端推理失败：{exc}"}

@@ -42,9 +42,10 @@
 - **情感引擎**: IndexTTS 2.0 (本地)
   - 源码: https://github.com/index-tts/index-tts
   - 特点: 情感表达丰富
-- **云端引擎**: 阿里云百炼 Qwen3-TTS接口
-  - 价格: 1元/万字符
-  - 特点: 高质量、无需本地资源
+- **云端引擎**: 仙宫云上自部署的 IndexTTS 2.0 远程实例
+  - 部署方式: 在仙宫云租用 GPU 实例 + 拉本项目同款 Python TTS server 镜像
+  - 协议: 与本地 emotion 引擎完全一致（仅 URL 不同），后端通过 `XIANGONG_TTS_BASE` 环境变量配置
+  - 特点: 高质量、不占用本地显存、按量计费、完全自主可控
 
 ### 系统架构层次
 
@@ -69,7 +70,7 @@
 │     AI Engine Layer                     │
 │  - 轻量引擎 (IndexTTS 1.5)              │
 │  - 情感引擎 (IndexTTS 2.0)              │
-│  - 云端引擎 (阿里云百炼)                 │
+│  - 云端引擎 (仙宫云远程 IndexTTS 2.0)    │
 └─────────────────────────────────────────┘
 ```
 
@@ -268,9 +269,9 @@ MaruAudio_V3/
 **引擎代号策略** (面向用户隐藏真实模型信息):
 - 轻量引擎 → 显示为: "轻量引擎"（内部 = IndexTTS 1.5）
 - 情感引擎 → 显示为: "情感引擎"（内部 = IndexTTS 2.0）
-- 云端引擎 → 显示为: "云端引擎"（内部 = 阿里云百炼 Qwen3-TTS 远程推理 = 情感引擎云端版）
+- 云端引擎 → 显示为: "云端引擎"（内部 = 仙宫云上自部署的 IndexTTS 2.0 远程实例 = 情感引擎云端版）
 
-> 历史方案曾使用"快速模式 / 标准模式 / 高质量模式"作为面向用户的代号，2026-05 调整为更直接体现"本地 vs 云端"和"轻量 vs 情感"区分的命名，仍严格隐藏 IndexTTS / 阿里云百炼 / Qwen3-TTS 等真实模型与厂商信息。
+> 历史方案曾使用"快速模式 / 标准模式 / 高质量模式"作为面向用户的代号，2026-05 调整为更直接体现"本地 vs 云端"和"轻量 vs 情感"区分的命名，仍严格隐藏 IndexTTS / 仙宫云 / 远程实例细节等底层信息。
 
 ---
 
@@ -280,16 +281,16 @@ MaruAudio_V3/
 面向客户完全规避暴露以下信息:
 - IndexTTS1.5
 - IndexTTS2.0
-- 阿里云百炼
-- Qwen3-TTS
+- 仙宫云 / GPU 实例端点
+- 远程实例的部署细节（镜像、IP、端口、Token）
 
 ### 实施策略
 
 #### 1. 用户界面层面
-- **引擎选择器**: 使用面向用户的中文名（不出现 IndexTTS / Qwen / 阿里云字样）
+- **引擎选择器**: 使用面向用户的中文名（不出现 IndexTTS / 仙宫云 / 远程实例字样）
   - "轻量引擎" (内部 = IndexTTS 1.5，本地)
   - "情感引擎" (内部 = IndexTTS 2.0，本地)
-  - "云端引擎" (内部 = 阿里云百炼 Qwen3-TTS 远程推理，云端)
+  - "云端引擎" (内部 = 仙宫云上自部署的 IndexTTS 2.0 远程实例)
 - **错误提示**: 使用通用错误信息，不暴露引擎细节
 - **日志输出**: 生产环境不输出模型相关信息
 
@@ -652,21 +653,21 @@ export async function monitoredInvoke<T>(
 
 ### 3. 云端引擎集成
 
-```rust
-// src-tauri/src/services/tts/cloud.rs
-pub struct CloudEngine {
-    api_key: String,
-    endpoint: String,
-}
+实际实现位置: `backend/maruaudio_tts/cloud_engine.py`（不在 Rust 端做厚逻辑）。
+Rust 端透传到 Python server 的 `/synthesize/stream`，Python server 内部对 `engine=cloud` 的请求再转发到远程 IndexTTS 2.0 实例。
 
-impl CloudEngine {
-    pub async fn generate(&self, text: String) -> Result<String, String> {
-        // 调用阿里云百炼 API
-        // 注意: 代码中不暴露 "阿里云百炼"、"Qwen3-TTS" 等字样
-        let client = reqwest::Client::new();
-        // ... API 调用逻辑
-    }
-}
+```python
+# backend/maruaudio_tts/cloud_engine.py（节选）
+import os, httpx
+
+XIANGONG_TTS_BASE = os.environ.get("XIANGONG_TTS_BASE")  # http://<公网IP>:9880
+XIANGONG_TTS_TOKEN = os.environ.get("XIANGONG_TTS_TOKEN")  # 可选
+
+async def synthesize_stream(text, speaker_audio_path, ...):
+    """转发到仙宫云上自部署的 IndexTTS 2.0 远程实例"""
+    # 协议与本地后端 `/synthesize/stream` 完全一致，仅 URL 不同
+    # 不在用户日志/UI 中暴露 XIANGONG_TTS_BASE 等底层端点
+    ...
 ```
 
 ### 4. 状态管理 (Svelte 5 Runes)

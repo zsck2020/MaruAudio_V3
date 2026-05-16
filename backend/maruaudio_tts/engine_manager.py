@@ -3,7 +3,7 @@
 支持三类引擎:
 - lightweight (v1.5): 本地轻量推理
 - emotion (v2.0): 本地情感推理
-- cloud: 云端推理（阿里云百炼 Qwen3-TTS）
+- cloud: 云端推理（仙宫云上自部署的 IndexTTS 2.0 远程实例）
 """
 
 from __future__ import annotations
@@ -141,29 +141,27 @@ class EngineManager:
         return None
 
     def check_cloud(self) -> dict:
-        """检查云端引擎可用性"""
+        """检查云端引擎可用性（同步包装异步检查）"""
+        import asyncio
+
         from . import cloud_engine
 
-        # 云端引擎始终返回状态，实际可用性由 API Key 决定
-        api_key = os.environ.get("DASHSCOPE_API_KEY")
-        if not api_key:
-            return {
-                "engine": "cloud",
-                "available": False,
-                "message": "未配置 API Key",
-            }
-
-        # 检查 dashscope SDK
         try:
-            import dashscope  # noqa: F401
-            return {
-                "engine": "cloud",
-                "available": True,
-                "message": "云端引擎可用",
-            }
-        except ImportError:
-            return {
-                "engine": "cloud",
-                "available": False,
-                "message": "未安装 dashscope SDK",
-            }
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                # 已在事件循环中：返回乐观估计（实际由 API 调用兜底）
+                if cloud_engine.is_configured():
+                    return {
+                        "engine": "cloud",
+                        "available": True,
+                        "message": "云端引擎已配置（实际可用性以推理结果为准）",
+                    }
+                return {
+                    "engine": "cloud",
+                    "available": False,
+                    "message": "未配置远程实例端点（XIANGONG_TTS_BASE）",
+                }
+        except RuntimeError:
+            pass
+
+        return asyncio.run(cloud_engine.check_availability())

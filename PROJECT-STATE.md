@@ -23,10 +23,15 @@
 - **2026-05-16 12:22** 对话再次中断后恢复（仍同 sessionId 180017-c903de69）· 接力时核对：丸子 maruaudio_v3.exe 已重启到 PID 1396（推测猫总人工重启过 dev）· 小蜜 xiaomi-assistant.exe PID 18236 + python gateway PID 14328 也已重启 · 后台 task 文件 619904/13980 已被 Cursor 清理（IDE 重启过）· C 阶段仍未推进
 - **2026-05-16 12:30** 猫总指令「C」→ 主 agent 执行待办#3「前端 lib/subtitle/mock-provider 替换为 Tauri invoke 桥到 backend/services/subtitle/」· 落盘：Rust 端 services/subtitle/mod.rs（SSE 流式 + 取消令牌）+ commands/subtitle.rs（3 个命令：transcribe_stream/cancel/read_output）+ services/mod.rs · commands/mod.rs · lib.rs 注册；前端 lib/subtitle/tauri-provider.ts（实现 SubtitleProvider，translate/optimize 暂透 mock）+ index.ts 改为按 env.isTauri 自动选 provider · svelte-check 0/0 · cargo check 成功（仅 2 个旧 dead_code 警告）· Tauri 自动检到 Rust 变更已重启 maruaudio_v3.exe 到 PID 388
 - **2026-05-16 12:42** 猫总改云端方向：「取消阿里云对接，改为仙宫云上自部署的 IndexTTS 2.0 镜像 + API 服务」→ 主 agent 重写 cloud_engine.py（移除全部 dashscope/qwen 字样 · 改为通过 `XIANGONG_TTS_BASE` + 可选 `XIANGONG_TTS_TOKEN` 转发到远程 IndexTTS 2.0 实例 · 复用本地 SSE 协议 · 同款 server 镜像保证零适配成本）· 同步改 engine_manager.check_cloud（用 httpx GET /health 检查可用性）· 改 AGENTS.md 术语表第 17/64 行、PROJECT-STATE.md 第 43 行、backend/README.md 第 8 行、docs/MaruAudio_V3项目开发方案.md 5 处、docs/配音页面UI功能设计方案.md 2 处 · 用户可见面零残留阿里云/百炼/dashscope/Qwen3 字样（IndexTTS 内部用 Qwen3 做情感文本分析的 README 不动，那是引擎技术真相）
+- **2026-05-16 12:48** 拆 2 个 commit 提交完成：`c52d333 feat(subtitle): 前端字幕模块切到 Tauri 桥接真实必剪 ASR`（7 文件 +444/-1）+ `57e185f refactor(cloud): 云端从阿里云百炼改为仙宫云上的 IndexTTS 2.0 远程实例`（7 文件 +280/-253）· git status 干净 · 总 commit 数 11
+- **2026-05-16 12:50** 猫总要求「新开一个 PChat 对话并继承 180017-c903de69 的上下文」→ 主 agent 在 PROJECT-STATE.md 把旧 sessionId 标退役、新 sessionId 占位 pending · 接力 SOP 把 PROJECT-STATE.md 作为跨 session 的上下文锚点 · 准备调 sessionId="NEW" 让服务端分配新 ID
+- **2026-05-16 12:51** 服务端分配新 sessionId `124734-70193510` · 主 agent 立刻回写 PROJECT-STATE.md 与 AGENTS.md · 接力链：`180017-c903de69` → `124734-70193510` · 猫总指令「继续」→ 按上轮推荐 B 推进：字幕页 UI 接入 defaultSubtitleProvider
 
 ## PChat 会话关联
 
-- **本项目 PChat sessionId**：`180017-c903de69`（用户原话）
+- **本项目当前 PChat sessionId**：`124734-70193510`（自 2026-05-16 12:51 起 · 服务端分配）
+- **历史 sessionId（接力链）**：
+  - `180017-c903de69`（2026-05-14 至 2026-05-16 12:50 · 已退役）
 
 ## 在跑的后台任务
 
@@ -46,7 +51,7 @@
 - 丸子启动命令：`cd frontend && npm run dev`（须自己重新起 task 才能监控）
 - 已知警告：2 个 Rust dead_code（field `current_task_id` 与方法 `next_task_id` / `current_task_id` 未使用 · 无害）
 
-## 已完成（已提交 · 9 个 commit）
+## 已完成（已提交 · 11 个 commit）
 
 | commit | 主题 | 文件数 |
 |---|---|---|
@@ -59,8 +64,10 @@
 | 6744160 | feat(layout): 框架级 UI + Ctrl+Shift+E 快捷键 | 5 |
 | fb8eb3b | feat(pages): 8 菜单页面 + profile 个人中心 | 8 |
 | f9a245d | docs: 项目方案 + UI 设计图归档 | 5 |
+| c52d333 | feat(subtitle): 前端字幕模块切到 Tauri 桥接真实必剪 ASR | 7 |
+| 57e185f | refactor(cloud): 云端从阿里云百炼改为仙宫云上的 IndexTTS 2.0 远程实例 | 7 |
 
-- 已提交合计 86 文件 · git status 干净
+- 已提交合计 100 文件 · git status 干净
 - 意外发现：必剪 ASR 真实实现已在 `backend/services/subtitle/`（不是 mock）
 
 ## 待办（按优先级）

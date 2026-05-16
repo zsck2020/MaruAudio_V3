@@ -310,8 +310,11 @@ export interface TranscribeCompleteEvent {
 /**
  * 字幕转录 — 音频/视频 → ASR → 字幕文件
  * 默认走必剪 (BIJIAN)，输出 SRT。
+ *
+ * Tauri 桌面端走 invoke 桥（生产 CSP 友好），浏览器测试回落到直接 HTTP SSE。
+ * 签名保持稳定，调用方无感知。
  */
-export function transcribe(
+export async function transcribe(
   req: TranscribeRequest,
   callbacks: SseCallbacks<TranscribeCompleteEvent> = {},
 ): Promise<TranscribeCompleteEvent> {
@@ -322,5 +325,88 @@ export function transcribe(
     output_format: 'srt',
     ...req,
   };
+
+  if (typeof window !== 'undefined') {
+    try {
+      const { isTauri } = await import('@tauri-apps/api/core');
+      if (isTauri()) {
+        return await transcribeViaInvoke(payload, callbacks);
+      }
+    } catch {
+      // 不在 Tauri 环境（如 vitest jsdom），下面回落到 HTTP
+    }
+  }
+
   return consumeSseStream(`${TTS_SERVER_BASE}/transcribe`, payload, callbacks);
+}
+
+/** Tauri 桥接版字幕转录 — 走 subtitle_transcribe_stream 命令 + subtitle-* 事件 */
+async function transcribeViaInvoke(
+  req: TranscribeRequest,
+  callbacks: SseCallbacks<TranscribeCompleteEvent>,
+): Promise<TranscribeCompleteEvent> {
+  const unlisteners: UnlistenFn[] = [];
+  let completePayload: TranscribeCompleteEvent | null = null;
+  let errorMessage: string | null = null;
+
+  try {
+    unlisteners.push(
+      await listen<{ progress: number; message: string }>('subtitle-progress', (e) => {
+        callbacks.onProgress?.({
+          type: 'progress',
+          // Rust 端 emit 时已乘 100 转整数，这里 /100 还原 0~1 浮点保持 SSE 契约
+          progress: (e.payload.progress ?? 0) / 100,
+          message: e.payload.message ?? '',
+        });
+      }),
+    );
+    unlisteners.push(
+      await listen<{ outputPath: string; segmentCount?: number; durationMs?: number }>(
+        'subtitle-complete',
+        (e) => {
+          completePayload = {
+            type: 'complete',
+            output_path: e.payload.outputPath,
+            segment_count: e.payload.segmentCount ?? 0,
+            duration_ms: e.payload.durationMs ?? 0,
+          };
+        },
+      ),
+    );
+    unlisteners.push(
+      await listen<{ message: string }>('subtitle-error', (e) => {
+        errorMessage = e.payload.message;
+      }),
+    );
+
+    const outputPath = await invoke<string>('subtitle_transcribe_stream', { req });
+
+    if (errorMessage) {
+      callbacks.onError?.({ type: 'error', message: errorMessage });
+      throw new Error(errorMessage);
+    }
+
+    if (completePayload) {
+      callbacks.onComplete?.(completePayload);
+      return completePayload;
+    }
+
+    // 兜底：Rust 已返回 outputPath，但 subtitle-complete 事件还未到（极少见）
+    const fallback: TranscribeCompleteEvent = {
+      type: 'complete',
+      output_path: outputPath,
+      segment_count: 0,
+      duration_ms: 0,
+    };
+    callbacks.onComplete?.(fallback);
+    return fallback;
+  } finally {
+    for (const fn of unlisteners) {
+      try {
+        fn();
+      } catch {
+        /* ignore */
+      }
+    }
+  }
 }

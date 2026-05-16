@@ -26,6 +26,7 @@
 - **2026-05-16 12:48** 拆 2 个 commit 提交完成：`c52d333 feat(subtitle): 前端字幕模块切到 Tauri 桥接真实必剪 ASR`（7 文件 +444/-1）+ `57e185f refactor(cloud): 云端从阿里云百炼改为仙宫云上的 IndexTTS 2.0 远程实例`（7 文件 +280/-253）· git status 干净 · 总 commit 数 11
 - **2026-05-16 12:50** 猫总要求「新开一个 PChat 对话并继承 180017-c903de69 的上下文」→ 主 agent 在 PROJECT-STATE.md 把旧 sessionId 标退役、新 sessionId 占位 pending · 接力 SOP 把 PROJECT-STATE.md 作为跨 session 的上下文锚点 · 准备调 sessionId="NEW" 让服务端分配新 ID
 - **2026-05-16 12:51** 服务端分配新 sessionId `124734-70193510` · 主 agent 立刻回写 PROJECT-STATE.md 与 AGENTS.md · 接力链：`180017-c903de69` → `124734-70193510` · 猫总指令「继续」→ 按上轮推荐 B 推进：字幕页 UI 接入 defaultSubtitleProvider
+- **2026-05-16 13:02** 字幕页接入桥接完成（最少代码方案）：发现字幕页 copywriting/+page.svelte 早就调用 lib/api/tts.ts::transcribe，但该函数走 fetch 直连 9880 端口，生产 CSP 会拦。改为在 transcribe 内部按 isTauri() 自动分流：桌面端 → invoke('subtitle_transcribe_stream') + listen 三个 subtitle-* 事件包装回 SseCallbacks 协议；其它环境保留 fetch 回落给 vitest。字幕页**零改动**自动升级。svelte-check 0/0
 
 ## PChat 会话关联
 

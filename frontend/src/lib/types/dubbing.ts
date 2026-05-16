@@ -60,5 +60,5 @@ export interface VoiceSample {
   audioUrl: string | null;
 }
 
-/** IndexTTS 情感向量归一化上限 */
+/** 情感向量归一化上限 */
 export const EMOTION_SLIDER_SUM_MAX = 0.8;

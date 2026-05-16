@@ -8,8 +8,33 @@
 
   let samplingHint = $derived(
     isLightweight
-      ? 'IndexTTS 1.5 默认：温度 1.0、Top-P 0.8、Top-K 30'
-      : 'IndexTTS 2.0 默认：温度 0.8、Top-P 0.8、Top-K 30'
+      ? '轻量引擎默认：温度 1.0、Top-P 0.8、Top-K 30'
+      : isCloud
+        ? '云端引擎使用情感能力，保留情绪控制并交由云端队列生成'
+        : '情感引擎默认：温度 0.8、Top-P 0.8、Top-K 30'
+  );
+
+  let engineMeta = $derived(
+    isLightweight
+      ? {
+          title: '轻量引擎参数',
+          icon: 'thunderbolt',
+          desc: '面向批量文本和快速出音，展示分段、批处理、采样参数；不显示情感参考音频。',
+          chips: ['本地推理', '批量推理', '速度优先'],
+        }
+      : isCloud
+        ? {
+            title: '云端引擎参数',
+            icon: 'cloud',
+            desc: '云端引擎使用情感能力，适合本地显存不足或长文本任务；需要账号与余额。',
+            chips: ['云端情感', '队列生成', '自动回传'],
+          }
+        : {
+            title: '情感引擎参数',
+            icon: 'heart',
+            desc: '面向角色对白和情绪表达，支持情感向量、文本描述、情感参考音频与混合强度。',
+            chips: ['本地推理', '情感控制', '韵律增强'],
+          }
   );
 
   // 快捷预设
@@ -44,6 +69,21 @@
 </script>
 
 <div class="param-panel">
+  <section class="engine-summary">
+    <div class="engine-summary-icon">
+      <Icon name={engineMeta.icon} size={20} color="var(--color-primary)" />
+    </div>
+    <div class="engine-summary-body">
+      <strong>{engineMeta.title}</strong>
+      <p>{engineMeta.desc}</p>
+      <div class="engine-chip-row">
+        {#each engineMeta.chips as chip (chip)}
+          <span>{chip}</span>
+        {/each}
+      </div>
+    </div>
+  </section>
+
   <div class="param-section-title">
     <Icon name="clock" size={12} color="var(--color-text-tertiary)" />
     <span>分段与静音</span>
@@ -173,7 +213,7 @@
 
   {#if !isLightweight}
     <div class="param-divider" role="separator"></div>
-    <div class="param-section-title">IndexTTS 2.0 · 情感混合</div>
+    <div class="param-section-title">{isCloud ? '云端引擎 · 情感混合' : '情感引擎 · 情感混合'}</div>
 
     <div class="param-group">
       <div class="param-label">
@@ -188,7 +228,35 @@
         step="0.01"
         bind:value={dubbing.emoAlpha}
       />
-      <div class="param-hint">控制情感向量 / 情感参考与声线的混合比例；文本情感 (Qwen) 建议 ≤0.6 更自然</div>
+      <div class="param-hint">控制情感向量 / 情感参考与声线的混合比例；文本情感建议 ≤0.6 更自然</div>
+    </div>
+  {/if}
+
+  {#if isCloud}
+    <div class="param-divider" role="separator"></div>
+    <div class="param-section-title">
+      <Icon name="cloud" size={12} color="var(--color-text-tertiary)" />
+      <span>云端任务</span>
+    </div>
+    <div class="cloud-task-grid">
+      <label>
+        <span>队列优先级</span>
+        <select>
+          <option>普通队列</option>
+          <option>加速队列</option>
+        </select>
+      </label>
+      <label>
+        <span>失败重试</span>
+        <select>
+          <option>3 次</option>
+          <option>5 次</option>
+        </select>
+      </label>
+      <label class="switch-row">
+        <span>生成后回传本地</span>
+        <input type="checkbox" checked />
+      </label>
     </div>
   {/if}
 </div>
@@ -199,6 +267,61 @@
     flex-direction: column;
     gap: var(--spacing-md);
     padding: var(--spacing-md);
+  }
+
+  .engine-summary {
+    display: flex;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
+    border: 1px solid var(--color-border-secondary);
+    border-radius: var(--border-radius-lg);
+    background:
+      radial-gradient(circle at 12% 0%, color-mix(in srgb, var(--color-primary) 22%, transparent), transparent 42%),
+      var(--color-bg-base);
+  }
+
+  .engine-summary-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: var(--border-radius);
+    background-color: color-mix(in srgb, var(--color-primary) 14%, transparent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .engine-summary-body {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .engine-summary strong {
+    color: var(--color-text);
+    font-size: var(--font-size-sm);
+  }
+
+  .engine-summary p {
+    margin: 0;
+    color: var(--color-text-tertiary);
+    font-size: 11px;
+    line-height: 1.45;
+  }
+
+  .engine-chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .engine-chip-row span {
+    color: var(--color-primary);
+    background-color: color-mix(in srgb, var(--color-primary) 12%, transparent);
+    border-radius: var(--border-radius-sm);
+    padding: 2px 6px;
+    font-size: 10px;
   }
 
   .param-section-title {
@@ -316,5 +439,33 @@
     background: var(--color-bg-elevated);
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
     cursor: pointer;
+  }
+
+  .cloud-task-grid {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+  }
+
+  .cloud-task-grid label {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 5px;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+  }
+
+  .cloud-task-grid select {
+    height: 30px;
+    border: 1px solid var(--color-border-secondary);
+    border-radius: var(--border-radius-sm);
+    background-color: var(--color-bg-base);
+    color: var(--color-text-secondary);
+    padding: 0 var(--spacing-sm);
+  }
+
+  .cloud-task-grid .switch-row {
+    grid-template-columns: 1fr auto;
+    align-items: center;
   }
 </style>

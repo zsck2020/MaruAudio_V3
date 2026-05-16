@@ -2,7 +2,10 @@
   import TextToolbar from '$lib/components/dubbing/TextToolbar.svelte';
   import TextEditor from '$lib/components/dubbing/TextEditor.svelte';
   import LeftBottomBar from '$lib/components/dubbing/LeftBottomBar.svelte';
-  import ParamTabs from '$lib/components/dubbing/ParamTabs.svelte';
+  import EngineSelector from '$lib/components/dubbing/EngineSelector.svelte';
+  import ReferenceAudioPanel from '$lib/components/dubbing/ReferenceAudioPanel.svelte';
+  import ParamAccordion from '$lib/components/dubbing/ParamAccordion.svelte';
+  import Icon from '$lib/icons/Icon.svelte';
   import PlayerBar from '$lib/components/dubbing/PlayerBar.svelte';
   import { dubbing } from '$lib/stores/dubbing.svelte';
   import { toast } from '$lib/stores/toast.svelte';
@@ -24,18 +27,13 @@
       return;
     }
 
-    if (dubbing.engineMode === 'cloud' && !dubbing.engineAvailable.cloud) {
-      toast.warning('请先登录并确保云端余额充足后再生成');
-      return;
-    }
-
-    // 检查本地引擎可用性
-    if (dubbing.engineMode !== 'cloud') {
-      const engineKey = dubbing.engineMode as 'lightweight' | 'emotion';
-      if (!dubbing.engineAvailable[engineKey]?.available) {
+    if (!dubbing.engineAvailable[dubbing.engineMode]?.available) {
+      if (dubbing.engineMode === 'cloud') {
+        toast.warning('请先登录并确保云端余额充足后再生成');
+      } else {
         toast.warning('当前引擎不可用，请检查 TTS 服务是否启动');
-        return;
       }
+      return;
     }
 
     // 检查参考音频
@@ -85,23 +83,48 @@
         max_mel_tokens: 600,
       };
 
-      dubbing.progressMessage = '正在生成音频…';
-      dubbing.progress = 10;
+      // 使用 SSE 流式推理
+      const { promise, cancel } = ttsApi.synthesizeStream(req, {
+        onProgress: (evt) => {
+          dubbing.progress = evt.progress;
+          dubbing.progressMessage = evt.message;
+          dubbing.generationSegmentCurrent = evt.segmentCurrent;
+          dubbing.generationSegmentTotal = evt.segmentTotal;
+        },
+        onComplete: (evt) => {
+          dubbing.progress = 100;
+          dubbing.progressMessage = '';
+          dubbing.generatedAudioPath = evt.outputPath;
+        },
+        onError: (evt) => {
+          dubbing.isGenerating = false;
+          dubbing.progress = 0;
+          dubbing.progressMessage = '';
+          toast.warning(`生成失败: ${evt.message}`);
+        },
+      });
 
-      const outputPath = await ttsApi.synthesize(req);
+      // 保存取消函数
+      dubbing.currentStreamCancel = cancel;
 
-      dubbing.progress = 100;
-      dubbing.progressMessage = '';
-      dubbing.generatedAudioPath = outputPath;
+      const outputPath = await promise;
+
       dubbing.isGenerating = false;
+      dubbing.currentStreamCancel = null;
+      if (!dubbing.generatedAudioPath) {
+        dubbing.generatedAudioPath = outputPath;
+      }
       toast.success('配音生成完成');
 
     } catch (err) {
       dubbing.isGenerating = false;
+      dubbing.currentStreamCancel = null;
       dubbing.progress = 0;
       dubbing.progressMessage = '';
       const msg = err instanceof Error ? err.message : String(err);
-      toast.warning(`生成失败: ${msg}`);
+      if (msg !== '推理已取消') {
+        toast.warning(`生成失败: ${msg}`);
+      }
     }
   }
 
@@ -215,7 +238,17 @@
     </div>
 
     <div class="right-panel">
-      <ParamTabs />
+      <EngineSelector />
+      {#if dubbing.engineMode === 'cloud'}
+        <div class="cloud-strip" role="status">
+          <Icon name="cloud" size={14} color="var(--color-primary)" />
+          <span class="cloud-strip-text">
+            云端模式需登录且余额充足。余额展示待对接接口；不可用时会提示登录或充值。
+          </span>
+        </div>
+      {/if}
+      <ReferenceAudioPanel />
+      <ParamAccordion />
     </div>
   </div>
 
@@ -257,6 +290,23 @@
     flex-direction: column;
     overflow: hidden;
     min-width: 320px;
+    background-color: var(--color-bg-elevated);
+  }
+
+  .cloud-strip {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+    background-color: var(--color-bg-container);
+    border-bottom: 1px solid var(--color-border-secondary);
+    flex-shrink: 0;
+  }
+
+  .cloud-strip-text {
+    font-size: 11px;
+    line-height: 1.4;
+    color: var(--color-text-tertiary);
   }
 
   /* 响应式设计 - 平板和移动端 */

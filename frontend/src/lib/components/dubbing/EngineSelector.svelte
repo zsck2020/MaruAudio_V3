@@ -1,30 +1,27 @@
 <script lang="ts">
   import Icon from '$lib/icons/Icon.svelte';
-  import type { EngineMode } from '$lib/stores/dubbing.svelte';
-
-  interface Props {
-    currentMode: EngineMode;
-    engineAvailable: { lightweight: boolean; emotion: boolean; cloud: boolean };
-    engineChecking: boolean;
-    onChange: (mode: EngineMode) => void;
-  }
-
-  let { currentMode, engineAvailable, engineChecking, onChange }: Props = $props();
+  import { dubbing, type EngineMode } from '$lib/stores/dubbing.svelte';
 
   const engines: { id: EngineMode; label: string; icon: string; desc: string }[] = [
-    { id: 'lightweight', label: '极速引擎', icon: 'zap', desc: 'IndexTTS 1.5 快速推理' },
-    { id: 'emotion', label: '情感引擎', icon: 'heart', desc: 'IndexTTS 2.0 情感控制' },
-    { id: 'cloud', label: '云端引擎', icon: 'cloud', desc: '云端 GPU 高性能推理' },
+    { id: 'lightweight', label: '轻量引擎', icon: 'zap', desc: '本地推理 · 速度优先' },
+    { id: 'emotion', label: '情感引擎', icon: 'heart', desc: '本地推理 · 情感丰富' },
+    { id: 'cloud', label: '云端引擎', icon: 'cloud', desc: '云端推理 · 免本地显存' },
   ];
 
-  function getStatusColor(mode: EngineMode): string {
-    if (engineChecking) return 'var(--color-warning)';
-    return engineAvailable[mode] ? 'var(--color-success)' : 'var(--color-error)';
+  function statusColor(mode: EngineMode): string {
+    if (dubbing.engineChecking) return 'var(--color-warning)';
+    return dubbing.engineAvailable[mode]?.available
+      ? 'var(--color-success)'
+      : 'var(--color-error)';
   }
 
-  function getStatusText(mode: EngineMode): string {
-    if (engineChecking) return '检测中';
-    return engineAvailable[mode] ? '可用' : '不可用';
+  function statusText(mode: EngineMode): string {
+    if (dubbing.engineChecking) return '检测中...';
+    return dubbing.engineAvailable[mode]?.message ?? '未知状态';
+  }
+
+  function handleSelect(mode: EngineMode) {
+    dubbing.setEngine(mode);
   }
 </script>
 
@@ -33,24 +30,25 @@
     <button
       type="button"
       role="radio"
-      aria-checked={currentMode === engine.id}
+      aria-checked={dubbing.engineMode === engine.id}
       class="engine-option"
-      class:active={currentMode === engine.id}
-      class:unavailable={!engineAvailable[engine.id] && !engineChecking}
-      onclick={() => onChange(engine.id)}
+      class:active={dubbing.engineMode === engine.id}
+      class:unavailable={!dubbing.engineAvailable[engine.id]?.available && !dubbing.engineChecking}
+      onclick={() => handleSelect(engine.id)}
+      title={`${engine.label} · ${statusText(engine.id)}`}
     >
       <div class="engine-header">
         <Icon
           name={engine.icon}
           size={14}
-          color={currentMode === engine.id ? 'var(--color-primary)' : 'var(--color-text-tertiary)'}
+          color={dubbing.engineMode === engine.id ? 'var(--color-primary)' : 'var(--color-text-tertiary)'}
         />
         <span class="engine-label">{engine.label}</span>
         <span
           class="status-dot"
-          class:checking={engineChecking}
-          style="background-color: {getStatusColor(engine.id)}"
-          title={getStatusText(engine.id)}
+          class:checking={dubbing.engineChecking}
+          style="background-color: {statusColor(engine.id)}"
+          aria-hidden="true"
         ></span>
       </div>
       <span class="engine-desc">{engine.desc}</span>
@@ -65,6 +63,7 @@
     padding: var(--spacing-sm);
     background-color: var(--color-bg-base);
     border-bottom: 1px solid var(--color-border-secondary);
+    flex-shrink: 0;
   }
 
   .engine-option {
@@ -78,8 +77,13 @@
     border: none;
     border-radius: var(--border-radius);
     cursor: pointer;
-    transition: background-color var(--transition-duration) var(--transition-timing), color var(--transition-duration) var(--transition-timing), box-shadow var(--transition-duration) var(--transition-timing), opacity var(--transition-duration) var(--transition-timing);
+    transition:
+      background-color var(--transition-duration) var(--transition-timing),
+      color var(--transition-duration) var(--transition-timing),
+      box-shadow var(--transition-duration) var(--transition-timing),
+      opacity var(--transition-duration) var(--transition-timing);
     position: relative;
+    width: 100%;
   }
 
   .engine-option:hover:not(.active) {
@@ -96,7 +100,7 @@
   }
 
   .engine-option.unavailable {
-    opacity: 0.6;
+    opacity: 0.55;
   }
 
   .engine-header {

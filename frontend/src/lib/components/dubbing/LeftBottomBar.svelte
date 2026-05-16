@@ -49,7 +49,7 @@
 
 <div class="left-bottom-bar">
   <div class="bar-left">
-    <!-- 推理模式下拉选择（仅极速引擎支持批量推理） -->
+    <!-- 推理模式下拉选择（仅轻量引擎支持批量推理） -->
     {#if dubbing.supportsBatchGeneration}
       <div class="inference-selector">
         <span class="inference-label">推理模式：</span>

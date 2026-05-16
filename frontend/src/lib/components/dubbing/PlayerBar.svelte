@@ -255,17 +255,26 @@
 
 <style>
   .player-bar {
+    position: relative;
     display: flex;
     flex-direction: column;
     flex-shrink: 0;
-    /* 主行（红框内控件）在底栏竖直方向居中，避免贴在上沿 */
     justify-content: center;
     gap: var(--spacing-sm);
     padding: var(--spacing-sm) var(--spacing-lg);
-    /* 原 64px，整体向上多占 20px 垂直空间 */
     min-height: 84px;
-    background-color: var(--color-bg-elevated);
+    background:
+      linear-gradient(180deg, color-mix(in srgb, var(--color-bg-elevated) 96%, transparent), var(--color-bg-elevated));
     border-top: 1px solid var(--color-border-secondary);
+  }
+
+  .player-bar::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--color-primary) 40%, transparent), transparent);
+    pointer-events: none;
   }
 
   .player-main-row {
@@ -305,17 +314,33 @@
   .gen-progress-bar {
     flex: 1;
     min-width: 100px;
-    height: 4px;
-    background-color: var(--color-border);
-    border-radius: 2px;
+    height: 6px;
+    background-color: color-mix(in srgb, var(--color-border) 70%, transparent);
+    border-radius: 3px;
     overflow: hidden;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
   }
 
   .gen-progress-fill {
     height: 100%;
-    background-color: var(--color-primary);
-    border-radius: 2px;
+    background: linear-gradient(90deg, var(--color-primary), color-mix(in srgb, var(--color-primary) 75%, white 25%));
+    border-radius: 3px;
     transition: width 0.3s ease;
+    box-shadow: 0 0 10px color-mix(in srgb, var(--color-primary) 60%, transparent);
+    position: relative;
+  }
+
+  .gen-progress-fill::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.25), transparent);
+    animation: shimmer 1.8s ease-in-out infinite;
+  }
+
+  @keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
   }
 
   .gen-message {
@@ -335,32 +360,47 @@
   }
 
   .play-btn {
-    width: 36px;
-    height: 36px;
+    position: relative;
+    width: 42px;
+    height: 42px;
     display: flex;
     align-items: center;
     justify-content: center;
     background: transparent;
-    border: none;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 35%, transparent);
     cursor: pointer;
     border-radius: 50%;
-    transition: background-color var(--transition-duration) var(--transition-timing);
+    transition:
+      background-color var(--transition-duration) var(--transition-timing),
+      border-color var(--transition-duration) var(--transition-timing),
+      box-shadow var(--transition-duration) var(--transition-timing),
+      transform 0.15s var(--transition-timing);
     flex-shrink: 0;
   }
 
   .play-btn:hover:not(:disabled) {
-    background-color: var(--color-bg-spotlight);
+    background-color: color-mix(in srgb, var(--color-primary) 12%, transparent);
+    border-color: var(--color-primary);
+    box-shadow: 0 0 16px color-mix(in srgb, var(--color-primary) 35%, transparent);
+    transform: scale(1.04);
+  }
+
+  .play-btn:active:not(:disabled) {
+    transform: scale(0.97);
   }
 
   .play-btn:disabled,
   .skip-btn:disabled {
-    opacity: 0.45;
+    opacity: 0.4;
     cursor: not-allowed;
+    border-color: transparent;
   }
 
   .play-btn:disabled:hover,
   .skip-btn:disabled:hover {
     background-color: transparent;
+    transform: none;
+    box-shadow: none;
   }
 
   .progress-section {
@@ -380,28 +420,50 @@
     -webkit-appearance: none;
     appearance: none;
     flex: 1;
-    height: 4px;
-    border-radius: 2px;
+    height: 6px;
+    border-radius: 3px;
     outline: none;
     cursor: pointer;
-    background: linear-gradient(
-      to right,
-      var(--color-primary) 0%,
-      var(--color-primary) var(--progress, 0%),
-      var(--color-border) var(--progress, 0%),
-      var(--color-border) 100%
-    );
+    background:
+      linear-gradient(
+        to right,
+        var(--color-primary) 0%,
+        color-mix(in srgb, var(--color-primary) 70%, white 30%) var(--progress, 0%),
+        color-mix(in srgb, var(--color-border) 75%, transparent) var(--progress, 0%),
+        color-mix(in srgb, var(--color-border) 75%, transparent) 100%
+      );
+    box-shadow:
+      inset 0 1px 2px rgba(0, 0, 0, 0.35),
+      0 0 12px color-mix(in srgb, var(--color-primary) calc(var(--glow-amount, 35) * 1%), transparent);
+    transition: box-shadow 0.25s ease;
+  }
+
+  .progress-slider:hover:not(:disabled) {
+    --glow-amount: 50;
   }
 
   .progress-slider::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
-    width: 12px;
-    height: 12px;
+    width: 14px;
+    height: 14px;
     border-radius: 50%;
     background: var(--color-bg-elevated);
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
-    cursor: pointer;
+    border: 2px solid var(--color-primary);
+    box-shadow:
+      0 1px 6px rgba(0, 0, 0, 0.4),
+      0 0 10px color-mix(in srgb, var(--color-primary) 55%, transparent);
+    cursor: grab;
+    transition: transform 0.15s ease;
+  }
+
+  .progress-slider:hover::-webkit-slider-thumb {
+    transform: scale(1.15);
+  }
+
+  .progress-slider:active::-webkit-slider-thumb {
+    cursor: grabbing;
+    transform: scale(1.25);
   }
 
   .time-display {
@@ -474,21 +536,30 @@
   }
 
   .skip-btn {
-    width: 28px;
-    height: 28px;
+    width: 30px;
+    height: 30px;
     display: flex;
     align-items: center;
     justify-content: center;
     background: transparent;
-    border: none;
+    border: 1px solid transparent;
     cursor: pointer;
     border-radius: 50%;
-    transition: background-color var(--transition-duration) var(--transition-timing);
+    transition:
+      background-color var(--transition-duration) var(--transition-timing),
+      border-color var(--transition-duration) var(--transition-timing),
+      transform 0.15s var(--transition-timing);
     flex-shrink: 0;
   }
 
   .skip-btn:hover:not(:disabled) {
     background-color: var(--color-bg-spotlight);
+    border-color: color-mix(in srgb, var(--color-primary) 30%, transparent);
+    transform: scale(1.08);
+  }
+
+  .skip-btn:active:not(:disabled) {
+    transform: scale(0.95);
   }
 
   .waveform-placeholder {

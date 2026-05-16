@@ -32,9 +32,9 @@ function applyPersistedSettings(persisted: DubbingSettings): void {
 
 let engineMode = $state<EngineMode>(getPersistedSettings().engineMode);
 let engineAvailable = $state({
-  lightweight: { available: true, message: '本地轻量模式可用', provider: 'v15' },
-  emotion: { available: true, message: '情感模式可用', provider: 'v20' },
-  cloud: { available: false, message: '云端模式尚未配置', provider: null },
+  lightweight: { available: true, message: '本地轻量模式可用' },
+  emotion: { available: true, message: '情感模式可用' },
+  cloud: { available: false, message: '云端模式尚未配置' },
 });
 let engineChecking = $state(false);
 
@@ -70,6 +70,9 @@ let generationSegmentCurrent = $state(0);
 let generationSegmentTotal = $state(0);
 let generatedAudioPath = $state<string | null>(null);
 let playerWaveformOpen = $state(false);
+
+// 当前流式推理的取消函数
+let currentStreamCancel: (() => void) | null = null;
 
 let isPlaying = $state(false);
 let currentTime = $state(0);
@@ -129,6 +132,17 @@ function resetGeneration() {
   currentTime = 0;
   duration = 0;
   playerWaveformOpen = false;
+  currentStreamCancel = null;
+}
+
+function cancelGeneration() {
+  if (currentStreamCancel) {
+    currentStreamCancel();
+    currentStreamCancel = null;
+  }
+  isGenerating = false;
+  progress = 0;
+  progressMessage = '已取消';
 }
 
 function emotionSliderSum(): number {
@@ -148,20 +162,18 @@ async function checkEngineAvailability(): Promise<void> {
         engineAvailable.lightweight = {
           available: eng.available,
           message: eng.available ? '轻量引擎可用' : eng.message,
-          provider: 'v15',
         };
       } else if (eng.engine === 'emotion') {
         engineAvailable.emotion = {
           available: eng.available,
           message: eng.available ? '情感引擎可用' : eng.message,
-          provider: 'v20',
         };
       }
     }
   } catch {
     // TTS Server 未运行
-    engineAvailable.lightweight = { available: false, message: 'TTS 服务未启动', provider: 'v15' };
-    engineAvailable.emotion = { available: false, message: 'TTS 服务未启动', provider: 'v20' };
+    engineAvailable.lightweight = { available: false, message: 'TTS 服务未启动' };
+    engineAvailable.emotion = { available: false, message: 'TTS 服务未启动' };
   } finally {
     engineChecking = false;
   }
@@ -226,11 +238,14 @@ export const dubbing = {
   get supportsBatchGeneration() { return supportsBatchGeneration; },
   get playerWaveformOpen() { return playerWaveformOpen; },
   set playerWaveformOpen(v: boolean) { playerWaveformOpen = v; },
+  get currentStreamCancel() { return currentStreamCancel; },
+  set currentStreamCancel(v: (() => void) | null) { currentStreamCancel = v; },
   syncSettings,
   setEngine,
   setText,
   setVoice,
   resetGeneration,
+  cancelGeneration,
   clampEmotionSlidersToSumMax,
   checkEngineAvailability,
   saveParams,

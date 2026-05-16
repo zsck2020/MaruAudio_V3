@@ -17,7 +17,7 @@
   } = $props();
 
   const ENGINE_LABELS: Record<EngineMode, string> = {
-    lightweight: '极速引擎',
+    lightweight: '轻量引擎',
     emotion: '情感引擎',
     cloud: '云端引擎',
   };
@@ -53,9 +53,9 @@
     if (mode === 'cloud' && !dubbing.engineAvailable.cloud) {
       toast.warning('云端模式需登录且余额充足，生成前请完成登录/充值');
     } else if (mode === 'lightweight' && !dubbing.engineAvailable.lightweight) {
-      toast.warning('当前设备可能不支持普通模式，可尝试云端模式');
+      toast.warning('轻量引擎不可用，可尝试云端引擎');
     } else if (mode === 'emotion' && !dubbing.engineAvailable.emotion) {
-      toast.warning('情感引擎不可用或显存不足，可尝试普通模式或云端模式');
+      toast.warning('情感引擎不可用或显存不足，可尝试轻量引擎或云端引擎');
     }
     dubbing.setEngine(mode);
     showEngineMenu = false;
@@ -104,8 +104,8 @@
         <span
           class="status-dot"
           class:loading={dubbing.engineChecking}
-          class:available={!dubbing.engineChecking && dubbing.engineAvailable[dubbing.engineMode]}
-          class:unavailable={!dubbing.engineChecking && !dubbing.engineAvailable[dubbing.engineMode]}
+          class:available={!dubbing.engineChecking && dubbing.engineAvailable[dubbing.engineMode]?.available}
+          class:unavailable={!dubbing.engineChecking && !dubbing.engineAvailable[dubbing.engineMode]?.available}
         ></span>
         <Icon name={ENGINE_ICONS[dubbing.engineMode]} size={14} color="var(--color-primary)" />
         <span class="engine-label">{ENGINE_LABELS[dubbing.engineMode]}</span>

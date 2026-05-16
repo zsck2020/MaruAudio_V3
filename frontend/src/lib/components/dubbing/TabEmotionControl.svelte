@@ -25,7 +25,7 @@
     calm: 'moon',
   };
 
-  /** IndexTTS 2.0 情感控制方式（对应官方命名） */
+  /** 情感引擎控制方式 */
   const methods: { id: EmotionMethod; label: string; icon: string }[] = [
     { id: 'slider', label: '情感向量控制', icon: 'sliders' },
     { id: 'text', label: '描述文本控制', icon: 'type' },

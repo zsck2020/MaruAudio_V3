@@ -34,7 +34,7 @@
     try {
       const url = URL.createObjectURL(file);
       onUpload(file, url);
-      toast.info('💡 为获得最佳效果，建议使用剪映等专业工具分离出纯净人声后再上传');
+      toast.info('提示：为获得最佳效果，建议使用剪映等专业工具分离出纯净人声后再上传');
     } catch (error) {
       console.error('音频文件加载失败:', error);
       toast.warning(`加载失败: ${error instanceof Error ? error.message : '未知错误'}`);

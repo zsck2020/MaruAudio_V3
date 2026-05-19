@@ -151,8 +151,8 @@
   }
 
   .modal-icon {
-    width: 36px;
-    height: 36px;
+    width: var(--control-height-sm);
+    height: var(--control-height-sm);
     flex-shrink: 0;
     display: flex;
     align-items: center;
@@ -182,8 +182,8 @@
 
   .modal-close {
     flex-shrink: 0;
-    width: 32px;
-    height: 32px;
+    width: var(--control-height-xs);
+    height: var(--control-height-xs);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -207,6 +207,13 @@
     overflow-y: auto;
     color: var(--color-text-secondary);
     font-size: var(--font-size);
+  }
+
+  .modal-body::after {
+    content: '';
+    display: block;
+    height: 10px;
+    flex-shrink: 0;
   }
 
   .modal-footer {

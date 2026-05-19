@@ -27,12 +27,18 @@
 - **2026-05-16 12:50** 猫总要求「新开一个 PChat 对话并继承 180017-c903de69 的上下文」→ 主 agent 在 PROJECT-STATE.md 把旧 sessionId 标退役、新 sessionId 占位 pending · 接力 SOP 把 PROJECT-STATE.md 作为跨 session 的上下文锚点 · 准备调 sessionId="NEW" 让服务端分配新 ID
 - **2026-05-16 12:51** 服务端分配新 sessionId `124734-70193510` · 主 agent 立刻回写 PROJECT-STATE.md 与 AGENTS.md · 接力链：`180017-c903de69` → `124734-70193510` · 猫总指令「继续」→ 按上轮推荐 B 推进：字幕页 UI 接入 defaultSubtitleProvider
 - **2026-05-16 13:02** 字幕页接入桥接完成（最少代码方案）：发现字幕页 copywriting/+page.svelte 早就调用 lib/api/tts.ts::transcribe，但该函数走 fetch 直连 9880 端口，生产 CSP 会拦。改为在 transcribe 内部按 isTauri() 自动分流：桌面端 → invoke('subtitle_transcribe_stream') + listen 三个 subtitle-* 事件包装回 SseCallbacks 协议；其它环境保留 fetch 回落给 vitest。字幕页**零改动**自动升级。svelte-check 0/0
+- **2026-05-18 20:57** 对话恢复到 sessionId `170503-0c2789f3`（猫总指定 · 通过 wanzi-mcp wait_for_user_input 接入）· 主 agent 按 SOP 接力，把新 sessionId 写入 PROJECT-STATE.md 与 AGENTS.md · 同步更新 AGENTS.md §4 的关联 sessionId 字段 · 等待猫总下一步指令
+- **2026-05-19 10:30** 完成项目深度审查 v3 · 主魂亲自扫读 ~75 个文件（前端 33 / Rust 21 / Python 16 / 配置依赖等）· 落盘到 `docs/深度审查报告-2026-05-19.md` · 发现【严重】4 项 / 【高】9 项 / 【中】14 项 / 【低】10 项 / 【亮点】10 项 · 最严重 4 项：envs requirements 全空 / models.py engine pattern 不含 cloud 导致云端推理实际跑不通 / lib/subtitle provider 抽象孤儿 / Python 后端 0 自动化测试 · 等待猫总点单修复策略
+- **2026-05-19 10:44** 启动丸子桌面端 `maruaudio_v3.exe` PID 18416 · Vite dev 1420 LISTENING · cargo watcher 监听 src-tauri 自动重启 · 2 个已知 dead_code 警告
+- **2026-05-19 11:00** 完成前端设计深度审查 · 浏览器实地截屏 10 个业务页面（首页/配音/角色/对轴/字幕/音库/文件/设置/关于/个人中心）+ 扫读 app.css 设计令牌 307 行 · 落盘到 `docs/前端设计审查报告-2026-05-19.md` · 整体评分 ⭐⭐⭐⭐⭐ 商业产品级 · 亮点 5 项（设计令牌完整 / UI 原子库工程规范 / 对轴+文件+音库商业级 UI / 配音业务深度 / 微交互细节）· 短板 4 高（首启动引导缺 / 死按钮泛滥 / mock 未标 / DEV banner 遮挡）+ 5 中 + 4 低 · 推荐 11 小时打磨即可上架
+- **2026-05-19 11:24** 猫总要求"窗口在不同屏幕自适应 + 禁止边缘拖动 resize" → 主 agent 落盘 2 处改动：① `frontend/src-tauri/tauri.conf.json` 的 windows[0].resizable 由 true 改为 false（禁止边缘 resize · 仅保留最大化/还原 toggle）· ② `frontend/src-tauri/src/lib.rs` setup() 闭包开头加智能开窗逻辑（取主屏逻辑尺寸 75%×80%、夹紧到 [1024×700, 1920×1200] 之间、再次居中）· cargo check 通过仅原有 2 dead_code warning · Tauri watcher 自动重启桌面到新 PID 59768
 
 ## PChat 会话关联
 
-- **本项目当前 PChat sessionId**：`124734-70193510`（自 2026-05-16 12:51 起 · 服务端分配）
+- **本项目当前 PChat sessionId**：`170503-0c2789f3`（自 2026-05-18 20:57 起 · 猫总指定恢复）
 - **历史 sessionId（接力链）**：
   - `180017-c903de69`（2026-05-14 至 2026-05-16 12:50 · 已退役）
+  - `124734-70193510`（2026-05-16 12:51 至 2026-05-18 20:57 · 已退役）
 
 ## 在跑的后台任务
 
@@ -44,13 +50,13 @@
 
 | 服务 | 状态 |
 |---|---|
-| 丸子 maruaudio_v3.exe | **运行中** · PID **388**（cargo watcher 检测 Rust 变更自动重启）· Vite 1420 |
-| 小蜜 xiaomi-assistant.exe | **运行中** · PID 18236 · python gateway PID 14328 · Vite 1422 |
+| 丸子 maruaudio_v3.exe | **运行中** · PID **59768**（2026-05-19 11:24 cargo watcher 重启 · 因 lib.rs / tauri.conf.json 改动）· Vite 1420 LISTENING |
+| 小蜜 xiaomi-assistant.exe | 运行中 · PID 30600（无 python gateway） · Vite 1422 |
 | IndexTTS Python server | 未启动（前端调字幕/TTS 时会报 connect refused） |
-| 云端引擎（仙宫云 IndexTTS 2.0 远程实例） | 未配 `XIANGONG_TTS_BASE` |
+| 云端引擎（仙宫云 IndexTTS 2.0 远程实例） | 未配 `XIANGONG_TTS_BASE` · **且 models.py engine pattern 当前不含 cloud 会被 Pydantic 422 拒绝**（见 docs/深度审查报告-2026-05-19.md #2） |
 
-- 丸子启动命令：`cd frontend && npm run dev`（须自己重新起 task 才能监控）
-- 已知警告：2 个 Rust dead_code（field `current_task_id` 与方法 `next_task_id` / `current_task_id` 未使用 · 无害）
+- 丸子启动命令：`cd frontend && npm run dev`（concurrently 同时跑 vite + tauri dev · 含 predev 清理）
+- 已知警告：2 个 Rust dead_code（field `current_task_id` 与方法 `next_task_id` / `current_task_id` 未使用 · 无害 · 见审查报告 #20）
 
 ## 已完成（已提交 · 11 个 commit）
 

@@ -58,10 +58,10 @@
   --line-height-lg: 1.5;
   --line-height-sm: 1.6;
 
-  /* —— 圆角 · +33% 更柔和 —— */
-  --border-radius-sm: 6px;
-  --border-radius: 10px;
-  --border-radius-lg: 14px;
+  /* —— 圆角 · 内部元素统一 8px —— */
+  --border-radius-sm: 4px;
+  --border-radius: 8px;
+  --border-radius-lg: 8px;
   --border-radius-pill: 999px;
 
   /* —— 间距 · +25% 更舒展 —— */
@@ -124,7 +124,7 @@
 
   /* —— 圆角扩展 —— */
   --border-radius-xs: 4px;
-  --border-radius-xl: 20px;
+  --border-radius-xl: 8px;
 
   /* —— 间距大档位（与新基础保持兼容） —— */
   --spacing-xxl: 32px;

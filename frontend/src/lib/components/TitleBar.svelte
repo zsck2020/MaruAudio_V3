@@ -293,8 +293,8 @@
   }
   
   .avatar-circle {
-    width: 28px;
-    height: 28px;
+    width: var(--control-height-xs);
+    height: var(--control-height-xs);
     border-radius: 50%;
     border: 1.5px solid var(--color-text-tertiary);
     display: flex;
@@ -307,7 +307,7 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    height: 32px;
+    height: var(--control-height-xs);
     padding: 0 var(--spacing-md);
     background: transparent;
     border: none;
@@ -340,8 +340,8 @@
   /* 合并 icon-btn 和 window-btn 的公共样式 */
   .icon-btn,
   .window-btn {
-    width: 32px;
-    height: 32px;
+    width: var(--control-height-xs);
+    height: var(--control-height-xs);
     background: transparent;
     border: none;
     border-radius: var(--border-radius);
@@ -365,8 +365,8 @@
   }
 
   .icon-btn.avatar-btn {
-    width: 34px;
-    height: 34px;
+    width: var(--control-height-sm);
+    height: var(--control-height-sm);
     padding: 0;
     border-radius: 50%;
   }
@@ -412,8 +412,8 @@
   }
 
   .profile-avatar {
-    width: 34px;
-    height: 34px;
+    width: var(--control-height-sm);
+    height: var(--control-height-sm);
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -442,7 +442,7 @@
 
   .profile-menu-item {
     width: 100%;
-    height: 32px;
+    height: var(--control-height-sm);
     display: flex;
     align-items: center;
     gap: var(--spacing-sm);
@@ -498,12 +498,12 @@
     
     .icon-btn,
     .window-btn {
-      width: 32px;
-      height: 32px;
+      width: var(--control-height-xs);
+      height: var(--control-height-xs);
     }
     
     .tutorial-btn {
-      height: 28px;
+      height: var(--control-height-xs);
     }
   }
   

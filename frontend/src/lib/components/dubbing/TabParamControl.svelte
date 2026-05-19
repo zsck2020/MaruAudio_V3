@@ -101,6 +101,7 @@
       max="1000"
       step="50"
       bind:value={dubbing.intervalSilence}
+      style="--progress: {(dubbing.intervalSilence / 1000) * 100}%"
     />
     <div class="param-hint">与引擎 interval_silence 一致；分段之间插入静音时长</div>
   </div>
@@ -117,6 +118,7 @@
       max="200"
       step="1"
       bind:value={dubbing.maxTextTokens}
+      style="--progress: {((dubbing.maxTextTokens - 50) / 150) * 100}%"
     />
     <div class="param-hint">对应 max_text_tokens；建议 100~120，上限 200</div>
   </div>
@@ -134,6 +136,7 @@
         max="16"
         step="1"
         bind:value={dubbing.bucketMaxSize}
+        style="--progress: {((dubbing.bucketMaxSize - 1) / 15) * 100}%"
       />
       <div class="param-hint">infer_fast 分桶批处理，相近长度分句同批推理，建议 2~8</div>
     </div>
@@ -178,6 +181,7 @@
       max="1.5"
       step="0.1"
       bind:value={dubbing.temperature}
+      style="--progress: {((dubbing.temperature - 0.1) / 1.4) * 100}%"
     />
   </div>
 
@@ -193,6 +197,7 @@
       max="1.0"
       step="0.01"
       bind:value={dubbing.topP}
+      style="--progress: {((dubbing.topP - 0.1) / 0.9) * 100}%"
     />
   </div>
 
@@ -208,6 +213,7 @@
       max="100"
       step="1"
       bind:value={dubbing.topK}
+      style="--progress: {((dubbing.topK - 1) / 99) * 100}%"
     />
   </div>
 
@@ -227,6 +233,7 @@
         max="1"
         step="0.01"
         bind:value={dubbing.emoAlpha}
+        style="--progress: {dubbing.emoAlpha * 100}%"
       />
       <div class="param-hint">控制情感向量 / 情感参考与声线的混合比例；文本情感建议 ≤0.6 更自然</div>
     </div>
@@ -237,28 +244,14 @@
     <div class="param-section-title">
       <Icon name="cloud" size={12} color="var(--color-text-tertiary)" />
       <span>云端任务</span>
+      <span class="coming-soon-badge">待开放</span>
     </div>
-    <div class="cloud-task-grid">
-      <label>
-        <span>队列优先级</span>
-        <select>
-          <option>普通队列</option>
-          <option>加速队列</option>
-        </select>
-      </label>
-      <label>
-        <span>失败重试</span>
-        <select>
-          <option>3 次</option>
-          <option>5 次</option>
-        </select>
-      </label>
-      <label class="switch-row">
-        <span>生成后回传本地</span>
-        <input type="checkbox" checked />
-      </label>
+    <div class="cloud-task-placeholder">
+      <p>云端队列配置（优先级 / 重试策略 / 回传）将在后续版本开放</p>
     </div>
   {/if}
+
+  <div class="bottom-spacer" aria-hidden="true"></div>
 </div>
 
 <style>
@@ -267,6 +260,7 @@
     flex-direction: column;
     gap: var(--spacing-md);
     padding: var(--spacing-md);
+    padding-bottom: 40px;
   }
 
   .engine-summary {
@@ -282,7 +276,7 @@
 
   .engine-summary-icon {
     width: 38px;
-    height: 38px;
+    height: var(--control-height-sm);
     border-radius: var(--border-radius);
     background-color: color-mix(in srgb, var(--color-primary) 14%, transparent);
     display: flex;
@@ -343,8 +337,8 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 24px;
-    height: 24px;
+    width: var(--control-height-xs);
+    height: var(--control-height-xs);
     background: transparent;
     border: none;
     border-radius: var(--border-radius-sm);
@@ -364,7 +358,7 @@
   }
 
   .preset-chip {
-    height: 24px;
+    height: var(--control-height-xs);
     padding: 0 var(--spacing-sm);
     background-color: var(--color-bg-base);
     border: 1px solid var(--color-border-secondary);
@@ -424,7 +418,13 @@
     appearance: none;
     width: 100%;
     height: 4px;
-    background: var(--color-border);
+    background: linear-gradient(
+      to right,
+      var(--color-primary) 0%,
+      var(--color-primary) var(--progress, 0%),
+      rgba(255, 255, 255, 0.15) var(--progress, 0%),
+      rgba(255, 255, 255, 0.15) 100%
+    );
     border-radius: 2px;
     outline: none;
     cursor: pointer;
@@ -433,39 +433,40 @@
   .param-slider::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
-    width: 12px;
-    height: 12px;
+    width: 14px;
+    height: 14px;
     border-radius: 50%;
-    background: var(--color-bg-elevated);
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+    background: var(--color-primary);
+    border: 2px solid rgba(255, 255, 255, 0.9);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
     cursor: pointer;
   }
 
-  .cloud-task-grid {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-sm);
-  }
-
-  .cloud-task-grid label {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 5px;
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-sm);
-  }
-
-  .cloud-task-grid select {
-    height: 30px;
-    border: 1px solid var(--color-border-secondary);
+  .coming-soon-badge {
+    font-size: 10px;
+    padding: 1px 6px;
     border-radius: var(--border-radius-sm);
-    background-color: var(--color-bg-base);
-    color: var(--color-text-secondary);
-    padding: 0 var(--spacing-sm);
+    background-color: color-mix(in srgb, var(--color-warning) 18%, transparent);
+    color: var(--color-warning);
+    margin-left: auto;
   }
 
-  .cloud-task-grid .switch-row {
-    grid-template-columns: 1fr auto;
-    align-items: center;
+  .cloud-task-placeholder {
+    padding: var(--spacing-md);
+    border: 1px dashed var(--color-border-secondary);
+    border-radius: var(--border-radius);
+    text-align: center;
+  }
+
+  .cloud-task-placeholder p {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-disabled);
+    line-height: 1.5;
+  }
+
+  .bottom-spacer {
+    height: 10px;
+    flex-shrink: 0;
   }
 </style>

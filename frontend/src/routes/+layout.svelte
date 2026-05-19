@@ -283,9 +283,6 @@
     min-height: 0;
   }
 
-  /* 内容区底部统一保留 25px 空白，避免触底 */
-  /* 适用于所有非全屏布局页面；dubbing 因有固定 PlayerBar 排除 */
-  :global(.content > .home-page),
   :global(.content > .profile-page),
   :global(.content > .roles-page),
   :global(.content > .library-page),
@@ -294,7 +291,7 @@
   :global(.content > .align-page),
   :global(.content > .about-page),
   :global(.content > .settings-page) {
-    padding-bottom: 25px;
+    padding-bottom: 10px;
   }
 
   @media (max-width: 768px) {

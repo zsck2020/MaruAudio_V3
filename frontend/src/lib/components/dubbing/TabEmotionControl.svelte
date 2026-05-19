@@ -296,7 +296,7 @@
 
   .method-btn {
     flex: 1;
-    height: 32px;
+    height: var(--control-height-sm);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -358,7 +358,7 @@
     appearance: none;
     flex: 1;
     height: 4px;
-    background: var(--color-border);
+    background: rgba(255, 255, 255, 0.15);
     border-radius: 2px;
     outline: none;
     cursor: pointer;
@@ -372,11 +372,12 @@
   .emotion-slider::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
-    width: 12px;
-    height: 12px;
+    width: 14px;
+    height: 14px;
     border-radius: 50%;
-    background: var(--color-bg-elevated);
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+    background: var(--color-primary);
+    border: 2px solid rgba(255, 255, 255, 0.9);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
     cursor: pointer;
     transition: transform 0.2s ease;
   }
@@ -429,7 +430,7 @@
   }
 
   .action-btn {
-    height: 26px;
+    height: var(--control-height-xs);
     padding: 0 var(--spacing-sm);
     font-size: var(--font-size-sm);
     color: var(--color-primary);
@@ -517,7 +518,7 @@
   }
 
   .preset-chip {
-    height: 24px;
+    height: var(--control-height-xs);
     padding: 0 var(--spacing-sm);
     background-color: var(--color-bg-base);
     border: 1px solid var(--color-border-secondary);
@@ -579,8 +580,8 @@
   }
 
   .upload-icon {
-    width: 32px;
-    height: 32px;
+    width: var(--control-height-sm);
+    height: var(--control-height-sm);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -640,8 +641,8 @@
   }
 
   .audio-file-remove {
-    width: 24px;
-    height: 24px;
+    width: var(--control-height-xs);
+    height: var(--control-height-xs);
     display: flex;
     align-items: center;
     justify-content: center;

@@ -139,7 +139,7 @@
 
 <style>
   .text-toolbar {
-    height: 40px;
+    height: var(--control-height);
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -166,8 +166,8 @@
     display: flex;
     align-items: center;
     gap: 4px;
-    min-height: 32px;
-    height: 32px;
+    min-height: var(--control-height-sm);
+    height: var(--control-height-sm);
     padding: 0 var(--spacing-sm);
     background: transparent;
     border: none;
@@ -209,8 +209,8 @@
     display: flex;
     align-items: center;
     gap: 4px;
-    min-height: 32px;
-    height: 32px;
+    min-height: var(--control-height-sm);
+    height: var(--control-height-sm);
     padding: 0 var(--spacing-sm);
     background: transparent;
     border: 1px solid var(--color-border-secondary);
@@ -248,7 +248,7 @@
     align-items: center;
     gap: 8px;
     width: 100%;
-    height: 36px;
+    height: var(--control-height-sm);
     padding: 0 var(--spacing-md);
     background: transparent;
     border: none;

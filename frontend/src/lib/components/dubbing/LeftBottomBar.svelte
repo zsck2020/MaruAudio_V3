@@ -119,7 +119,7 @@
 
 <style>
   .left-bottom-bar {
-    height: 48px;
+    height: var(--control-height-lg);
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -158,7 +158,7 @@
     justify-content: space-between;
     gap: 8px;
     width: 120px;
-    height: 28px;
+    height: var(--control-height-sm);
     padding: 0 var(--spacing-sm);
     background-color: var(--color-bg-base);
     border: 1px solid var(--color-border-secondary);
@@ -197,7 +197,7 @@
     display: flex;
     align-items: center;
     width: 100%;
-    height: 32px;
+    height: var(--control-height-sm);
     padding: 0 var(--spacing-sm);
     background: transparent;
     border: none;
@@ -222,7 +222,7 @@
     display: flex;
     align-items: center;
     gap: 4px;
-    height: 28px;
+    height: var(--control-height-sm);
     padding: 0 var(--spacing-sm);
     background: transparent;
     border: 1px solid var(--color-border-secondary);
@@ -255,7 +255,7 @@
   }
 
   .generate-btn {
-    height: 32px;
+    height: var(--control-height-sm);
     padding: 0 20px;
     background-color: var(--color-primary);
     color: var(--color-bg-elevated);

@@ -70,7 +70,7 @@
   }
 
   function handleRecord() {
-    toast.info('录音功能（倒计时 + 波形预览）开发中');
+    toast.info('录音功能将在后续版本开放');
   }
 </script>
 
@@ -96,9 +96,10 @@
   <div class="or-divider"><span>或</span></div>
 
   <!-- 录制按钮 -->
-  <button type="button" class="record-btn" onclick={handleRecord}>
-    <Icon name="microphone" size={16} color="var(--color-text-secondary)" />
+  <button type="button" class="record-btn" onclick={handleRecord} title="录音功能将在后续版本开放">
+    <Icon name="microphone" size={16} color="var(--color-text-disabled)" />
     <span>录制样音</span>
+    <span class="coming-soon-tag">待开放</span>
   </button>
 </div>
 
@@ -184,7 +185,7 @@
     align-items: center;
     justify-content: center;
     gap: var(--spacing-sm);
-    height: 36px;
+    height: var(--control-height-sm);
     padding: 0 var(--spacing-md);
     background: var(--color-bg-base);
     border: 1px solid var(--color-border-secondary);
@@ -196,8 +197,15 @@
   }
 
   .record-btn:hover {
-    border-color: var(--color-primary);
-    color: var(--color-text);
-    background-color: var(--color-bg-elevated);
+    border-color: var(--color-border);
+    color: var(--color-text-tertiary);
+  }
+
+  .coming-soon-tag {
+    font-size: 10px;
+    padding: 1px 5px;
+    border-radius: var(--border-radius-sm);
+    background-color: color-mix(in srgb, var(--color-warning) 18%, transparent);
+    color: var(--color-warning);
   }
 </style>

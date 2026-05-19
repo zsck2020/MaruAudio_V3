@@ -190,8 +190,8 @@
 
   .play-orb {
     position: relative;
-    width: 40px;
-    height: 40px;
+    width: var(--control-height);
+    height: var(--control-height);
     flex-shrink: 0;
     display: flex;
     align-items: center;
@@ -284,8 +284,8 @@
   }
 
   .remove-btn {
-    width: 28px;
-    height: 28px;
+    width: var(--control-height-xs);
+    height: var(--control-height-xs);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -371,8 +371,8 @@
     width: 12px;
     height: 12px;
     border-radius: 50%;
-    background: var(--color-bg-elevated);
-    border: 2px solid var(--color-primary);
+    background: var(--color-primary);
+    border: 2px solid rgba(255, 255, 255, 0.9);
     box-shadow: 0 0 8px color-mix(in srgb, var(--color-primary) 60%, transparent);
     cursor: grab;
     transition: transform 0.15s ease;

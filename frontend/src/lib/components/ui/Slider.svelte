@@ -111,7 +111,7 @@
     position: absolute;
     inset: auto 0;
     height: 4px;
-    background-color: var(--color-border);
+    background-color: rgba(255, 255, 255, 0.15);
     border-radius: 2px;
     pointer-events: none;
     overflow: hidden;
@@ -148,9 +148,9 @@
     width: 14px;
     height: 14px;
     border-radius: 50%;
-    background: var(--color-bg-elevated);
-    border: 2px solid var(--color-primary);
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+    background: var(--color-primary);
+    border: 2px solid rgba(255, 255, 255, 0.9);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
     cursor: grab;
     transition: transform var(--motion-duration-fast) var(--motion-ease-base);
   }
@@ -170,9 +170,9 @@
     width: 14px;
     height: 14px;
     border-radius: 50%;
-    background: var(--color-bg-elevated);
-    border: 2px solid var(--color-primary);
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+    background: var(--color-primary);
+    border: 2px solid rgba(255, 255, 255, 0.9);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
     cursor: grab;
   }
 

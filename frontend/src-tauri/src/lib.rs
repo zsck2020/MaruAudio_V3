@@ -15,6 +15,29 @@ pub fn run() {
         .manage(TtsState::new())
         .manage(SubtitleState::new())
         .setup(|app| {
+            // 按主屏幕分辨率智能调整初始窗口大小
+            //
+            // 策略：取主屏幕逻辑尺寸的 75% × 80%，并在 minWidth/minHeight ~ 1920x1200 之间夹紧
+            // 这样 1366x768 笔记本/1440p/4K 大屏都能拿到舒适的初始尺寸，启动后再次居中
+            //
+            // 配合 tauri.conf.json 里 resizable: false 锁住边缘拖动 resize，
+            // 用户只能通过最大化/还原按钮切换窗口尺寸
+            if let Some(main_window) = app.get_webview_window("main") {
+                if let Ok(Some(monitor)) = main_window.primary_monitor() {
+                    let monitor_size = monitor.size();
+                    let scale = monitor.scale_factor();
+                    let logical_w = (monitor_size.width as f64) / scale;
+                    let logical_h = (monitor_size.height as f64) / scale;
+
+                    // 取主屏可视区域的 75%×80%，夹紧到 [min, 1920×1200]
+                    let target_w = (logical_w * 0.75).clamp(1024.0, 1920.0);
+                    let target_h = (logical_h * 0.80).clamp(700.0, 1200.0);
+
+                    let _ = main_window.set_size(tauri::LogicalSize::new(target_w, target_h));
+                    let _ = main_window.center();
+                }
+            }
+
             let show_item =
                 tauri::menu::MenuItemBuilder::with_id("show_main", "显示主窗口").build(app)?;
             let exit_item =

@@ -28,8 +28,26 @@
         class="reset-link"
         role="button"
         tabindex="0"
-        onclick={(e: Event) => { e.stopPropagation(); }}
-        onkeydown={(e: KeyboardEvent) => { if (e.key === 'Enter') e.stopPropagation(); }}
+        onclick={(e: Event) => {
+          e.stopPropagation();
+          dubbing.temperature = 1.0;
+          dubbing.topP = 0.8;
+          dubbing.topK = 30;
+          dubbing.intervalSilence = 200;
+          dubbing.maxTextTokens = 120;
+          dubbing.emoAlpha = 0.6;
+        }}
+        onkeydown={(e: KeyboardEvent) => {
+          if (e.key === 'Enter') {
+            e.stopPropagation();
+            dubbing.temperature = 1.0;
+            dubbing.topP = 0.8;
+            dubbing.topK = 30;
+            dubbing.intervalSilence = 200;
+            dubbing.maxTextTokens = 120;
+            dubbing.emoAlpha = 0.6;
+          }
+        }}
         title="恢复默认值"
       >
         默认值
@@ -85,7 +103,7 @@
     align-items: center;
     justify-content: space-between;
     width: 100%;
-    height: 36px;
+    height: var(--control-height-sm);
     padding: 0 var(--spacing-md);
     background: transparent;
     border: none;

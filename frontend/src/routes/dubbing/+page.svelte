@@ -2,21 +2,23 @@
   import TextToolbar from '$lib/components/dubbing/TextToolbar.svelte';
   import TextEditor from '$lib/components/dubbing/TextEditor.svelte';
   import LeftBottomBar from '$lib/components/dubbing/LeftBottomBar.svelte';
-  import EngineSelector from '$lib/components/dubbing/EngineSelector.svelte';
   import ReferenceAudioPanel from '$lib/components/dubbing/ReferenceAudioPanel.svelte';
-  import ParamAccordion from '$lib/components/dubbing/ParamAccordion.svelte';
+  import TabParamControl from '$lib/components/dubbing/TabParamControl.svelte';
+  import TabEmotionControl from '$lib/components/dubbing/TabEmotionControl.svelte';
+  import Modal from '$lib/components/ui/Modal.svelte';
   import Icon from '$lib/icons/Icon.svelte';
   import PlayerBar from '$lib/components/dubbing/PlayerBar.svelte';
+  import { goto } from '$app/navigation';
   import { dubbing } from '$lib/stores/dubbing.svelte';
   import { toast } from '$lib/stores/toast.svelte';
   import * as ttsApi from '$lib/api/tts';
 
-  /** 与 TextEditor 插入逻辑一致的停顿标记 */
   const PAUSE_MARKER = '[#0.5s#]';
 
   let editorRef: { insertAtCursor: (s: string) => void } | undefined = $state();
+  let showParamModal = $state(false);
+  let showEmotionModal = $state(false);
 
-  // 页面加载时自动检测引擎可用性
   $effect(() => {
     void dubbing.checkEngineAvailability();
   });
@@ -36,18 +38,15 @@
       return;
     }
 
-    // 检查参考音频
     if (!dubbing.voiceAudioUrl) {
       toast.warning('请先选择或上传参考音频');
       return;
     }
 
-    // 情感向量归一化
     if (dubbing.showEmotionTab && dubbing.emotionMethod === 'slider') {
       dubbing.clampEmotionSlidersToSumMax();
     }
 
-    // 重置生成状态
     dubbing.generatedAudioPath = null;
     dubbing.isPlaying = false;
     dubbing.isGenerating = true;
@@ -57,7 +56,6 @@
     dubbing.generationSegmentCurrent = 0;
 
     try {
-      // 构建推理请求
       const req: ttsApi.SynthesizeRequest = {
         engine: dubbing.engineMode,
         text: dubbing.text,
@@ -83,7 +81,6 @@
         max_mel_tokens: 600,
       };
 
-      // 使用 SSE 流式推理
       const { promise, cancel } = ttsApi.synthesizeStream(req, {
         onProgress: (evt) => {
           dubbing.progress = evt.progress;
@@ -104,9 +101,7 @@
         },
       });
 
-      // 保存取消函数
       dubbing.currentStreamCancel = cancel;
-
       const outputPath = await promise;
 
       dubbing.isGenerating = false;
@@ -131,37 +126,25 @@
   function handleImport() {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = '.txt,text/plain,.docx';
+    input.accept = '.txt,text/plain';
     input.onchange = async () => {
       const file = input.files?.[0];
       if (!file) return;
-
-      // 文件大小限制：10MB
       const MAX_FILE_SIZE = 10 * 1024 * 1024;
       if (file.size > MAX_FILE_SIZE) {
         toast.warning('文件大小不能超过 10MB');
         return;
       }
-
-      if (file.name.toLowerCase().endsWith('.docx')) {
-        toast.info('Word (.docx) 导入开发中，请暂存为 .txt 后导入');
-        return;
-      }
-
       try {
         const text = await file.text();
-
-        // 文本长度限制：50000字
         const MAX_TEXT_LENGTH = 50000;
         if (text.length > MAX_TEXT_LENGTH) {
           toast.warning(`文本长度不能超过 ${MAX_TEXT_LENGTH} 字`);
           return;
         }
-
         dubbing.setText(dubbing.text ? `${dubbing.text}\n${text}` : text);
         toast.success(`已导入 ${file.name}`);
       } catch (error) {
-        console.error('文件导入失败:', error);
         toast.warning(`读取文件失败: ${error instanceof Error ? error.message : '未知错误'}`);
       }
     };
@@ -176,7 +159,7 @@
     }
     const next = t.replace(/([。！？!?])/g, '$1\n').replace(/\n{3,}/g, '\n\n');
     dubbing.setText(next);
-    toast.success('已在句号、问号、感叹号后插入换行（可继续手动调整）');
+    toast.success('已按句号、问号、感叹号自动分段');
   }
 
   function handlePause() {
@@ -184,11 +167,13 @@
   }
 
   function handlePinyin() {
-    toast.info('拼音标注：请选中文字后使用（富文本编辑器对接后支持）');
+    const example = '[拼音 ZHONG4]';
+    editorRef?.insertAtCursor(example);
+    toast.success('已插入拼音标记，格式：[拼音 PINYIN+声调]');
   }
 
   function handleNumber() {
-    toast.info('数字读法规则切换（引擎对接后生效）');
+    toast.info('引擎自动处理数字读法，无需手动切换');
   }
 
   async function handleDownload() {
@@ -217,13 +202,14 @@
   }
 
   function handleSubtitle() {
-    toast.info('字幕生成：将跳转字幕页或弹窗（开发中）');
+    goto('/copywriting');
   }
 </script>
 
 <div class="dubbing-page">
   <div class="dubbing-main">
-    <div class="left-panel">
+    <!-- 左侧：文本编辑区（卡片） -->
+    <div class="editor-card">
       <TextToolbar
         onSegment={handleSegment}
         onPause={handlePause}
@@ -237,23 +223,64 @@
       />
     </div>
 
-    <div class="right-panel">
-      <EngineSelector />
-      {#if dubbing.engineMode === 'cloud'}
-        <div class="cloud-strip" role="status">
-          <Icon name="cloud" size={14} color="var(--color-primary)" />
-          <span class="cloud-strip-text">
-            云端模式需登录且余额充足。余额展示待对接接口；不可用时会提示登录或充值。
-          </span>
-        </div>
-      {/if}
-      <ReferenceAudioPanel />
-      <ParamAccordion />
+    <!-- 右侧：控制面板区 -->
+    <div class="control-column">
+      <!-- 操作按钮组 -->
+      <div class="action-buttons">
+        <button
+          type="button"
+          class="action-card-btn"
+          onclick={() => showParamModal = true}
+        >
+          <Icon name="sliders" size={16} color="var(--color-primary)" />
+          <div class="action-card-info">
+            <span class="action-card-title">参数设置</span>
+            <span class="action-card-sub">温度 {dubbing.temperature.toFixed(1)} · Top-P {dubbing.topP.toFixed(1)} · 静音 {dubbing.intervalSilence}ms</span>
+          </div>
+          <Icon name="ant-design:right-outlined" size={12} color="var(--color-text-tertiary)" />
+        </button>
+
+        {#if dubbing.showEmotionTab}
+          <button
+            type="button"
+            class="action-card-btn"
+            onclick={() => showEmotionModal = true}
+          >
+            <Icon name="heart" size={16} color="var(--color-accent)" />
+            <div class="action-card-info">
+              <span class="action-card-title">情感控制</span>
+              <span class="action-card-sub">
+                {dubbing.emotionMethod === 'slider' ? '向量模式' : dubbing.emotionMethod === 'text' ? '文本模式' : '音频模式'}
+                · 强度 {dubbing.emoAlpha.toFixed(1)}
+              </span>
+            </div>
+            <Icon name="ant-design:right-outlined" size={12} color="var(--color-text-tertiary)" />
+          </button>
+        {/if}
+      </div>
+
+      <!-- 参考音频卡片 -->
+      <div class="control-card voice-card">
+        <ReferenceAudioPanel />
+      </div>
     </div>
   </div>
 
-  <PlayerBar onRegenerate={handleGenerate} onSubtitle={handleSubtitle} onDownload={handleDownload} />
+  <!-- 底部播放器 -->
+  <div class="player-card-wrap">
+    <PlayerBar onRegenerate={handleGenerate} onSubtitle={handleSubtitle} onDownload={handleDownload} />
+  </div>
 </div>
+
+<!-- 参数设置弹窗 -->
+<Modal bind:open={showParamModal} title="参数设置" size="md" icon="sliders">
+  <TabParamControl />
+</Modal>
+
+<!-- 情感控制弹窗 -->
+<Modal bind:open={showEmotionModal} title="情感控制" size="md" icon="heart">
+  <TabEmotionControl />
+</Modal>
 
 <style>
   :global(.content:has(.dubbing-page)) {
@@ -266,77 +293,151 @@
     flex: 1;
     min-height: 0;
     overflow: hidden;
+    padding: var(--spacing-sm) 10px 10px var(--spacing-sm);
+    gap: var(--spacing-sm);
   }
 
   .dubbing-main {
     flex: 1;
     display: flex;
-    overflow: hidden;
-    min-height: 0;
-  }
-
-  .left-panel {
-    flex: 80;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    border-right: 1px solid var(--color-border-secondary);
-    min-width: 0;
-  }
-
-  .right-panel {
-    flex: 20;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    min-width: 320px;
-    background-color: var(--color-bg-elevated);
-  }
-
-  .cloud-strip {
-    display: flex;
-    align-items: flex-start;
     gap: var(--spacing-sm);
-    padding: var(--spacing-sm) var(--spacing-md);
-    background-color: var(--color-bg-container);
-    border-bottom: 1px solid var(--color-border-secondary);
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .editor-card {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    overflow: hidden;
+    background-color: var(--color-bg-elevated);
+    border-radius: var(--border-radius);
+  }
+
+  /* 右侧控制面板 */
+  .control-column {
+    width: 340px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    overflow: hidden;
+  }
+
+  .control-card {
+    background-color: var(--color-bg-elevated);
+    overflow: hidden;
+    flex-shrink: 0;
+    border-radius: var(--border-radius);
+  }
+
+  .voice-card {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* 操作按钮组 */
+  .action-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
     flex-shrink: 0;
   }
 
-  .cloud-strip-text {
-    font-size: 11px;
-    line-height: 1.4;
-    color: var(--color-text-tertiary);
+  .action-card-btn {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    width: 100%;
+    padding: var(--spacing-md);
+    background-color: var(--color-bg-elevated);
+    border: none;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    transition:
+      background-color var(--motion-duration-mid) var(--motion-ease-base),
+      transform var(--motion-duration-fast) var(--motion-ease-base);
+    text-align: left;
   }
 
-  /* 响应式设计 - 平板和移动端 */
+  .action-card-btn:hover {
+    background-color: var(--color-bg-spotlight);
+  }
+
+  .action-card-btn:active {
+    transform: scale(0.98);
+  }
+
+  .action-card-btn:focus-visible {
+    box-shadow: 0 0 0 2px var(--color-focus-ring);
+  }
+
+  .action-card-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .action-card-title {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text);
+  }
+
+  .action-card-sub {
+    font-size: 11px;
+    color: var(--color-text-tertiary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* 底部播放器 */
+  .player-card-wrap {
+    flex-shrink: 0;
+    background-color: var(--color-bg-elevated);
+    border-radius: var(--border-radius);
+  }
+
+  /* 响应式 */
   @media (max-width: 1024px) {
     .dubbing-main {
       flex-direction: column;
     }
 
-    .left-panel {
+    .editor-card {
       flex: 1;
-      border-right: none;
-      border-bottom: 1px solid var(--color-border-secondary);
-      min-height: 300px;
+      min-height: 250px;
     }
 
-    .right-panel {
-      flex: 0 0 auto;
-      min-width: 100%;
-      max-height: 50vh;
-      overflow-y: auto;
-    }
-  }
-
-  @media (max-width: 768px) {
-    .left-panel {
-      min-height: 200px;
+    .control-column {
+      width: 100%;
+      flex-direction: row;
+      flex-wrap: wrap;
     }
 
-    .right-panel {
-      max-height: 60vh;
+    .control-card {
+      flex: 1;
+      min-width: 200px;
+    }
+
+    .voice-card {
+      flex: 2;
+    }
+
+    .action-buttons {
+      flex-direction: row;
+      width: 100%;
+    }
+
+    .action-card-btn {
+      flex: 1;
     }
   }
 </style>

@@ -1,0 +1,63 @@
+---
+description: 页面设计规范 · 猫总确认 · 2026-05-19 v2
+globs:
+  - frontend/src/routes/**/*.svelte
+  - frontend/src/lib/components/**/*.svelte
+---
+
+# 丸子配音 V3 · 页面设计规范 v2
+
+## 核心原则
+
+1. **卡片化**：所有页面内容区使用卡片隔离，不使用线条分割
+2. **单屏适配**：所有内容在一屏以内，无滚动。放不下的内容用弹窗（Modal）
+3. **间距统一**：四周 15px，卡片间距 10px (var(--spacing-sm))
+4. **控件规范**：所有按钮、输入框、下拉框、选择框高度统一
+
+## 布局结构
+
+- 页面容器：flex column，主内容区 flex:1 吸收剩余空间
+- 四周留空：15px 不可变
+- 卡片间距：var(--spacing-sm) = 10px
+- 修改单卡片不得影响其他卡片位置
+- 禁止 overflow-y: auto / overflow: scroll
+
+## 卡片样式
+
+```css
+background: var(--color-bg-elevated);
+border: 1px solid var(--color-border-secondary);
+border-radius: var(--border-radius-lg);  /* 14px */
+```
+
+## 控件高度标准
+
+| 控件类型 | 高度 | CSS 变量 |
+|---|---|---|
+| 大按钮（主操作） | 36px | var(--control-height-sm) |
+| 常规按钮/输入框/下拉框 | 32px | - |
+| 紧凑按钮/小控件 | 28px | var(--control-height-xs) |
+
+## 按钮样式
+
+- **主按钮**：实心 primary 色 + 白字 + border-radius(10px)
+- **次按钮**：透明底 + border(--color-border) + hover 变主色
+- **图标按钮**：26px × 26px + border + hover 变主色
+- 操作按钮始终可见（不用 hover 才显示）
+
+## 列表/表格
+
+- 首列左对齐，其余列居中
+- 行高 min-height: 38px，可 flex:1 均分
+- 每页 6 行 + 翻页组件
+- 缩略图：首字符 + 引擎色渐变背景（30px × 30px）
+- 徽标：pill 圆角 (border-radius-pill)
+- 行 hover 用 var(--color-hover-bg)
+
+## 禁止事项
+
+- 配音区颜色不能动
+- 用户面不出现 IndexTTS / qwen / 阿里云 / 仙宫云
+- 不加仅 toast "开发中"的死按钮
+- 不加 overflow-y: auto
+- 不用 border-right / border-left 做面板分割（改用卡片 + gap）

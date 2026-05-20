@@ -25,32 +25,18 @@
 - **关联项目**：小蜜助手（`E:\Exploitation\Hermes_Agent`）— 姐妹项目，共享 PChat 工具体系
 - **当前阶段**：v3 重构进行中
 
-## 3. AI 接力 SOP（强制）
+## 3. AI 接力 SOP
 
-任何 AI 会话（Cursor 重连 / PChat 新 sessionId / IDE 重启 / 全新会话）在此仓干活前**必须**按下面 SOP：
+新会话默认**依据 Cursor 当前上下文**（打开的文件、编辑历史、终端状态）直接继续工作，不需要每次从头读文件报告进度。
 
-### Step 1 · 启动前读 3 份文件
-1. 本文件 `AGENTS.md` — 项目硬约束 + 术语 + SOP
-2. `PROJECT-STATE.md` — 当前 AI 工作状态实时快照
-3. `README.md` — 项目背景 + 命令速查
+仅在以下情况才需要从 `PROJECT-STATE.md` 接力：
+- **完全断网**：跨天/跨设备/无上下文的全新会话
+- **用户明确要求**："报告进度"/"接力"
 
-### Step 2 · 检查后台任务
-读 `PROJECT-STATE.md` "在跑的后台任务" 表，了解：
-- 是否有 explore subagent 在跑
-- 是否有 dev server 在运行
-- 是否有 build / cargo 后台任务
-
-### Step 3 · 心跳写盘约定
-主 agent 每次**重要动作**后**立即**重写 `PROJECT-STATE.md`：
-- 重要动作 = 重大依赖变更 / Rust 改动 / Svelte 重构 / 后端服务调整 / TTS 引擎集成 / IndexTTS 升级 / subagent 启动 / 重要决策
-- 不要等"批量"才更新；每个 commit-worthy 改动都立即写盘
-- 用户口头改需求 → 立即记到"当前用户指令"
-
-### Step 4 · PChat 新 sessionId 时
-主 agent 在新 sessionId 的第一条 message 必须包含：
-- 完整接力摘要（项目阶段 / 在跑任务 / 关键决策）
-- 关键文件路径（AGENTS.md / PROJECT-STATE.md / README.md / 当前修改文件）
-- "我从 PROJECT-STATE.md 接力"的明确说明
+### 心跳写盘
+主 agent 完成**重大改动**后更新 `PROJECT-STATE.md`：
+- 重大改动 = 依赖变更 / Rust 改动 / 页面重构 / 后端调整 / 重要决策
+- 用户改需求 → 立即记到"当前用户指令"
 
 ## 4. 长期规则（猫总确认 · 必守）
 

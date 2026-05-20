@@ -11,7 +11,7 @@ class SynthesizeRequest(BaseModel):
     """TTS 推理请求"""
 
     # 引擎选择: "lightweight" (v1.5) | "emotion" (v2.0)
-    engine: str = Field(default="lightweight", pattern=r"^(lightweight|emotion)$")
+    engine: str = Field(default="lightweight", pattern=r"^(lightweight|emotion|cloud)$")
 
     # 文本
     text: str = Field(..., min_length=1, max_length=50000)

@@ -32,6 +32,8 @@
 - **2026-05-19 10:44** 启动丸子桌面端 `maruaudio_v3.exe` PID 18416 · Vite dev 1420 LISTENING · cargo watcher 监听 src-tauri 自动重启 · 2 个已知 dead_code 警告
 - **2026-05-19 11:00** 完成前端设计深度审查 · 浏览器实地截屏 10 个业务页面（首页/配音/角色/对轴/字幕/音库/文件/设置/关于/个人中心）+ 扫读 app.css 设计令牌 307 行 · 落盘到 `docs/前端设计审查报告-2026-05-19.md` · 整体评分 ⭐⭐⭐⭐⭐ 商业产品级 · 亮点 5 项（设计令牌完整 / UI 原子库工程规范 / 对轴+文件+音库商业级 UI / 配音业务深度 / 微交互细节）· 短板 4 高（首启动引导缺 / 死按钮泛滥 / mock 未标 / DEV banner 遮挡）+ 5 中 + 4 低 · 推荐 11 小时打磨即可上架
 - **2026-05-19 11:24** 猫总要求"窗口在不同屏幕自适应 + 禁止边缘拖动 resize" → 主 agent 落盘 2 处改动：① `frontend/src-tauri/tauri.conf.json` 的 windows[0].resizable 由 true 改为 false（禁止边缘 resize · 仅保留最大化/还原 toggle）· ② `frontend/src-tauri/src/lib.rs` setup() 闭包开头加智能开窗逻辑（取主屏逻辑尺寸 75%×80%、夹紧到 [1024×700, 1920×1200] 之间、再次居中）· cargo check 通过仅原有 2 dead_code warning · Tauri watcher 自动重启桌面到新 PID 59768
+- **2026-05-20 01:37** 接力恢复 sessionId 170503-0c2789f3 · 核对上轮审查报告待修项 → 发现 3 项已被前序会话修好（models.py cloud pattern / SSE Error break / ParamAccordion 默认值）· 主魂一口气落盘剩余 4 项修复：① `tts.ts::transcribeViaInvoke` 透传 segmentCurrent/segmentTotal 字段到 StreamProgressEvent ② `services/tts/mod.rs` 给 current_task_id 字段与方法加 `#[allow(dead_code)]` 消除 2 个 Rust warning ③ 删除 6 个孤儿文件（lib/subtitle/{mock-provider,tauri-provider,index}.ts + mock-provider.test.ts + components/dubbing/{ParamTabs,TabReferenceAudio}.svelte）④ 修 srt.test.ts 改为直接 import `$lib/subtitle/srt` · 验证结果：svelte-check 0/0 · cargo check 0 错 **0 warning** · vitest 4 文件 57 测试全过 · npm audit 仅剩 3 low（cookie 依赖需 breaking 降级 · 不值得）
+- **2026-05-20 01:44** 猫总要求"重启桌面端 + 音频播放器+波形重新设计" → 新建 2 文件 + 改造 2 组件：① 新 `lib/utils/waveform.ts`（Web Audio API 解码 + RMS 块采样 + 内存缓存）② 新 `lib/components/ui/WaveformView.svelte`（Canvas 绘制条形波形 + 已播/未播双色 + 播放指针 + 点击/拖拽 seek + 加载 skeleton + ResizeObserver 自适应宽度 + DPR 高清）③ 改造 `PlayerBar.svelte` 中间区域：原 seek slider 替换为 WaveformView（36px 高 · 保留生成中进度条 + 时间标签 · 清除旧 CSS）④ 改造 `AudioPlayer.svelte` 进度区域：原 seek-input + seek-track 替换为 WaveformView（32px 高 · 清除 6 块废弃 CSS）· 验证：svelte-check 0/0 · vitest 4/57 全过 · 桌面端重启 PID 变更
 
 ## PChat 会话关联
 
@@ -44,7 +46,7 @@
 
 | 任务 | 状态 |
 |---|---|
-| （无） | - |
+| 多角色配音页重构 | **已完成** · 6 阶段全部落地 |
 
 ## 在跑的应用 / dev server
 

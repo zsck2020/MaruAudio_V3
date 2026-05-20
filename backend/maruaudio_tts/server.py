@@ -1,6 +1,5 @@
 """FastAPI 应用 — MaruAudio TTS Server"""
 
-from __future__ import annotations
 
 import asyncio
 import json
@@ -11,6 +10,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
 
 from .engine_manager import EngineManager
@@ -297,6 +297,249 @@ def create_app() -> FastAPI:
                     task.cancel()
 
         return EventSourceResponse(event_stream())
+
+    # ==================== 预置样音 ====================
+
+    @app.get("/presets")
+    async def list_presets():
+        """列出所有预置样音"""
+        preset_dir = _OUTPUT_PRESET_DIR
+        metadata_file = preset_dir / "metadata.json"
+
+        if not metadata_file.exists():
+            return {"presets": [], "count": 0}
+
+        try:
+            data = json.loads(metadata_file.read_text(encoding="utf-8"))
+            for item in data:
+                fp = item.get("file_path", "")
+                if fp and not os.path.isabs(fp):
+                    item["file_path"] = str(preset_dir / os.path.basename(fp))
+                elif fp:
+                    actual = preset_dir / os.path.basename(fp)
+                    if actual.exists():
+                        item["file_path"] = str(actual)
+                cp = item.get("cover", "")
+                if cp and not os.path.isabs(cp):
+                    item["cover"] = str(preset_dir / os.path.basename(cp))
+            return {"presets": data, "count": len(data)}
+        except Exception as e:
+            logger.warning("Failed to load presets: %s", e)
+            return {"presets": [], "count": 0}
+
+    # ==================== LLM 台词拆分 ====================
+
+    class LlmModelsRequest(BaseModel):
+        api_base_url: str
+        api_key: str
+
+    @app.post("/llm-models")
+    async def list_llm_models(req: LlmModelsRequest):
+        """查询 LLM 可用模型列表"""
+        import httpx
+
+        url = f"{req.api_base_url.rstrip('/')}/models"
+        try:
+            async with httpx.AsyncClient(timeout=httpx.Timeout(15.0)) as client:
+                resp = await client.get(
+                    url,
+                    headers={"Authorization": f"Bearer {req.api_key}"},
+                )
+                if resp.status_code != 200:
+                    raise HTTPException(status_code=resp.status_code, detail=f"LLM API 错误: {resp.text[:300]}")
+
+                data = resp.json()
+                models = []
+                for item in data.get("data", []):
+                    model_id = item.get("id", "")
+                    if model_id:
+                        models.append(model_id)
+                models.sort()
+                return {"models": models, "count": len(models)}
+
+        except httpx.ConnectError:
+            raise HTTPException(status_code=503, detail="无法连接 LLM API")
+        except httpx.TimeoutException:
+            raise HTTPException(status_code=504, detail="LLM API 响应超时")
+
+    class SplitLinesRequest(BaseModel):
+        text: str = Field(..., min_length=1, max_length=100000)
+        api_base_url: str = Field(..., description="OpenAI 兼容 API 的 base URL")
+        api_key: str = Field(..., description="API Key")
+        model: str = Field(default="gpt-4o-mini", description="模型名称")
+        roles: list[str] = Field(default_factory=list, description="已知角色列表")
+        emotions: list[str] = Field(
+            default_factory=lambda: ["平静", "开心", "悲伤", "愤怒", "紧张", "惊讶", "冷漠", "坚定", "害怕"],
+        )
+        strengths: list[str] = Field(default_factory=lambda: ["微弱", "中等", "强烈"])
+
+    @app.post("/split-lines")
+    async def split_lines(req: SplitLinesRequest):
+        """LLM 台词拆分 — 将小说/剧本文本拆分为角色台词"""
+        import httpx
+
+        prompt = f"""你的任务是将给定的文本内容划分为角色台词和旁白，输出结构化 JSON 数组。
+
+规则：
+1. 识别所有角色对话（引号/破折号/冒号标记），非对话内容标记为"旁白"。
+2. 若角色在已知列表中，使用该角色名；否则根据上下文推断角色名。
+3. 相邻同角色内容可合并，但单条不超过 150 字。
+4. 根据上下文推断每条台词的情绪和情绪强度。
+5. 旁白的情绪统一为"平静"，强度为"中等"。
+
+可能的角色列表：{', '.join(req.roles) if req.roles else '（未提供，请自行识别）'}
+可能的情绪列表：{', '.join(req.emotions)}
+可能的强度列表：{', '.join(req.strengths)}
+
+输出格式（严格 JSON 数组）：
+[
+  {{"role_name": "角色名", "text_content": "台词内容", "emotion_name": "情绪", "strength_name": "强度"}},
+  ...
+]
+
+文本原文：
+{req.text}"""
+
+        try:
+            async with httpx.AsyncClient(timeout=httpx.Timeout(120.0)) as client:
+                resp = await client.post(
+                    f"{req.api_base_url.rstrip('/')}/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {req.api_key}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "model": req.model,
+                        "messages": [{"role": "user", "content": prompt}],
+                        "temperature": 0.3,
+                    },
+                )
+                if resp.status_code != 200:
+                    raise HTTPException(status_code=resp.status_code, detail=f"LLM API 错误: {resp.text[:500]}")
+
+                data = resp.json()
+                content = data["choices"][0]["message"]["content"]
+
+                # 提取 JSON 数组（可能包含 markdown 代码块）
+                import re
+                json_match = re.search(r'\[[\s\S]*\]', content)
+                if not json_match:
+                    raise HTTPException(status_code=422, detail="LLM 未返回有效 JSON 数组")
+
+                result = json.loads(json_match.group())
+                return {"lines": result, "count": len(result)}
+
+        except httpx.ConnectError:
+            raise HTTPException(status_code=503, detail="无法连接 LLM API")
+        except httpx.TimeoutException:
+            raise HTTPException(status_code=504, detail="LLM API 响应超时")
+        except json.JSONDecodeError:
+            raise HTTPException(status_code=422, detail="LLM 返回内容无法解析为 JSON")
+        except KeyError as e:
+            raise HTTPException(status_code=422, detail=f"LLM 返回格式异常: {e}")
+
+    # ==================== 字幕翻译 ====================
+
+    class TranslateSubtitleRequest(BaseModel):
+        text: str = Field(..., min_length=1, max_length=100000)
+        target_language: str = Field(default="en", description="目标语言代码 (en/zh/ja/ko等)")
+        api_base_url: str = Field(..., description="OpenAI 兼容 API 的 base URL")
+        api_key: str = Field(..., description="API Key")
+        model: str = Field(default="gpt-4o-mini", description="模型名称")
+
+    @app.post("/subtitle/translate")
+    async def translate_subtitle(req: TranslateSubtitleRequest):
+        """翻译字幕文本 — 保留时间码格式"""
+        import httpx
+
+        lang_names = {
+            "en": "English", "zh": "简体中文", "ja": "日本語",
+            "ko": "한국어", "fr": "Français", "de": "Deutsch",
+            "es": "Español", "ru": "Русский",
+        }
+        lang_label = lang_names.get(req.target_language, req.target_language)
+
+        prompt = f"""Translate the following subtitle text to {lang_label}.
+Keep the original SRT/VTT timestamp format unchanged. Only translate the text content.
+If a line contains only timestamps or sequence numbers, keep them as-is.
+
+Original:
+{req.text}"""
+
+        try:
+            async with httpx.AsyncClient(timeout=httpx.Timeout(120.0)) as client:
+                resp = await client.post(
+                    f"{req.api_base_url.rstrip('/')}/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {req.api_key}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "model": req.model,
+                        "messages": [{"role": "user", "content": prompt}],
+                        "temperature": 0.3,
+                    },
+                )
+                if resp.status_code != 200:
+                    raise HTTPException(status_code=resp.status_code, detail=f"LLM API 错误: {resp.text[:500]}")
+
+                data = resp.json()
+                translated = data["choices"][0]["message"]["content"]
+                return {"translated_text": translated, "target_language": req.target_language}
+
+        except httpx.ConnectError:
+            raise HTTPException(status_code=503, detail="无法连接 LLM API")
+        except httpx.TimeoutException:
+            raise HTTPException(status_code=504, detail="LLM API 响应超时")
+
+    # ==================== 字幕时间优化 ====================
+
+    class OptimizeTimingRequest(BaseModel):
+        segments: list[dict] = Field(..., description="字幕段列表 [{start_ms, end_ms, text}]")
+        min_gap_ms: int = Field(default=100, ge=0, le=2000, description="段间最小间隔")
+        min_duration_ms: int = Field(default=500, ge=200, le=5000, description="单段最小时长")
+        max_duration_ms: int = Field(default=8000, ge=2000, le=30000, description="单段最大时长")
+
+    @app.post("/subtitle/optimize-timing")
+    async def optimize_timing(req: OptimizeTimingRequest):
+        """优化字幕时间轴 — 修复重叠、过短、过长等问题"""
+        segments = req.segments
+        if not segments:
+            return {"segments": [], "fixes": 0}
+
+        fixes = 0
+        result = []
+        for i, seg in enumerate(segments):
+            s = dict(seg)
+            start = s.get("start_ms", 0)
+            end = s.get("end_ms", start + 1000)
+
+            if end - start < req.min_duration_ms:
+                end = start + req.min_duration_ms
+                fixes += 1
+
+            if end - start > req.max_duration_ms:
+                end = start + req.max_duration_ms
+                fixes += 1
+
+            if i > 0 and result:
+                prev_end = result[-1]["end_ms"]
+                if start < prev_end:
+                    start = prev_end + req.min_gap_ms
+                    if start > end:
+                        end = start + req.min_duration_ms
+                    fixes += 1
+                elif start - prev_end < req.min_gap_ms:
+                    start = prev_end + req.min_gap_ms
+                    if start > end:
+                        end = start + req.min_duration_ms
+                    fixes += 1
+
+            s["start_ms"] = start
+            s["end_ms"] = end
+            result.append(s)
+
+        return {"segments": result, "fixes": fixes}
 
     return app
 

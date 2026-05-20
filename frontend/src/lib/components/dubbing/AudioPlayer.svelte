@@ -1,5 +1,6 @@
 <script lang="ts">
   import Icon from '$lib/icons/Icon.svelte';
+  import WaveformView from '../ui/WaveformView.svelte';
   import { dubbing } from '$lib/stores/dubbing.svelte';
   import { convertFileSrc } from '@tauri-apps/api/core';
 
@@ -110,20 +111,15 @@
   <div class="player-progress">
     <div class="time-now">{formatTime(currentTime)}</div>
     <div class="seek-wrap">
-      <input
-        type="range"
-        class="seek-input"
-        min="0"
-        max={duration || 100}
-        step="0.1"
-        value={currentTime}
-        oninput={handleSeek}
-        style="--progress: {progressPercent}%"
-        aria-label="音频进度"
+      <WaveformView
+        audioSrc={playableUrl}
+        {currentTime}
+        {duration}
+        onSeek={(t) => { if (audioPreviewEl) { audioPreviewEl.currentTime = t; currentTime = t; } }}
+        height={32}
+        barWidth={2}
+        barGap={1}
       />
-      <div class="seek-track" aria-hidden="true">
-        <div class="seek-fill" style="width: {progressPercent}%"></div>
-      </div>
     </div>
     <div class="time-total">{formatTime(duration)}</div>
   </div>
@@ -334,57 +330,6 @@
     height: 18px;
     display: flex;
     align-items: center;
-  }
-
-  .seek-track {
-    position: absolute;
-    inset: auto 0;
-    height: 4px;
-    border-radius: 2px;
-    background-color: color-mix(in srgb, var(--color-border) 70%, transparent);
-    overflow: hidden;
-    pointer-events: none;
-  }
-
-  .seek-fill {
-    height: 100%;
-    background: linear-gradient(90deg, var(--color-primary), color-mix(in srgb, var(--color-primary) 70%, white 30%));
-    border-radius: 2px;
-    transition: width 0.1s linear;
-    box-shadow: 0 0 6px color-mix(in srgb, var(--color-primary) 50%, transparent);
-  }
-
-  .seek-input {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 100%;
-    height: 100%;
-    background: transparent;
-    cursor: pointer;
-    position: relative;
-    z-index: 2;
-  }
-
-  .seek-input::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    background: var(--color-primary);
-    border: 2px solid rgba(255, 255, 255, 0.9);
-    box-shadow: 0 0 8px color-mix(in srgb, var(--color-primary) 60%, transparent);
-    cursor: grab;
-    transition: transform 0.15s ease;
-  }
-
-  .seek-input:hover::-webkit-slider-thumb {
-    transform: scale(1.15);
-  }
-
-  .seek-input:active::-webkit-slider-thumb {
-    cursor: grabbing;
-    transform: scale(1.25);
   }
 
   .hidden-audio {

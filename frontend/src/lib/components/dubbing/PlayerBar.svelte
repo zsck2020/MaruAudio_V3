@@ -1,6 +1,7 @@
 <script lang="ts">
   import Icon from '$lib/icons/Icon.svelte';
   import Tooltip from '../Tooltip.svelte';
+  import WaveformView from '../ui/WaveformView.svelte';
   import { dubbing } from '$lib/stores/dubbing.svelte';
   import { convertFileSrc } from '@tauri-apps/api/core';
 
@@ -117,7 +118,7 @@
     </button>
   </div>
 
-  <!-- 中间：进度 -->
+  <!-- 中间：波形进度 -->
   <div class="progress-area">
     {#if dubbing.isGenerating}
       <div class="gen-row">
@@ -129,18 +130,27 @@
       </div>
     {:else}
       <span class="time-label">{formatTime(dubbing.currentTime)}</span>
-      <input
-        type="range"
-        class="seek-slider"
-        min="0"
-        max={dubbing.duration || 0}
-        step="0.1"
-        value={dubbing.currentTime}
-        oninput={handleSeek}
-        disabled={!transportEnabled}
-        style="--progress: {progressPercent}%"
-        aria-label="播放进度"
-      />
+      {#if playableAudioSrc}
+        <WaveformView
+          audioSrc={playableAudioSrc}
+          currentTime={dubbing.currentTime}
+          duration={dubbing.duration}
+          onSeek={(t) => { if (audioEl) { audioEl.currentTime = t; dubbing.currentTime = t; } }}
+          height={36}
+          barWidth={2}
+          barGap={1}
+          interactive={transportEnabled}
+        />
+      {:else}
+        <div class="waveform-empty-state">
+          <div class="empty-bars" aria-hidden="true">
+            {#each Array(80) as _, i (i)}
+              <span style="height:{8 + ((i * 7) % 20)}%"></span>
+            {/each}
+          </div>
+          <span class="empty-hint">生成配音后可预览波形</span>
+        </div>
+      {/if}
       <span class="time-label">{formatTime(dubbing.duration)}</span>
     {/if}
   </div>
@@ -254,43 +264,40 @@
     text-align: center;
   }
 
-  .seek-slider {
-    -webkit-appearance: none;
-    appearance: none;
+  .waveform-empty-state {
     flex: 1;
-    height: 4px;
-    border-radius: 2px;
-    outline: none;
-    cursor: pointer;
-    background: linear-gradient(
-      to right,
-      var(--color-primary) 0%,
-      var(--color-primary) var(--progress, 0%),
-      rgba(255, 255, 255, 0.15) var(--progress, 0%),
-      rgba(255, 255, 255, 0.15) 100%
-    );
+    height: 36px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--border-radius-sm);
+    overflow: hidden;
   }
 
-  .seek-slider:disabled {
+  .empty-bars {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1px;
     opacity: 0.35;
-    cursor: not-allowed;
   }
 
-  .seek-slider::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    background: var(--color-primary);
-    border: 2px solid rgba(255, 255, 255, 0.9);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-    cursor: grab;
-    transition: transform var(--motion-duration-fast) var(--motion-ease-base);
+  .empty-bars span {
+    width: 2px;
+    border-radius: 1px;
+    background-color: rgba(255, 255, 255, 0.15);
+    flex-shrink: 0;
   }
 
-  .seek-slider:hover:not(:disabled)::-webkit-slider-thumb {
-    transform: scale(1.15);
+  .empty-hint {
+    position: relative;
+    z-index: 1;
+    font-size: 11px;
+    color: var(--color-text-disabled);
+    letter-spacing: 0.3px;
   }
 
   /* 生成中进度 */

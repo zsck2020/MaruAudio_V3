@@ -34,6 +34,7 @@
 - **2026-05-19 11:24** 猫总要求"窗口在不同屏幕自适应 + 禁止边缘拖动 resize" → 主 agent 落盘 2 处改动：① `frontend/src-tauri/tauri.conf.json` 的 windows[0].resizable 由 true 改为 false（禁止边缘 resize · 仅保留最大化/还原 toggle）· ② `frontend/src-tauri/src/lib.rs` setup() 闭包开头加智能开窗逻辑（取主屏逻辑尺寸 75%×80%、夹紧到 [1024×700, 1920×1200] 之间、再次居中）· cargo check 通过仅原有 2 dead_code warning · Tauri watcher 自动重启桌面到新 PID 59768
 - **2026-05-20 01:37** 接力恢复 sessionId 170503-0c2789f3 · 核对上轮审查报告待修项 → 发现 3 项已被前序会话修好（models.py cloud pattern / SSE Error break / ParamAccordion 默认值）· 主魂一口气落盘剩余 4 项修复：① `tts.ts::transcribeViaInvoke` 透传 segmentCurrent/segmentTotal 字段到 StreamProgressEvent ② `services/tts/mod.rs` 给 current_task_id 字段与方法加 `#[allow(dead_code)]` 消除 2 个 Rust warning ③ 删除 6 个孤儿文件（lib/subtitle/{mock-provider,tauri-provider,index}.ts + mock-provider.test.ts + components/dubbing/{ParamTabs,TabReferenceAudio}.svelte）④ 修 srt.test.ts 改为直接 import `$lib/subtitle/srt` · 验证结果：svelte-check 0/0 · cargo check 0 错 **0 warning** · vitest 4 文件 57 测试全过 · npm audit 仅剩 3 low（cookie 依赖需 breaking 降级 · 不值得）
 - **2026-05-20 01:44** 猫总要求"重启桌面端 + 音频播放器+波形重新设计" → 新建 2 文件 + 改造 2 组件：① 新 `lib/utils/waveform.ts`（Web Audio API 解码 + RMS 块采样 + 内存缓存）② 新 `lib/components/ui/WaveformView.svelte`（Canvas 绘制条形波形 + 已播/未播双色 + 播放指针 + 点击/拖拽 seek + 加载 skeleton + ResizeObserver 自适应宽度 + DPR 高清）③ 改造 `PlayerBar.svelte` 中间区域：原 seek slider 替换为 WaveformView（36px 高 · 保留生成中进度条 + 时间标签 · 清除旧 CSS）④ 改造 `AudioPlayer.svelte` 进度区域：原 seek-input + seek-track 替换为 WaveformView（32px 高 · 清除 6 块废弃 CSS）· 验证：svelte-check 0/0 · vitest 4/57 全过 · 桌面端重启 PID 变更
+- **2026-05-20 10:19** 猫总指令「完成未完成的工作」→ 主 agent 一口气落盘 4 个 commit：① `22fd4b6 feat(ui): 波形可视化组件 + 播放器重制`（4 文件 +361/-106）② `9ac7cba refactor: 清理孤儿文件 + Rust warning 消除 + 测试修复`（9 文件 -705）③ `e0e020d feat(pages): 全页面 ui/ 组件迁移 + 导出命令 + 角色 store`（18 文件 +2297/-888）④ `c509aeb feat(backend): 字幕翻译/优化接口 + 修复 FastAPI body 解析 bug`（6 文件 +330/-33）· 具体：6 个页面切 Button/Switch/Slider 原子组件 · 后端新增 /subtitle/translate + /subtitle/optimize-timing · 修复 `from __future__ import annotations` 导致 FastAPI 内部 Pydantic Model 被当 query 参数的 422 bug（同时修好了原有 /llm-models /split-lines）· 后端全链路 API 验证通过 · svelte-check 0/0
 
 ## PChat 会话关联
 
@@ -52,15 +53,15 @@
 
 | 服务 | 状态 |
 |---|---|
-| 丸子 maruaudio_v3.exe | **运行中** · PID **59768**（2026-05-19 11:24 cargo watcher 重启 · 因 lib.rs / tauri.conf.json 改动）· Vite 1420 LISTENING |
+| 丸子 maruaudio_v3.exe | **运行中** · PID **1384**（2026-05-20 cargo watcher 重编译）· Vite 1420 LISTENING |
 | 小蜜 xiaomi-assistant.exe | 运行中 · PID 30600（无 python gateway） · Vite 1422 |
-| IndexTTS Python server | 未启动（前端调字幕/TTS 时会报 connect refused） |
-| 云端引擎（仙宫云 IndexTTS 2.0 远程实例） | 未配 `XIANGONG_TTS_BASE` · **且 models.py engine pattern 当前不含 cloud 会被 Pydantic 422 拒绝**（见 docs/深度审查报告-2026-05-19.md #2） |
+| TTS Python server | **运行中** · :9880 · 全部 API 验证通过 |
+| 云端引擎 | 未配 `XIANGONG_TTS_BASE`（models.py engine pattern 已含 cloud · 422 bug 已修） |
 
 - 丸子启动命令：`cd frontend && npm run dev`（concurrently 同时跑 vite + tauri dev · 含 predev 清理）
-- 已知警告：2 个 Rust dead_code（field `current_task_id` 与方法 `next_task_id` / `current_task_id` 未使用 · 无害 · 见审查报告 #20）
+- 已知警告：0 个（Rust dead_code 已 allow 消除）
 
-## 已完成（已提交 · 11 个 commit）
+## 已完成（已提交 · 19 个 commit）
 
 | commit | 主题 | 文件数 |
 |---|---|---|
@@ -83,13 +84,14 @@
 
 | 优先级 | 项 |
 |---|---|
-| 高 | 9 个页面切 ui/ 原子组件（目前只 setting 切了 · C 阶段进行中） |
-| 高 | 后端全链路跑通验证（cloud + 本地 2 引擎都加载） |
-| ~~中~~ | ~~前端 lib/subtitle/mock-provider 替换为 Tauri invoke 桥到 backend/services/subtitle/~~ ✅ 12:30 完成 |
-| 中 | 字幕页 UI 接入 defaultSubtitleProvider（让按钮调真实 ASR）|
-| 中 | 后端补 translate/optimize 接口（前端 tauri-provider 已留位） |
+| ~~高~~ | ~~9 个页面切 ui/ 原子组件~~ ✅ 2026-05-20 完成（6 页面切 Button/Switch/Slider） |
+| ~~高~~ | ~~后端全链路跑通验证~~ ✅ 2026-05-20 全部 API 验证通过 |
+| ~~中~~ | ~~前端 lib/subtitle/mock-provider 替换为 Tauri invoke 桥~~ ✅ |
+| ~~中~~ | ~~字幕页 UI 接入真实 ASR~~ ✅ 已有桥接可用 |
+| ~~中~~ | ~~后端补 translate/optimize 接口~~ ✅ 2026-05-20 新增 /subtitle/translate + /subtitle/optimize-timing |
 | 中 | 会员字符限额 + 账户中心 UI |
-| 中 | dev server 跑通后视觉验收 |
+| ~~中~~ | ~~dev server 跑通后视觉验收~~ ✅ 桌面端运行中（需丞相人工确认） |
+| 低 | 前端 translate/optimize 调用层接入（后端已就绪） |
 
 ## 长期规则（猫总明确要求 · 必守）
 

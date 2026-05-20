@@ -7,6 +7,7 @@
   import type { EngineMode } from '$lib/types/dubbing';
   import Modal from '$lib/components/ui/Modal.svelte';
   import Button from '$lib/components/ui/Button.svelte';
+  import Slider from '$lib/components/ui/Slider.svelte';
   import { appSettings } from '$lib/stores/settings.svelte';
 
   const engineLabels: Record<EngineMode, string> = { lightweight: '轻量', emotion: '情感', cloud: '云端' };
@@ -532,20 +533,49 @@
 
         <div class="psec-card">
           <div class="psec-title"><Icon name="sliders" size={13} color="var(--color-primary)" /><span>采样参数</span></div>
-          <div class="param-grid">
-            <div class="pg-row"><span>温度</span><strong>{rolesStore.activeRole.temperature.toFixed(1)}</strong></div>
-            <div class="pg-row"><span>Top-P</span><strong>{rolesStore.activeRole.topP.toFixed(2)}</strong></div>
-            <div class="pg-row"><span>Top-K</span><strong>{rolesStore.activeRole.topK}</strong></div>
-            <div class="pg-row"><span>静音</span><strong>{rolesStore.activeRole.intervalSilence}ms</strong></div>
+          <div class="param-sliders">
+            <div class="ps-row">
+              <span class="ps-label">温度</span>
+              <span class="ps-value">{rolesStore.activeRole.temperature.toFixed(1)}</span>
+            </div>
+            <Slider min={0} max={2} step={0.1} value={rolesStore.activeRole.temperature} onchange={(v) => { rolesStore.updateRole(rolesStore.activeRole!.id, { temperature: v }); void rolesStore.saveToStore(); }} />
+            <div class="ps-row">
+              <span class="ps-label">Top-P</span>
+              <span class="ps-value">{rolesStore.activeRole.topP.toFixed(2)}</span>
+            </div>
+            <Slider min={0} max={1} step={0.05} value={rolesStore.activeRole.topP} onchange={(v) => { rolesStore.updateRole(rolesStore.activeRole!.id, { topP: v }); void rolesStore.saveToStore(); }} />
+            <div class="ps-row">
+              <span class="ps-label">Top-K</span>
+              <span class="ps-value">{rolesStore.activeRole.topK}</span>
+            </div>
+            <Slider min={0} max={100} step={1} value={rolesStore.activeRole.topK} onchange={(v) => { rolesStore.updateRole(rolesStore.activeRole!.id, { topK: v }); void rolesStore.saveToStore(); }} />
+            <div class="ps-row">
+              <span class="ps-label">静音</span>
+              <span class="ps-value">{rolesStore.activeRole.intervalSilence}ms</span>
+            </div>
+            <Slider min={0} max={1000} step={50} value={rolesStore.activeRole.intervalSilence} onchange={(v) => { rolesStore.updateRole(rolesStore.activeRole!.id, { intervalSilence: v }); void rolesStore.saveToStore(); }} />
           </div>
         </div>
 
         {#if rolesStore.activeRole.engine !== 'lightweight'}
           <div class="psec-card">
             <div class="psec-title"><Icon name="heart" size={13} color="var(--color-accent)" /><span>情感</span></div>
-            <div class="param-grid">
-              <div class="pg-row"><span>方式</span><strong>{rolesStore.activeRole.emotionMethod === 'slider' ? '向量控制' : rolesStore.activeRole.emotionMethod === 'text' ? '文本描述' : '音频参考'}</strong></div>
-              <div class="pg-row"><span>强度</span><strong>{rolesStore.activeRole.emoAlpha.toFixed(2)}</strong></div>
+            <div class="param-sliders">
+              <div class="ps-row">
+                <span class="ps-label">方式</span>
+                <div class="echips compact">
+                  {#each (['slider', 'text', 'audio'] as const) as m}
+                    <button class="echip-sm" class:active={rolesStore.activeRole?.emotionMethod === m} onclick={() => { rolesStore.updateRole(rolesStore.activeRole!.id, { emotionMethod: m }); void rolesStore.saveToStore(); }}>
+                      {m === 'slider' ? '向量' : m === 'text' ? '文本' : '音频'}
+                    </button>
+                  {/each}
+                </div>
+              </div>
+              <div class="ps-row">
+                <span class="ps-label">强度</span>
+                <span class="ps-value">{rolesStore.activeRole.emoAlpha.toFixed(2)}</span>
+              </div>
+              <Slider min={0} max={1} step={0.05} value={rolesStore.activeRole.emoAlpha} onchange={(v) => { rolesStore.updateRole(rolesStore.activeRole!.id, { emoAlpha: v }); void rolesStore.saveToStore(); }} />
             </div>
           </div>
         {/if}
@@ -669,8 +699,21 @@
   .lc-role-name { font-size:12px; font-weight:600; color:var(--lc); white-space:nowrap; }
   .lc-emotion { font-size:11px; color:var(--color-text-disabled); white-space:nowrap; }
 
-  .lc-text { width:100%; border:none; background:transparent; color:var(--color-text); font-size:var(--font-size-sm); font-family:inherit; outline:none; line-height:1.5; }
-  .lc-text:focus { color:var(--color-text); background:color-mix(in srgb, var(--lc) 6%, transparent); border-radius:var(--border-radius-sm); padding:4px 6px; margin:-4px -6px; }
+  .lc-text {
+    width:100%;
+    border: 1px solid var(--color-border-secondary);
+    background: var(--color-bg-base);
+    color:var(--color-text);
+    font-size:var(--font-size-sm);
+    font-family:inherit;
+    outline:none;
+    line-height:1.5;
+    padding: 6px 10px;
+    border-radius: var(--border-radius);
+    transition: border-color var(--motion-duration-mid) var(--motion-ease-base), box-shadow var(--motion-duration-mid) var(--motion-ease-base);
+  }
+  .lc-text:hover { border-color: color-mix(in srgb, var(--lc) 40%, var(--color-border-secondary)); }
+  .lc-text:focus { border-color: var(--lc); box-shadow: 0 0 0 2px color-mix(in srgb, var(--lc) 15%, transparent); }
 
   .lc-right { display:flex; flex-direction:column; align-items:center; gap:6px; flex-shrink:0; align-self:center; }
   .lc-play { width:34px; height:34px; display:flex; align-items:center; justify-content:center; border:1px solid var(--color-border-secondary); border-radius:50%; background:transparent; color:var(--color-primary); flex-shrink:0; transition:border-color .15s,background .15s,transform .1s; }
@@ -715,9 +758,14 @@
   .echip-btn.active { color:var(--ec); border-color:var(--ec); background:color-mix(in srgb, var(--ec) 14%, transparent); }
   .echip-btn:hover:not(.active) { border-color:var(--ec); color:var(--ec); }
 
-  .param-grid { display:grid; grid-template-columns:1fr 1fr; gap:4px; }
-  .pg-row { display:flex; justify-content:space-between; align-items:center; font-size:12px; color:var(--color-text-tertiary); padding:2px var(--spacing-xs); background:var(--color-bg-elevated); border-radius:var(--border-radius-xs); min-height:26px; }
-  .pg-row strong { color:var(--color-text-secondary); font-weight:400; font-variant-numeric:tabular-nums; }
+  .param-sliders { display:flex; flex-direction:column; gap:2px; }
+  .ps-row { display:flex; justify-content:space-between; align-items:center; font-size:12px; color:var(--color-text-tertiary); padding:2px 0; }
+  .ps-label { color:var(--color-text-secondary); }
+  .ps-value { color:var(--color-primary); font-variant-numeric:tabular-nums; font-weight:500; }
+  .echips.compact { display:flex; gap:2px; }
+  .echip-sm { height:22px; padding:0 8px; border:1px solid var(--color-border-secondary); border-radius:var(--border-radius-sm); background:transparent; color:var(--color-text-tertiary); font-size:11px; transition:border-color .15s,background .15s,color .15s; }
+  .echip-sm.active { border-color:var(--color-accent); background:color-mix(in srgb, var(--color-accent) 12%, transparent); color:var(--color-accent); }
+  .echip-sm:hover:not(.active) { border-color:var(--color-accent); color:var(--color-accent); }
 
   .psec-stats { display:grid; grid-template-columns:1fr 1fr; gap:var(--spacing-xs); margin-top:auto; padding-top:var(--spacing-xs); }
   .stat-item { display:flex; flex-direction:column; align-items:center; gap:2px; padding:var(--spacing-sm); background:var(--color-bg-base); border:1px solid var(--color-border-secondary); border-radius:var(--border-radius); }

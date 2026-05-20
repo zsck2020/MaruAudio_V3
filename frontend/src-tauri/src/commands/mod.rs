@@ -1,6 +1,7 @@
 pub mod app;
 pub mod audio;
 pub mod engine;
+pub mod export;
 pub mod file;
 pub mod sample;
 pub mod subtitle;

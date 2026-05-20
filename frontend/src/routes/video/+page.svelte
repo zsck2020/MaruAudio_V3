@@ -1,5 +1,8 @@
 <script lang="ts">
   import Icon from '$lib/icons/Icon.svelte';
+  import Button from '$lib/components/ui/Button.svelte';
+  import Switch from '$lib/components/ui/Switch.svelte';
+  import Slider from '$lib/components/ui/Slider.svelte';
   import { toast } from '$lib/stores/toast.svelte';
 
   const tracks = [
@@ -37,20 +40,20 @@
 
     <section class="timeline-toolbar">
       <div class="play-controls">
-        <button><Icon name="fast-backward" size={15} color="currentColor" /></button>
-        <button><Icon name="step-backward" size={15} color="currentColor" /></button>
-        <button class="play"><Icon name="play-fill" size={18} color="#fff" /></button>
-        <button><Icon name="step-forward" size={15} color="currentColor" /></button>
-        <button><Icon name="fast-forward" size={15} color="currentColor" /></button>
+        <Button variant="default" size="sm" prefixIcon="fast-backward" iconOnly ariaLabel="快退" />
+        <Button variant="default" size="sm" prefixIcon="step-backward" iconOnly ariaLabel="上一帧" />
+        <button type="button" class="play"><Icon name="play-fill" size={18} color="#fff" /></button>
+        <Button variant="default" size="sm" prefixIcon="step-forward" iconOnly ariaLabel="下一帧" />
+        <Button variant="default" size="sm" prefixIcon="fast-forward" iconOnly ariaLabel="快进" />
         <time>00:01:23.480</time>
       </div>
       <div class="tool-controls">
-        <button class="active"><Icon name="aim" size={14} color="currentColor" />吸附</button>
-        <button><Icon name="split-cells" size={14} color="currentColor" />切分</button>
-        <button><Icon name="merge-cells" size={14} color="currentColor" />合并</button>
-        <button><Icon name="zoom-out" size={14} color="currentColor" /></button>
-        <input type="range" value="58" />
-        <button><Icon name="zoom-in" size={14} color="currentColor" /></button>
+        <Button variant="primary" size="sm" prefixIcon="aim">吸附</Button>
+        <Button variant="default" size="sm" prefixIcon="split-cells">切分</Button>
+        <Button variant="default" size="sm" prefixIcon="merge-cells">合并</Button>
+        <Button variant="default" size="sm" prefixIcon="zoom-out" iconOnly ariaLabel="缩小" />
+        <div class="zoom-slider"><Slider min={0} max={100} value={58} /></div>
+        <Button variant="default" size="sm" prefixIcon="zoom-in" iconOnly ariaLabel="放大" />
       </div>
     </section>
 
@@ -83,7 +86,7 @@
   <aside class="property-panel">
     <header>
       <h2>片段属性</h2>
-      <button type="button" onclick={() => toast.success('已保存片段属性')}>保存</button>
+      <Button variant="primary" size="sm" onclick={() => toast.success('已保存片段属性')}>保存</Button>
     </header>
 
     <section class="clip-card">
@@ -107,15 +110,15 @@
       <label>音量 <span>-1.5 dB</span><input type="range" value="64" /></label>
       <label>淡入 <span>120 ms</span><input type="range" value="18" /></label>
       <label>淡出 <span>160 ms</span><input type="range" value="22" /></label>
-      <label>响度归一化<input type="checkbox" checked /></label>
-      <label>自动降噪<input type="checkbox" /></label>
+      <label class="switch-label">响度归一化 <Switch checked={true} /></label>
+      <label class="switch-label">自动降噪 <Switch checked={false} /></label>
     </section>
 
     <section class="prop-group">
       <h3>对齐辅助</h3>
-      <button type="button">吸附到字幕入点</button>
-      <button type="button">匹配原声波峰</button>
-      <button type="button">自动填补静音</button>
+      <Button variant="default" size="sm" block>吸附到字幕入点</Button>
+      <Button variant="default" size="sm" block>匹配原声波峰</Button>
+      <Button variant="default" size="sm" block>自动填补静音</Button>
     </section>
 
     <section class="analysis-card">
@@ -123,7 +126,7 @@
       <div><span>字幕误差</span><strong class="ok">+120ms</strong></div>
       <div><span>响度差异</span><strong>-1.5dB</strong></div>
       <div><span>重叠片段</span><strong class="warn">2 处</strong></div>
-      <button type="button" onclick={() => toast.info('自动修正开发中')}>一键修正</button>
+      <Button variant="primary" size="sm" block onclick={() => toast.info('自动修正开发中')}>一键修正</Button>
     </section>
   </aside>
 </div>
@@ -133,7 +136,9 @@
     flex: 1;
     min-height: 0;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 320px;
+    grid-template-columns: minmax(0, 1fr) 300px;
+    gap: var(--spacing-sm);
+    padding: 15px;
     background: var(--color-bg-container);
     overflow: hidden;
   }
@@ -148,15 +153,18 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border-secondary);
+    border-radius: var(--border-radius-lg);
   }
 
   .preview-area {
-    height: 282px;
+    height: 260px;
     display: grid;
     grid-template-columns: 1fr 88px;
-    gap: var(--spacing-md);
-    padding: var(--spacing-md);
-    border-bottom: 1px solid var(--color-border-secondary);
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm);
+    flex-shrink: 0;
   }
 
   .preview-screen {
@@ -242,32 +250,20 @@
     gap: var(--spacing-xs);
   }
 
-  .play-controls button,
-  .tool-controls button {
-    height: 30px;
-    border: 1px solid var(--color-border-secondary);
-    border-radius: var(--border-radius-sm);
-    background: var(--color-bg-base);
-    color: var(--color-text-secondary);
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    padding: 0 var(--spacing-sm);
-  }
-
   .play-controls .play {
     width: 36px;
     height: 36px;
+    display: inline-flex;
+    align-items: center;
     justify-content: center;
+    border: none;
     border-radius: 50%;
     background: var(--color-primary);
-    border-color: var(--color-primary);
+    cursor: pointer;
   }
 
-  .tool-controls .active {
-    color: #fff;
-    background: var(--color-primary);
-    border-color: var(--color-primary);
+  .zoom-slider {
+    width: 100px;
   }
 
   .play-controls time {
@@ -329,7 +325,6 @@
     gap: var(--spacing-sm);
     padding: 0 var(--spacing-sm);
     color: var(--color-text-secondary);
-    border-right: 1px solid var(--color-border-secondary);
   }
 
   .track-lane {
@@ -372,9 +367,11 @@
   .clip.red { background: #c92a2a; }
 
   .property-panel {
-    border-left: 1px solid var(--color-border-secondary);
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border-secondary);
+    border-radius: var(--border-radius-lg);
     padding: var(--spacing-md);
-    overflow-y: auto;
+    overflow: hidden;
   }
 
   .property-panel header {
@@ -392,14 +389,13 @@
     font-size: var(--font-size);
   }
 
-  .property-panel header button,
-  .analysis-card button {
-    height: 30px;
-    border: none;
-    border-radius: var(--border-radius-sm);
-    background: var(--color-primary);
-    color: #fff;
-    padding: 0 var(--spacing-sm);
+  .switch-label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
   }
 
   .clip-card,
@@ -475,20 +471,6 @@
   .prop-group input[type='range'] {
     grid-column: 1 / -1;
     padding: 0;
-  }
-
-  .prop-group input[type='checkbox'] {
-    width: 16px;
-    height: 16px;
-    justify-self: start;
-  }
-
-  .prop-group button {
-    height: 32px;
-    border: 1px solid var(--color-border-secondary);
-    border-radius: var(--border-radius);
-    background: var(--color-bg-base);
-    color: var(--color-primary);
   }
 
   .analysis-card {

@@ -1,4 +1,4 @@
-﻿<script lang="ts">
+<script lang="ts">
   import '../fonts.css';
   import '../app.css';
   import { onMount } from 'svelte';
@@ -291,7 +291,7 @@
   :global(.content > .align-page),
   :global(.content > .about-page),
   :global(.content > .settings-page) {
-    padding-bottom: 10px;
+    padding: 15px;
   }
 
   @media (max-width: 768px) {

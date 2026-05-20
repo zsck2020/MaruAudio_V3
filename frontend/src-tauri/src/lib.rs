@@ -106,6 +106,7 @@ pub fn run() {
             commands::subtitle::subtitle_transcribe_stream,
             commands::subtitle::subtitle_cancel,
             commands::subtitle::subtitle_read_output,
+            commands::export::export_concat_audio,
             commands::user::user_health,
             commands::user::user_login,
             commands::user::user_register,

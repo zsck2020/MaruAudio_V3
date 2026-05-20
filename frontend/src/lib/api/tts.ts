@@ -201,6 +201,8 @@ export interface StreamProgressEvent {
   type: 'progress';
   progress: number;
   message: string;
+  segmentCurrent?: number;
+  segmentTotal?: number;
 }
 
 export interface StreamErrorEvent {
@@ -351,12 +353,13 @@ async function transcribeViaInvoke(
 
   try {
     unlisteners.push(
-      await listen<{ progress: number; message: string }>('subtitle-progress', (e) => {
+      await listen<{ progress: number; message: string; segmentCurrent?: number; segmentTotal?: number }>('subtitle-progress', (e) => {
         callbacks.onProgress?.({
           type: 'progress',
-          // Rust 端 emit 时已乘 100 转整数，这里 /100 还原 0~1 浮点保持 SSE 契约
           progress: (e.payload.progress ?? 0) / 100,
           message: e.payload.message ?? '',
+          segmentCurrent: e.payload.segmentCurrent,
+          segmentTotal: e.payload.segmentTotal,
         });
       }),
     );
@@ -409,4 +412,93 @@ async function transcribeViaInvoke(
       }
     }
   }
+}
+
+// ==================== LLM 台词拆分 ====================
+
+// ==================== 预置样音 ====================
+
+export interface PresetVoice {
+  id: string;
+  name: string;
+  gender: string;
+  language: string;
+  description: string;
+  tags: string[];
+  display_tag: string;
+  file_path: string;
+  cover: string;
+  duration?: number;
+  is_premium: boolean;
+  source: string;
+}
+
+export interface PresetsResponse {
+  presets: PresetVoice[];
+  count: number;
+}
+
+export async function listPresets(): Promise<PresetsResponse> {
+  const resp = await fetch(`${TTS_SERVER_BASE}/presets`);
+  if (!resp.ok) throw new Error('获取预置样音失败');
+  return resp.json();
+}
+
+// ==================== LLM ====================
+
+export interface LlmModelsResponse {
+  models: string[];
+  count: number;
+}
+
+export async function listLlmModels(apiBaseUrl: string, apiKey: string): Promise<LlmModelsResponse> {
+  const resp = await fetch(`${TTS_SERVER_BASE}/llm-models`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ api_base_url: apiBaseUrl, api_key: apiKey }),
+  });
+
+  if (!resp.ok) {
+    const detail = await resp.text().catch(() => '');
+    throw new Error(`获取模型列表失败 (${resp.status}): ${detail.slice(0, 200)}`);
+  }
+
+  return resp.json();
+}
+
+export interface SplitLinesRequest {
+  text: string;
+  api_base_url: string;
+  api_key: string;
+  model?: string;
+  roles?: string[];
+  emotions?: string[];
+  strengths?: string[];
+}
+
+export interface SplitLineResult {
+  role_name: string;
+  text_content: string;
+  emotion_name: string;
+  strength_name: string;
+}
+
+export interface SplitLinesResponse {
+  lines: SplitLineResult[];
+  count: number;
+}
+
+export async function splitLines(req: SplitLinesRequest): Promise<SplitLinesResponse> {
+  const resp = await fetch(`${TTS_SERVER_BASE}/split-lines`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(req),
+  });
+
+  if (!resp.ok) {
+    const detail = await resp.text().catch(() => '');
+    throw new Error(`台词拆分失败 (${resp.status}): ${detail.slice(0, 200)}`);
+  }
+
+  return resp.json();
 }

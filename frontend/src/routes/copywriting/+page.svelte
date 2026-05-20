@@ -1,5 +1,7 @@
 <script lang="ts">
   import Icon from '$lib/icons/Icon.svelte';
+  import Button from '$lib/components/ui/Button.svelte';
+  import Switch from '$lib/components/ui/Switch.svelte';
   import { toast } from '$lib/stores/toast.svelte';
   import { transcribe, type SubtitleFormat } from '$lib/api/tts';
 
@@ -215,7 +217,7 @@
     <section class="recognize-card">
       <h2>ASR 识别 · 必剪</h2>
       <label>识别语言<select bind:value={languageLabel}><option>中文普通话</option><option>粤语</option><option>英语</option></select></label>
-      <label>词级时间戳<input type="checkbox" bind:checked={needWordTimestamp} /></label>
+      <label class="switch-row">词级时间戳<Switch bind:checked={needWordTimestamp} size="sm" /></label>
       <label>导出格式
         <select bind:value={exportFormat}>
           <option value="srt">SRT</option>
@@ -232,9 +234,9 @@
           <span>{transcribeMessage || '识别中…'} · {transcribeProgress}%</span>
         </div>
       {/if}
-      <button type="button" onclick={handleRecognize} disabled={isTranscribing}>
+      <Button variant="primary" size="sm" block loading={isTranscribing} onclick={handleRecognize}>
         {isTranscribing ? '识别中…' : '开始识别'}
-      </button>
+      </Button>
     </section>
 
     <section class="job-list">
@@ -260,9 +262,9 @@
         <p>{currentMediaName} · {subtitles.length} 条字幕 · 输出 {exportFormat.toUpperCase()}</p>
       </div>
       <div class="toolbar-actions">
-        <button type="button" onclick={handleRecognize} disabled={isTranscribing}><Icon name="sync" size={14} color="currentColor" />重新识别</button>
-        <button type="button" onclick={() => toast.info('翻译功能开发中')}><Icon name="translation" size={14} color="currentColor" />翻译</button>
-        <button type="button" class="primary" onclick={handleExport} disabled={!currentSubtitlePath}>导出字幕</button>
+        <Button variant="default" size="sm" prefixIcon="sync" onclick={handleRecognize} disabled={isTranscribing}>重新识别</Button>
+        <Button variant="default" size="sm" prefixIcon="translation" onclick={() => toast.info('翻译功能开发中')}>翻译</Button>
+        <Button variant="primary" size="sm" onclick={handleExport} disabled={!currentSubtitlePath}>导出字幕</Button>
       </div>
     </header>
 
@@ -300,7 +302,7 @@
   <aside class="editor-panel">
     <header>
       <h2>字幕条目 #{activeSubtitle.index}</h2>
-      <button type="button" onclick={() => toast.info('已定位到当前字幕')}>定位</button>
+      <Button variant="default" size="sm" onclick={() => toast.info('已定位到当前字幕')}>定位</Button>
     </header>
 
     <section class="edit-card">
@@ -309,9 +311,9 @@
       <label>角色<select value={activeSubtitle.role}><option>{activeSubtitle.role}</option><option>林澈</option><option>苏晚</option><option>旁白</option></select></label>
       <label class="full">字幕内容<textarea value={activeSubtitle.text}></textarea></label>
       <div class="edit-actions">
-        <button type="button">上一条</button>
-        <button type="button" class="primary">保存修改</button>
-        <button type="button">下一条</button>
+        <Button variant="default" size="sm">上一条</Button>
+        <Button variant="primary" size="sm">保存修改</Button>
+        <Button variant="default" size="sm">下一条</Button>
       </div>
     </section>
 
@@ -339,7 +341,9 @@
     flex: 1;
     min-height: 0;
     display: grid;
-    grid-template-columns: 260px minmax(0, 1fr) 320px;
+    grid-template-columns: 240px minmax(0, 1fr) 300px;
+    gap: var(--spacing-sm);
+    padding: 15px;
     background: var(--color-bg-container);
     overflow: hidden;
   }
@@ -352,13 +356,10 @@
   .asr-panel,
   .editor-panel {
     padding: var(--spacing-md);
-    border-right: 1px solid var(--color-border-secondary);
-    overflow-y: auto;
-  }
-
-  .editor-panel {
-    border-right: none;
-    border-left: 1px solid var(--color-border-secondary);
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border-secondary);
+    border-radius: var(--border-radius-lg);
+    overflow: hidden;
   }
 
   .upload-card {
@@ -429,18 +430,10 @@
     padding: 0 8px;
   }
 
-  .recognize-card button,
-  .toolbar-actions .primary,
-  .edit-actions .primary {
-    border: none;
-    background: var(--color-primary);
-    color: #fff;
-  }
-
-  .recognize-card button {
-    width: 100%;
-    height: 34px;
-    border-radius: var(--border-radius);
+  .switch-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
   }
 
   .job-list button {
@@ -500,8 +493,6 @@
     transition: width 0.2s ease;
   }
 
-  .recognize-card button:disabled,
-  .toolbar-actions button:disabled,
   .upload-card:disabled {
     opacity: 0.5;
     cursor: not-allowed;
@@ -532,6 +523,9 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border-secondary);
+    border-radius: var(--border-radius-lg);
   }
 
   .subtitle-toolbar {
@@ -554,9 +548,6 @@
     gap: var(--spacing-sm);
   }
 
-  .toolbar-actions button,
-  .edit-actions button,
-  .editor-panel header button,
   .export-card button {
     height: 32px;
     border: 1px solid var(--color-border-secondary);
@@ -567,6 +558,7 @@
     align-items: center;
     gap: 5px;
     padding: 0 var(--spacing-sm);
+    cursor: pointer;
   }
 
   .video-preview {
@@ -637,8 +629,8 @@
   .subtitle-list {
     flex: 1;
     min-height: 0;
-    overflow-y: auto;
-    padding: var(--spacing-md);
+    overflow: hidden;
+    padding: var(--spacing-sm);
   }
 
   .subtitle-head,
@@ -719,7 +711,7 @@
     gap: var(--spacing-sm);
   }
 
-  .edit-actions button {
+  .edit-actions :global(.ui-btn) {
     flex: 1;
     justify-content: center;
   }

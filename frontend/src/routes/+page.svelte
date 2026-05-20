@@ -3,6 +3,7 @@
   import { goto } from '$app/navigation';
   import BannerCarousel from '$lib/components/BannerCarousel.svelte';
   import Icon from '$lib/icons/Icon.svelte';
+  import Button from '$lib/components/ui/Button.svelte';
   import { invoke } from '@tauri-apps/api/core';
   import type { BannerItem } from '$lib/types';
   import { MENU_ROUTES } from '$lib/utils/navigation';
@@ -29,6 +30,7 @@
     { name: '《时间之门》第3季 第5集', time: '2026-05-12 11:24', engine: '云端', words: '15,268', tone: 'green' },
     { name: '产品发布会解说稿', time: '2026-05-11 16:48', engine: '轻量', words: '6,721', tone: 'blue' },
     { name: '有声书《平凡的世界》片段', time: '2026-05-11 09:15', engine: '情感', words: '9,114', tone: 'gold' },
+    { name: '英语教学课件配音', time: '2026-05-10 15:32', engine: '云端', words: '4,256', tone: 'green' },
   ];
 
   const bars = [34, 42, 38, 50, 36, 44, 72];
@@ -125,7 +127,7 @@
     <article class="panel recent-panel">
       <header class="panel-head">
         <h2>最近项目</h2>
-        <button type="button" onclick={() => goto('/cover')}>全部项目</button>
+        <Button variant="link" size="sm" onclick={() => goto('/cover')}>全部项目</Button>
       </header>
       <div class="recent-table">
         <div class="table-head">
@@ -134,34 +136,91 @@
         {#each recentProjects as project, i (project.name)}
           <div class="project-row">
             <div class="project-name">
-              <span class="thumb" style="--i: {i}"></span>
+              <span class="thumb {project.tone}">{project.name.replace(/[《》]/g, '').charAt(0)}</span>
               <span>{project.name}</span>
             </div>
             <span>{project.time}</span>
             <span class="engine-badge {project.tone}">{project.engine}</span>
             <span>{project.words}</span>
-            <button type="button" onclick={() => goto('/dubbing')}>打开</button>
+            <Button variant="link" size="sm" onclick={() => goto('/dubbing')}>打开</Button>
           </div>
         {/each}
+      </div>
+      <div class="recent-pager">
+        <span class="pager-info">共 12 个项目 · 每页 6 条</span>
+        <div class="pager-btns">
+          <button type="button" class="pager-btn" disabled>‹</button>
+          <button type="button" class="pager-btn active">1</button>
+          <button type="button" class="pager-btn">2</button>
+          <button type="button" class="pager-btn">›</button>
+        </div>
       </div>
     </article>
 
     <aside class="side-stack">
       <article class="panel stat-panel">
-        <header class="panel-head"><h2>今日生成字符</h2><span class="gain">+18%</span></header>
-        <div class="stat-number">12,840</div>
-        <div class="bars">
-          {#each bars as bar, i (i)}
-            <span style="height: {bar}%"><em>5/{13 + i}</em></span>
-          {/each}
+        <div class="stat-content">
+          <div class="stat-top">
+            <div class="stat-value-group">
+              <span class="stat-value">12,840</span>
+              <span class="stat-unit">字符</span>
+            </div>
+            <div class="stat-badge-row">
+              <span class="stat-badge up">
+                <Icon name="ant-design:rise-outlined" size={10} color="currentColor" />
+                18%
+              </span>
+              <span class="stat-vs">vs 昨日</span>
+            </div>
+          </div>
+          <div class="stat-meter">
+            <div class="stat-meter-track">
+              <div class="stat-meter-yesterday" style="width:54%"></div>
+              <div class="stat-meter-today" style="width:64%"></div>
+            </div>
+            <div class="stat-meter-legend">
+              <span><i class="legend-dot today"></i>今日</span>
+              <span><i class="legend-dot yesterday"></i>昨日 10,880</span>
+              <span class="stat-target">目标 20,000</span>
+            </div>
+          </div>
         </div>
       </article>
 
       <article class="panel health-panel">
         <header class="panel-head"><h2>引擎健康状态</h2></header>
-        <div class="health-row"><span class="dot ok"></span><strong>轻量引擎</strong><em>可用</em><small>显存 45%</small><i style="width:45%"></i></div>
-        <div class="health-row"><span class="dot ok"></span><strong>情感引擎</strong><em>可用</em><small>显存 72%</small><i style="width:72%"></i></div>
-        <div class="health-row"><span class="dot"></span><strong>云端引擎</strong><em>未登录</em><button type="button" onclick={() => goto('/profile')}>去登录</button></div>
+        <div class="engine-rows">
+          <div class="engine-row">
+            <div class="engine-icon-wrap engine-icon--light">
+              <Icon name="zap" size={14} color="var(--color-primary)" />
+            </div>
+            <div class="engine-info">
+              <div class="engine-name-line">
+                <strong>轻量引擎</strong>
+                <span class="engine-status ok">可用</span>
+              </div>
+              <div class="engine-metric">
+                <div class="metric-bar"><div class="metric-fill" style="width:45%"></div></div>
+                <span class="metric-label">显存 45%</span>
+              </div>
+            </div>
+          </div>
+          <div class="engine-row">
+            <div class="engine-icon-wrap engine-icon--emo">
+              <Icon name="heart" size={14} color="var(--color-accent)" />
+            </div>
+            <div class="engine-info">
+              <div class="engine-name-line">
+                <strong>情感引擎</strong>
+                <span class="engine-status ok">可用</span>
+              </div>
+              <div class="engine-metric">
+                <div class="metric-bar"><div class="metric-fill warn" style="width:72%"></div></div>
+                <span class="metric-label">显存 72%</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </article>
     </aside>
   </section>
@@ -169,7 +228,7 @@
   <footer class="notice-bar">
     <span class="version-pill">v3.0.0</span>
     <span>全新多引擎架构，性能提升 20%，新增情感引擎与对轴工具。</span>
-    <button type="button" onclick={() => goto('/about')}>查看详情</button>
+    <Button variant="link" size="sm" onclick={() => goto('/about')}>查看详情</Button>
   </footer>
 </div>
 
@@ -178,11 +237,11 @@
     flex: 1;
     min-height: 0;
     overflow: hidden;
-    padding: var(--spacing-lg);
+    padding: 15px;
     background-color: var(--color-bg-container);
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-md);
+    gap: var(--spacing-sm);
   }
 
   .hero-section {
@@ -219,23 +278,16 @@
     border-radius: 8px;
   }
 
-  .notice-bar button,
-  .panel-head button,
-  .project-row button {
-    border: none;
-    background: transparent;
-    color: var(--color-primary);
-    cursor: pointer;
-  }
+  
 
   .quick-grid {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: var(--spacing-md);
+    gap: var(--spacing-sm);
   }
 
   .quick-card {
-    min-height: 92px;
+    min-height: 72px;
     display: flex;
     align-items: center;
     gap: var(--spacing-md);
@@ -279,14 +331,17 @@
 
   .dashboard-grid {
     display: grid;
-    grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.55fr);
-    gap: var(--spacing-md);
+    grid-template-columns: minmax(0, 1.45fr) minmax(280px, 0.55fr);
+    gap: var(--spacing-sm);
+    flex: 1;
+    min-height: 0;
   }
 
   .side-stack {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-md);
+    gap: var(--spacing-sm);
+    min-height: 0;
   }
 
   .panel,
@@ -312,14 +367,26 @@
     font-weight: 500;
   }
 
+  .recent-panel {
+    display: flex;
+    flex-direction: column;
+  }
+
   .recent-table {
-    padding: var(--spacing-sm) var(--spacing-lg) var(--spacing-md);
+    padding: var(--spacing-xs) var(--spacing-lg) 0;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .recent-table .project-row {
+    flex: 1;
   }
 
   .table-head,
   .project-row {
     display: grid;
-    grid-template-columns: minmax(220px, 1.5fr) 160px 80px 90px 50px;
+    grid-template-columns: minmax(220px, 1.5fr) 160px 80px 90px 60px;
     align-items: center;
     gap: var(--spacing-md);
     min-height: 38px;
@@ -327,18 +394,32 @@
   }
 
   .table-head {
-    color: var(--color-text-tertiary);
+    color: var(--color-text-disabled);
     border-bottom: 1px solid var(--color-border-secondary);
+    font-size: 11px;
+    text-align: center;
+  }
+
+  .table-head span:first-child {
+    text-align: left;
   }
 
   .project-row {
     color: var(--color-text-secondary);
     border-bottom: 1px solid var(--color-border-secondary);
+    transition: background-color var(--motion-duration-mid) var(--motion-ease-base);
+    text-align: center;
   }
 
   .project-row:last-child {
     border-bottom: none;
   }
+
+  .project-row:hover {
+    background-color: var(--color-hover-bg);
+  }
+
+  
 
   .project-name {
     display: flex;
@@ -348,113 +429,331 @@
     min-width: 0;
   }
 
+  .project-name span:last-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   .thumb {
-    width: 28px;
-    height: 28px;
+    width: 30px;
+    height: 30px;
     flex-shrink: 0;
-    border-radius: var(--border-radius-sm);
-    background: linear-gradient(135deg, color-mix(in srgb, var(--color-primary) 70%, transparent), var(--color-bg-spotlight));
-    opacity: calc(0.55 + var(--i) * 0.08);
+    border-radius: var(--border-radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 600;
+    color: #fff;
+  }
+
+  .thumb.blue {
+    background: linear-gradient(135deg, var(--color-primary), var(--color-primary-700));
+  }
+
+  .thumb.gold {
+    background: linear-gradient(135deg, var(--color-warning), color-mix(in srgb, var(--color-warning) 70%, #a05a00));
+  }
+
+  .thumb.green {
+    background: linear-gradient(135deg, var(--color-success), color-mix(in srgb, var(--color-success) 70%, #1a6b0a));
   }
 
   .engine-badge {
-    justify-self: start;
-    padding: 2px 7px;
-    border-radius: var(--border-radius-sm);
+    justify-self: center;
+    padding: 2px 8px;
+    border-radius: var(--border-radius-pill);
     font-size: 11px;
+    font-weight: 500;
   }
   .engine-badge.blue { color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 16%, transparent); }
   .engine-badge.gold { color: var(--color-warning); background: color-mix(in srgb, var(--color-warning) 14%, transparent); }
   .engine-badge.green { color: var(--color-success); background: color-mix(in srgb, var(--color-success) 14%, transparent); }
 
-  .stat-panel {
-    padding-bottom: var(--spacing-md);
-  }
-
-  .gain {
-    color: var(--color-success);
-    background: color-mix(in srgb, var(--color-success) 14%, transparent);
-    border-radius: var(--border-radius-sm);
-    padding: 2px 8px;
-    font-size: 11px;
-  }
-
-  .stat-number {
-    padding: var(--spacing-md) var(--spacing-lg) 0;
-    color: var(--color-primary);
-    font-size: 40px;
-    font-weight: 700;
-    text-shadow: 0 0 18px color-mix(in srgb, var(--color-primary) 25%, transparent);
-  }
-
-  .bars {
+  .recent-pager {
     display: flex;
-    align-items: flex-end;
-    gap: var(--spacing-sm);
-    height: 86px;
-    padding: var(--spacing-md) var(--spacing-lg) 0;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--spacing-sm) var(--spacing-lg);
+    border-top: 1px solid var(--color-border-secondary);
   }
 
-  .bars span {
-    flex: 1;
-    position: relative;
-    min-height: 12px;
-    background: var(--color-primary);
-    border-radius: 3px 3px 0 0;
-    opacity: 0.65;
+  .pager-info {
+    font-size: 12px;
+    color: var(--color-text-disabled);
   }
 
-  .bars span:last-child {
-    opacity: 1;
+  .pager-btns {
+    display: flex;
+    gap: 4px;
   }
 
-  .bars em {
-    position: absolute;
-    left: 50%;
-    bottom: -18px;
-    transform: translateX(-50%);
-    font-style: normal;
+  .pager-btn {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--color-border-secondary);
+    border-radius: var(--border-radius-sm);
+    background: transparent;
     color: var(--color-text-tertiary);
-    font-size: 10px;
+    font-size: 12px;
+    cursor: pointer;
+    transition:
+      border-color var(--motion-duration-mid) var(--motion-ease-base),
+      color var(--motion-duration-mid) var(--motion-ease-base),
+      background-color var(--motion-duration-mid) var(--motion-ease-base);
   }
+
+  .pager-btn:hover:not(:disabled) {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+  }
+
+  .pager-btn.active {
+    background-color: var(--color-primary);
+    border-color: var(--color-primary);
+    color: #fff;
+  }
+
+  .pager-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+
+  .stat-panel {
+    padding: 0;
+  }
+
+  .stat-content {
+    padding: var(--spacing-lg);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+  }
+
+  .stat-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+
+  .stat-value-group {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+  }
+
+  .stat-value {
+    font-size: 36px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -1px;
+    line-height: 1;
+    color: var(--color-text);
+  }
+
+  .stat-unit {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-tertiary);
+    font-weight: 400;
+  }
+
+  .stat-badge-row {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+    padding-top: 4px;
+  }
+
+  .stat-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: var(--border-radius-pill);
+  }
+
+  .stat-badge.up {
+    color: var(--color-success);
+    background-color: var(--color-success-bg);
+  }
+
+  .stat-vs {
+    font-size: 10px;
+    color: var(--color-text-disabled);
+  }
+
+  .stat-meter {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .stat-meter-track {
+    position: relative;
+    height: 8px;
+    background-color: var(--color-border);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .stat-meter-yesterday {
+    position: absolute;
+    inset: 0 auto 0 0;
+    background-color: color-mix(in srgb, var(--color-text-tertiary) 40%, transparent);
+    border-radius: 4px;
+  }
+
+  .stat-meter-today {
+    position: absolute;
+    inset: 0 auto 0 0;
+    background: linear-gradient(90deg, var(--color-primary), var(--color-primary-hover));
+    border-radius: 4px;
+    box-shadow: 0 0 8px color-mix(in srgb, var(--color-primary) 40%, transparent);
+  }
+
+  .stat-meter-legend {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    font-size: 11px;
+    color: var(--color-text-tertiary);
+  }
+
+  .stat-meter-legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .stat-target {
+    margin-left: auto;
+    color: var(--color-text-disabled);
+  }
+
+  .legend-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    display: inline-block;
+    font-style: normal;
+  }
+
+  .legend-dot.today { background-color: var(--color-primary); }
+  .legend-dot.yesterday { background-color: var(--color-text-tertiary); }
 
   .health-panel {
-    padding-bottom: var(--spacing-sm);
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
   }
 
-  .health-row {
-    position: relative;
-    min-height: 38px;
-    margin: 0 var(--spacing-lg);
-    display: grid;
-    grid-template-columns: 12px 1fr 52px 70px;
+  .engine-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: var(--spacing-sm) var(--spacing-md);
+    flex: 1;
+    justify-content: center;
+  }
+
+  .engine-row {
+    display: flex;
     align-items: center;
     gap: var(--spacing-sm);
-    color: var(--color-text-secondary);
+    padding: var(--spacing-sm);
+    border-radius: var(--border-radius);
+    transition: background-color var(--motion-duration-mid) var(--motion-ease-base);
+  }
+
+  .engine-row:hover {
+    background-color: var(--color-bg-spotlight);
+  }
+
+  .engine-icon-wrap {
+    width: 32px;
+    height: 32px;
+    border-radius: var(--border-radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .engine-icon--light { background-color: var(--color-primary-bg); }
+  .engine-icon--emo   { background-color: var(--color-accent-bg); }
+  .engine-icon--cloud  { background-color: var(--color-info-bg); }
+
+  .engine-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .engine-name-line {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+  }
+
+  .engine-name-line strong {
     font-size: var(--font-size-sm);
-    border-bottom: 1px solid var(--color-border-secondary);
+    font-weight: 500;
+    color: var(--color-text);
   }
 
-  .health-row:last-child { border-bottom: none; }
-  .health-row strong { color: var(--color-text-secondary); font-weight: 400; }
-  .health-row em { color: var(--color-success); font-style: normal; }
-  .health-row small { color: var(--color-text-tertiary); }
-  .health-row i {
-    position: absolute;
-    right: 0;
-    bottom: 7px;
-    height: 3px;
-    background: var(--color-success);
-    border-radius: 999px;
+  .engine-status {
+    font-size: 11px;
+    padding: 1px 6px;
+    border-radius: var(--border-radius-sm);
   }
 
-  .dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background-color: var(--color-text-tertiary);
+  .engine-status.ok {
+    color: var(--color-success);
+    background-color: var(--color-success-bg);
   }
-  .dot.ok { background-color: var(--color-success); }
+
+  .engine-metric {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+  }
+
+  .metric-bar {
+    flex: 1;
+    height: 4px;
+    background-color: var(--color-border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .metric-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--color-success), color-mix(in srgb, var(--color-success) 75%, white 25%));
+    border-radius: 2px;
+    transition: width 0.5s var(--motion-ease-out);
+  }
+
+  .metric-fill.warn {
+    background: linear-gradient(90deg, var(--color-warning), color-mix(in srgb, var(--color-warning) 75%, white 25%));
+  }
+
+  .metric-label {
+    font-size: 11px;
+    color: var(--color-text-tertiary);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
 
   .notice-bar {
     min-height: 50px;
@@ -464,6 +763,7 @@
     gap: var(--spacing-md);
     color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
+    flex-shrink: 0;
   }
 
   .version-pill {
@@ -474,7 +774,8 @@
     font-size: 11px;
   }
 
-  .notice-bar button {
+  .notice-bar :global(.ui-btn) {
     margin-left: auto;
   }
+
 </style>

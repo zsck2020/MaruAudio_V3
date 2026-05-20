@@ -1,8 +1,12 @@
 <script lang="ts">
   import Icon from '$lib/icons/Icon.svelte';
+  import Button from '$lib/components/ui/Button.svelte';
+  import Switch from '$lib/components/ui/Switch.svelte';
+  import WaveformView from '$lib/components/ui/WaveformView.svelte';
   import { toast } from '$lib/stores/toast.svelte';
   import { dubbing } from '$lib/stores/dubbing.svelte';
-  import { vocalSeparate, vocalSeparateInfo } from '$lib/api/tts';
+  import { vocalSeparate, vocalSeparateInfo, listPresets, type PresetVoice } from '$lib/api/tts';
+  import { convertFileSrc } from '@tauri-apps/api/core';
 
   interface Voice {
     name: string;
@@ -11,8 +15,11 @@
     pro: boolean;
     uses: number;
     tone: string;
-    /** 本地文件路径（导入的样音才有） */
     filePath?: string;
+    description?: string;
+    gender?: string;
+    language?: string;
+    duration?: number;
   }
 
   const categories = [
@@ -34,19 +41,60 @@
 
   const tags = ['温暖', '磁性', '活泼', '沉稳', '清亮', '低沉'];
 
-  const PRESET_VOICES: Voice[] = [
-    { name: '磁性男声', meta: '中文 · 35-45 岁 · 叙事', tags: ['磁性', '沉稳', '叙事'], pro: true, uses: 156, tone: 'blue' },
-    { name: '温暖女声', meta: '中文 · 25-35 岁 · 抒情', tags: ['温暖', '抒情', '治愈'], pro: false, uses: 98, tone: 'purple' },
-    { name: '活力少年', meta: '中文 · 12-18 岁 · 活泼', tags: ['活泼', '青春', '阳光'], pro: false, uses: 73, tone: 'pink' },
-    { name: '沉稳男声', meta: '中文 · 30-45 岁 · 旁白', tags: ['沉稳', '旁白', '大气'], pro: true, uses: 210, tone: 'orange' },
-    { name: '治愈女声', meta: '中文 · 20-30 岁 · 治愈', tags: ['治愈', '温柔', '情感'], pro: false, uses: 134, tone: 'green' },
-    { name: '粤语男声', meta: '粤语 · 30-45 岁 · 叙事', tags: ['粤语', '磁性', '叙事'], pro: true, uses: 89, tone: 'cyan' },
-  ];
-
+  const TONE_MAP: Record<string, string> = { '男': 'blue', 'Male': 'blue', '女': 'purple', 'Female': 'purple' };
   const IMPORT_TONES = ['blue', 'purple', 'pink', 'orange', 'green', 'cyan'];
 
-  let voices = $state<Voice[]>([...PRESET_VOICES]);
-  let selected = $state<Voice>(PRESET_VOICES[0]);
+  function presetToVoice(p: PresetVoice): Voice {
+    return {
+      name: p.name,
+      meta: `${p.language} · ${p.display_tag}`,
+      tags: p.tags,
+      pro: p.is_premium,
+      uses: 0,
+      tone: TONE_MAP[p.gender] ?? 'blue',
+      filePath: p.file_path,
+      description: p.description,
+      gender: p.gender,
+      language: p.language,
+      duration: p.duration,
+    };
+  }
+
+  const emptyVoice: Voice = { name: '加载中…', meta: '', tags: [], pro: false, uses: 0, tone: 'blue' };
+
+  const FALLBACK_VOICES: Voice[] = [
+    { name: '磁性男声', meta: '中文 · 叙事', tags: ['磁性', '沉稳'], pro: true, uses: 156, tone: 'blue', gender: '男', language: '中文' },
+    { name: '温暖女声', meta: '中文 · 抒情', tags: ['温暖', '治愈'], pro: false, uses: 98, tone: 'purple', gender: '女', language: '中文' },
+    { name: '活力少年', meta: '中文 · 活泼', tags: ['活泼', '青春'], pro: false, uses: 73, tone: 'blue', gender: '男', language: '中文' },
+    { name: '沉稳男声', meta: '中文 · 旁白', tags: ['沉稳', '旁白'], pro: true, uses: 210, tone: 'blue', gender: '男', language: '中文' },
+    { name: '治愈女声', meta: '中文 · 治愈', tags: ['治愈', '温柔'], pro: false, uses: 134, tone: 'purple', gender: '女', language: '中文' },
+    { name: '粤语男声', meta: '粤语 · 叙事', tags: ['粤语', '磁性'], pro: true, uses: 89, tone: 'blue', gender: '男', language: '粤语' },
+  ];
+  let voices = $state<Voice[]>([]);
+  let selected = $state<Voice>(emptyVoice);
+  let loadingPresets = $state(true);
+
+  let previewAudioEl: HTMLAudioElement | undefined = $state();
+  let previewPlaying = $state(false);
+  let previewTime = $state(0);
+  let previewDuration = $state(0);
+
+  let previewSrc = $derived(
+    selected.filePath
+      ? (selected.filePath.startsWith('http') || selected.filePath.startsWith('blob:')
+          ? selected.filePath : convertFileSrc(selected.filePath))
+      : ''
+  );
+
+  function togglePreviewPlay() {
+    if (!previewAudioEl || !previewSrc) return;
+    if (previewPlaying) { previewAudioEl.pause(); previewPlaying = false; }
+    else { void previewAudioEl.play(); previewPlaying = true; }
+  }
+
+  function handlePreviewSeek(time: number) {
+    if (previewAudioEl) { previewAudioEl.currentTime = time; previewTime = time; }
+  }
 
   let autoVocalSeparate = $state(true);
   let vocalAvailable = $state<boolean | null>(null);
@@ -57,6 +105,47 @@
 
   $effect(() => {
     void (async () => {
+      try {
+        const presetsResult = await listPresets();
+        if (presetsResult.presets.length > 0) {
+          voices = presetsResult.presets.map(presetToVoice);
+        }
+      } catch {
+        // TTS Server 未运行，尝试前端直接读 metadata
+        try {
+          const { readTextFile, exists } = await import('@tauri-apps/plugin-fs');
+          const { join, appDataDir } = await import('@tauri-apps/api/path');
+          const { resolveResource } = await import('@tauri-apps/api/path');
+
+          const presetDir = 'E:\\Exploitation\\MaruAudio\\MaruAudio_V3\\output\\preset';
+          const metaPath = presetDir + '\\metadata.json';
+
+          if (await exists(metaPath)) {
+            const raw = await readTextFile(metaPath);
+            const data = JSON.parse(raw) as Array<{ name: string; gender: string; language: string; display_tag: string; tags: string[]; is_premium: boolean; file_path: string; description: string; duration?: number }>;
+            voices = data.map(p => ({
+              name: p.name,
+              meta: `${p.language} · ${p.display_tag}`,
+              tags: p.tags,
+              pro: p.is_premium,
+              uses: 0,
+              tone: TONE_MAP[p.gender] ?? 'blue',
+              filePath: presetDir + '\\' + (p.file_path.includes('\\') || p.file_path.includes('/') ? p.file_path.split(/[/\\]/).pop()! : p.file_path),
+              description: p.description,
+              gender: p.gender,
+              language: p.language,
+              duration: p.duration,
+            }));
+          }
+        } catch {
+          // 读文件也失败
+        }
+      }
+      if (voices.length === 0) {
+        voices = FALLBACK_VOICES;
+      }
+      selected = voices[0];
+      loadingPresets = false;
       try {
         const info = await vocalSeparateInfo();
         vocalAvailable = info.available;
@@ -190,11 +279,11 @@
       <span>{isImporting ? '导入中…' : '导入样音'}</span>
     </button>
 
-    <label class="vocal-toggle" class:disabled={vocalAvailable === false}>
-      <input
-        type="checkbox"
+    <div class="vocal-toggle" class:disabled={vocalAvailable === false}>
+      <Switch
         bind:checked={autoVocalSeparate}
         disabled={vocalAvailable === false || isImporting}
+        size="sm"
       />
       <span class="toggle-text">
         <span class="toggle-label">自动人声分离</span>
@@ -204,7 +293,7 @@
           {:else}{vocalMethod} 算法可用{/if}
         </span>
       </span>
-    </label>
+    </div>
 
     {#if isImporting}
       <div class="import-progress" role="status">
@@ -258,7 +347,7 @@
       <select><option>语言</option></select>
       <select><option>性别</option></select>
       <select><option>时长</option></select>
-      <button type="button" class="secondary" onclick={handleImport} disabled={isImporting}>{isImporting ? '导入中…' : '导入'}</button>
+      <Button variant="default" size="md" onclick={handleImport} disabled={isImporting}>{isImporting ? '导入中…' : '导入'}</Button>
     </header>
 
     <section class="voice-grid">
@@ -320,16 +409,45 @@
       <span>格式 WAV</span>
     </div>
     <div class="preview-player">
-      <button type="button"><Icon name="play-fill" size={18} color="#fff" /></button>
-      <div class="preview-wave">
-        {#each Array(28) as _, i (i)}
-          <span style="height:{18 + ((i * 13) % 50)}%"></span>
-        {/each}
+      {#if previewSrc}
+        <audio
+          bind:this={previewAudioEl}
+          src={previewSrc}
+          preload="metadata"
+          ontimeupdate={() => { if (previewAudioEl) previewTime = previewAudioEl.currentTime; }}
+          onloadedmetadata={() => { if (previewAudioEl) previewDuration = previewAudioEl.duration; }}
+          onended={() => { previewPlaying = false; previewTime = 0; }}
+          class="hidden-audio"
+        ></audio>
+      {/if}
+      <button type="button" class="preview-play-btn" onclick={togglePreviewPlay} aria-label={previewPlaying ? '暂停' : '播放'}>
+        <Icon name={previewPlaying ? 'pause-fill' : 'play-fill'} size={18} color="#fff" />
+      </button>
+      <div class="preview-waveform">
+        {#if previewSrc}
+          <WaveformView
+            audioSrc={previewSrc}
+            currentTime={previewTime}
+            duration={previewDuration}
+            onSeek={handlePreviewSeek}
+            height={36}
+            barWidth={2}
+            barGap={1}
+          />
+        {:else}
+          <div class="preview-wave-empty">
+            {#each Array(28) as _, i (i)}
+              <span style="height:{18 + ((i * 13) % 50)}%"></span>
+            {/each}
+          </div>
+        {/if}
       </div>
-      <span>00:00 / 00:12</span>
+      <span class="preview-time">
+        {Math.floor(previewTime / 60).toString().padStart(2, '0')}:{Math.floor(previewTime % 60).toString().padStart(2, '0')} / {Math.floor(previewDuration / 60).toString().padStart(2, '0')}:{Math.floor(previewDuration % 60).toString().padStart(2, '0')}
+      </span>
     </div>
-    <button type="button" class="apply-btn" onclick={handleApply}>应用到配音</button>
-    <button type="button" class="similar-btn" onclick={() => toast.info('相似样音检索开发中')}>查看相似样音 →</button>
+    <Button variant="primary" size="lg" block onclick={handleApply}>应用到配音</Button>
+    <Button variant="link" size="sm" block onclick={() => toast.info('相似样音检索开发中')}>查看相似样音 →</Button>
     <div class="detail-foot">
       <span>被使用 {selected.uses} 次</span>
       <span>最近一次 2 小时前</span>
@@ -342,22 +460,20 @@
     flex: 1;
     min-height: 0;
     display: grid;
-    grid-template-columns: 220px minmax(0, 1fr) 320px;
+    grid-template-columns: 200px minmax(0, 1fr) 300px;
+    gap: var(--spacing-sm);
+    padding: 15px;
     background-color: var(--color-bg-container);
     overflow: hidden;
   }
 
   .library-sidebar,
   .detail-panel {
-    border-right: 1px solid var(--color-border-secondary);
-    background-color: var(--color-bg-container);
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border-secondary);
+    border-radius: var(--border-radius-lg);
     padding: var(--spacing-md);
-    overflow-y: auto;
-  }
-
-  .detail-panel {
-    border-right: none;
-    border-left: 1px solid var(--color-border-secondary);
+    overflow: hidden;
   }
 
   .import-btn {
@@ -375,8 +491,7 @@
     margin-bottom: var(--spacing-sm);
   }
 
-  .import-btn:disabled,
-  .toolbar .secondary:disabled {
+  .import-btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
   }
@@ -396,11 +511,6 @@
 
   .vocal-toggle:hover {
     border-color: color-mix(in srgb, var(--color-primary) 35%, var(--color-border-secondary));
-  }
-
-  .vocal-toggle input[type="checkbox"] {
-    margin-top: 2px;
-    accent-color: var(--color-primary);
   }
 
   .vocal-toggle.disabled {
@@ -519,6 +629,9 @@
     overflow: hidden;
     padding: var(--spacing-md);
     gap: var(--spacing-md);
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border-secondary);
+    border-radius: var(--border-radius-lg);
   }
 
   .toolbar {
@@ -584,7 +697,7 @@
   .voice-grid {
     flex: 1;
     min-height: 0;
-    overflow-y: auto;
+    overflow: hidden;
     display: grid;
     grid-template-columns: repeat(3, minmax(180px, 1fr));
     gap: var(--spacing-md);
@@ -783,51 +896,68 @@
   .preview-player {
     margin: var(--spacing-lg) 0;
     display: grid;
-    grid-template-columns: 34px 1fr 70px;
+    grid-template-columns: 38px 1fr auto;
     align-items: center;
     gap: var(--spacing-sm);
+    padding: var(--spacing-sm);
+    background: var(--color-bg-base);
+    border: 1px solid var(--color-border-secondary);
+    border-radius: var(--border-radius);
   }
 
-  .preview-player button {
-    width: 34px;
-    height: 34px;
+  .preview-play-btn {
+    width: 38px;
+    height: 38px;
     border-radius: 50%;
     border: none;
     background: var(--color-primary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color var(--motion-duration-mid) var(--motion-ease-base),
+      transform 0.15s var(--motion-ease-base);
+    flex-shrink: 0;
   }
 
-  .preview-wave {
-    height: 34px;
+  .preview-play-btn:hover {
+    background: var(--color-primary-hover);
+    transform: scale(1.05);
+  }
+
+  .preview-waveform {
+    min-width: 0;
+    height: 36px;
+  }
+
+  .preview-wave-empty {
+    height: 100%;
+    display: flex;
+    align-items: center;
     justify-content: flex-start;
+    gap: 2px;
+    opacity: 0.4;
   }
 
-  .preview-wave span {
-    background: var(--color-primary);
+  .preview-wave-empty span {
+    width: 3px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.2);
+    flex-shrink: 0;
   }
 
-  .preview-player > span {
+  .preview-time {
     color: var(--color-text-tertiary);
     font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
+    white-space: nowrap;
   }
 
-  .apply-btn {
-    width: 100%;
-    height: 44px;
-    border: none;
-    border-radius: var(--border-radius);
-    background: var(--color-primary);
-    color: #fff;
-    font-size: var(--font-size);
-    cursor: pointer;
-  }
+  .hidden-audio { display: none; }
 
-  .similar-btn {
-    width: 100%;
+  .detail-panel :global(.ui-btn.variant-link) {
     margin: var(--spacing-md) 0;
-    border: none;
-    background: transparent;
-    color: var(--color-primary);
-    cursor: pointer;
   }
 
   .detail-foot {

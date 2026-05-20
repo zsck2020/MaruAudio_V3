@@ -293,7 +293,7 @@
     flex: 1;
     min-height: 0;
     overflow: hidden;
-    padding: var(--spacing-sm) 10px 10px var(--spacing-sm);
+    padding: 15px;
     gap: var(--spacing-sm);
   }
 

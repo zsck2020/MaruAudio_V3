@@ -4,6 +4,7 @@
   import * as ttsApi from '$lib/api/tts';
   import { dubbing, type EngineMode } from '$lib/stores/dubbing.svelte';
   import { appSettings } from '$lib/stores/settings.svelte';
+  import { listLlmModels } from '$lib/api/tts';
   import Modal from '$lib/components/ui/Modal.svelte';
 
   type SectionKey =
@@ -71,6 +72,30 @@
     device: undefined,
   });
   let cloudLoggedIn = $state(false);
+  let llmModels = $state<string[]>([]);
+  let llmDetecting = $state(false);
+
+  async function handleDetectModels() {
+    const { apiBaseUrl, apiKey } = appSettings.settings.llm;
+    if (!apiKey) { toast.warning('请先输入 API Key'); return; }
+    llmDetecting = true;
+    try {
+      const result = await listLlmModels(apiBaseUrl, apiKey);
+      llmModels = result.models;
+      if (result.count > 0) {
+        toast.success(`检测到 ${result.count} 个模型`);
+        if (!appSettings.settings.llm.model || !result.models.includes(appSettings.settings.llm.model)) {
+          void appSettings.saveLlm({ model: result.models[0] });
+        }
+      } else {
+        toast.info('未检测到可用模型');
+      }
+    } catch (err) {
+      toast.warning(`检测失败: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      llmDetecting = false;
+    }
+  }
   let cloudAccount = $state('');
   let cloudBalance = $state(0);
   let cloudQuota = $state(100000);
@@ -498,6 +523,58 @@
             {/if}
           </div>
         </article>
+
+        <article class="card" style="margin-top: var(--spacing-md)">
+          <header class="card-head"><h2 class="card-title">LLM 智能拆分配置</h2></header>
+          <div class="card-body">
+            <div class="row">
+              <div class="row-label">API 地址</div>
+              <input
+                type="text"
+                class="row-input"
+                value={appSettings.settings.llm.apiBaseUrl}
+                onchange={(e) => void appSettings.saveLlm({ apiBaseUrl: (e.target as HTMLInputElement).value })}
+                placeholder="https://api.deepseek.com/v1"
+              />
+            </div>
+            <div class="row">
+              <div class="row-label">API Key</div>
+              <input
+                type="password"
+                class="row-input"
+                value={appSettings.settings.llm.apiKey}
+                onchange={(e) => void appSettings.saveLlm({ apiKey: (e.target as HTMLInputElement).value })}
+                placeholder="sk-..."
+              />
+            </div>
+            <div class="row">
+              <div class="row-label">模型</div>
+              <div class="model-row">
+                {#if llmModels.length > 0}
+                  <select
+                    class="row-input"
+                    value={appSettings.settings.llm.model}
+                    onchange={(e) => void appSettings.saveLlm({ model: (e.target as HTMLSelectElement).value })}
+                  >
+                    {#each llmModels as m}<option value={m}>{m}</option>{/each}
+                  </select>
+                {:else}
+                  <input
+                    type="text"
+                    class="row-input"
+                    value={appSettings.settings.llm.model}
+                    onchange={(e) => void appSettings.saveLlm({ model: (e.target as HTMLInputElement).value })}
+                    placeholder="deepseek-chat"
+                  />
+                {/if}
+                <button type="button" class="detect-btn" disabled={llmDetecting || !appSettings.settings.llm.apiKey} onclick={handleDetectModels}>
+                  {llmDetecting ? '检测中…' : '检测模型'}
+                </button>
+              </div>
+            </div>
+            <p class="help-text">用于多角色配音页的台词智能拆分功能。支持 OpenAI 兼容接口（DeepSeek / Gemini / 通义等）。{llmModels.length > 0 ? ` 已检测到 ${llmModels.length} 个模型。` : ''}</p>
+          </div>
+        </article>
       {/if}
 
       {#if active === 'audio'}
@@ -747,6 +824,8 @@
     flex-direction: column;
     flex: 1;
     min-height: 0;
+    padding: 15px;
+    gap: var(--spacing-sm);
     background-color: var(--color-bg-container);
   }
 
@@ -799,6 +878,7 @@
   .settings-body {
     flex: 1;
     display: flex;
+    gap: var(--spacing-sm);
     min-height: 0;
     overflow: hidden;
   }
@@ -810,9 +890,10 @@
     display: flex;
     flex-direction: column;
     gap: 2px;
-    border-right: 1px solid var(--color-border-secondary);
-    background-color: var(--color-bg-container);
-    overflow-y: auto;
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border-secondary);
+    border-radius: var(--border-radius-lg);
+    overflow: hidden;
   }
 
   .rail-item {
@@ -1223,4 +1304,48 @@
     justify-content: space-between;
   }
   .foot-right { display: flex; gap: var(--spacing-sm); }
+
+  .row-input {
+    width: 100%;
+    height: 32px;
+    padding: 0 var(--spacing-sm);
+    border: 1px solid var(--color-border-secondary);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-bg-base);
+    color: var(--color-text);
+    font-family: inherit;
+    font-size: var(--font-size-sm);
+  }
+  .row-input:focus { border-color: var(--color-primary); outline: none; }
+
+  .help-text {
+    margin: var(--spacing-xs) 0 0;
+    font-size: 11px;
+    color: var(--color-text-disabled);
+    line-height: 1.5;
+  }
+
+  .model-row {
+    display: flex;
+    gap: var(--spacing-xs);
+  }
+
+  .model-row .row-input { flex: 1; }
+
+  .detect-btn {
+    height: 32px;
+    padding: 0 var(--spacing-md);
+    border: 1px solid var(--color-border-secondary);
+    border-radius: var(--border-radius-sm);
+    background: transparent;
+    color: var(--color-primary);
+    font-size: 12px;
+    font-family: inherit;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: border-color var(--motion-duration-mid) var(--motion-ease-base);
+  }
+
+  .detect-btn:hover:not(:disabled) { border-color: var(--color-primary); }
+  .detect-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 </style>

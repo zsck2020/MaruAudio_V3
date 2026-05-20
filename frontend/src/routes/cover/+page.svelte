@@ -1,6 +1,10 @@
 <script lang="ts">
   import Icon from '$lib/icons/Icon.svelte';
+  import Button from '$lib/components/ui/Button.svelte';
+  import Input from '$lib/components/ui/Input.svelte';
+  import WaveformView from '$lib/components/ui/WaveformView.svelte';
   import { toast } from '$lib/stores/toast.svelte';
+  import { convertFileSrc } from '@tauri-apps/api/core';
 
   const tree = [
     { name: '我的项目', level: 0, open: true },
@@ -33,6 +37,22 @@
     { name: 'EP12_zhumu_en.srt', type: '字幕', duration: '00:00:28', size: '98 KB', status: '缓存', icon: 'subtitle', selected: false },
     { name: 'EP12_preview.mp4', type: '视频', duration: '01:02:15', size: '512 MB', status: '已上传', icon: 'file-video', selected: false },
   ];
+
+  let fileAudioEl: HTMLAudioElement | undefined = $state();
+  let fileAudioPlaying = $state(false);
+  let fileAudioTime = $state(0);
+  let fileAudioDuration = $state(0);
+  let fileAudioSrc = $state('');
+
+  function toggleFileAudio() {
+    if (!fileAudioEl || !fileAudioSrc) return;
+    if (fileAudioPlaying) { fileAudioEl.pause(); fileAudioPlaying = false; }
+    else { void fileAudioEl.play(); fileAudioPlaying = true; }
+  }
+
+  function handleFileAudioSeek(time: number) {
+    if (fileAudioEl) { fileAudioEl.currentTime = time; fileAudioTime = time; }
+  }
 </script>
 
 <div class="files-page">
@@ -66,12 +86,12 @@
         <select><option>类型</option></select>
         <select><option>状态</option></select>
         <select><option>日期范围</option></select>
-        <button type="button" onclick={() => toast.info('新建文件夹开发中')}>+ 新建文件夹</button>
-        <button type="button" onclick={() => toast.info('导入文件开发中')}>导入文件</button>
-        <button type="button" class="primary" onclick={() => toast.success('已加入批量导出队列')}>批量导出</button>
-        <button type="button" class="icon-btn active"><Icon name="bars" size={15} color="currentColor" /></button>
-        <button type="button" class="icon-btn"><Icon name="appstore" size={15} color="currentColor" /></button>
-        <button type="button" class="icon-btn"><Icon name="refresh" size={15} color="currentColor" /></button>
+        <Button variant="default" size="sm" onclick={() => toast.info('新建文件夹开发中')}>+ 新建文件夹</Button>
+        <Button variant="default" size="sm" onclick={() => toast.info('导入文件开发中')}>导入文件</Button>
+        <Button variant="primary" size="sm" onclick={() => toast.success('已加入批量导出队列')}>批量导出</Button>
+        <Button variant="primary" size="sm" prefixIcon="bars" iconOnly ariaLabel="列表视图" />
+        <Button variant="default" size="sm" prefixIcon="appstore" iconOnly ariaLabel="网格视图" />
+        <Button variant="default" size="sm" prefixIcon="refresh" iconOnly ariaLabel="刷新" />
       </div>
     </header>
 
@@ -100,21 +120,48 @@
 
     <footer class="file-status">
       <span>已选 3 项（1.28 GB）/ 共 246 项</span>
-      <button type="button">导出选中</button>
+      <Button variant="link" size="sm">导出选中</Button>
     </footer>
   </main>
 
   <aside class="preview-panel">
     <h2>文件预览</h2>
-    <div class="wave-preview">
-      {#each Array(64) as _, i (i)}
-        <span style="height:{15 + ((i * 19) % 70)}%"></span>
-      {/each}
+    {#if fileAudioSrc}
+      <audio
+        bind:this={fileAudioEl}
+        src={fileAudioSrc}
+        preload="metadata"
+        ontimeupdate={() => { if (fileAudioEl) fileAudioTime = fileAudioEl.currentTime; }}
+        onloadedmetadata={() => { if (fileAudioEl) fileAudioDuration = fileAudioEl.duration; }}
+        onended={() => { fileAudioPlaying = false; fileAudioTime = 0; }}
+        class="hidden-audio"
+      ></audio>
+    {/if}
+    <div class="wave-preview-area">
+      {#if fileAudioSrc}
+        <WaveformView
+          audioSrc={fileAudioSrc}
+          currentTime={fileAudioTime}
+          duration={fileAudioDuration}
+          onSeek={handleFileAudioSeek}
+          height={64}
+          barWidth={2}
+          barGap={1}
+        />
+      {:else}
+        <div class="wave-preview">
+          {#each Array(64) as _, i (i)}
+            <span style="height:{15 + ((i * 19) % 70)}%"></span>
+          {/each}
+        </div>
+      {/if}
     </div>
     <div class="audio-line">
-      <button type="button"><Icon name="play-fill" size={18} color="#fff" /></button>
-      <div><span style="width:45%"></span></div>
-      <em>00:00:12 / 00:00:28</em>
+      <button type="button" onclick={toggleFileAudio} aria-label={fileAudioPlaying ? '暂停' : '播放'}>
+        <Icon name={fileAudioPlaying ? 'pause-fill' : 'play-fill'} size={18} color="#fff" />
+      </button>
+      <div><span style="width:{fileAudioDuration > 0 ? (fileAudioTime / fileAudioDuration * 100) : 0}%"></span></div>
+      <em>{Math.floor(fileAudioTime / 60).toString().padStart(2, '0')}:{Math.floor(fileAudioTime % 60).toString().padStart(2, '0')} / {Math.floor(fileAudioDuration / 60).toString().padStart(2, '0')}:{Math.floor(fileAudioDuration % 60).toString().padStart(2, '0')}</em>
     </div>
 
     <div class="info-list">
@@ -134,8 +181,8 @@
     </label>
 
     <div class="preview-actions">
-      <button type="button">打开所在位置</button>
-      <button type="button" class="primary">复制为引用</button>
+      <Button variant="default" size="sm" block>打开所在位置</Button>
+      <Button variant="primary" size="sm" block>复制为引用</Button>
     </div>
   </aside>
 </div>
@@ -145,22 +192,20 @@
     flex: 1;
     min-height: 0;
     display: grid;
-    grid-template-columns: 240px minmax(0, 1fr) 300px;
+    grid-template-columns: 220px minmax(0, 1fr) 280px;
+    gap: var(--spacing-sm);
+    padding: 15px;
     background-color: var(--color-bg-container);
     overflow: hidden;
   }
 
   .tree-panel,
   .preview-panel {
-    border-right: 1px solid var(--color-border-secondary);
-    background-color: var(--color-bg-container);
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border-secondary);
+    border-radius: var(--border-radius-lg);
     padding: var(--spacing-md);
-    overflow-y: auto;
-  }
-
-  .preview-panel {
-    border-left: 1px solid var(--color-border-secondary);
-    border-right: none;
+    overflow: hidden;
   }
 
   .tree-search,
@@ -230,6 +275,9 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border-secondary);
+    border-radius: var(--border-radius-lg);
   }
 
   .file-toolbar {
@@ -255,8 +303,7 @@
     width: 180px;
   }
 
-  .toolbar-row select,
-  .toolbar-row button {
+  .toolbar-row select {
     height: 32px;
     border: 1px solid var(--color-border-secondary);
     border-radius: var(--border-radius-sm);
@@ -267,30 +314,10 @@
     font-size: var(--font-size-sm);
   }
 
-  .toolbar-row .primary,
-  .preview-actions .primary {
-    border-color: var(--color-primary);
-    background-color: var(--color-primary);
-    color: #fff;
-  }
-
-  .toolbar-row .icon-btn {
-    width: 32px;
-    padding: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .toolbar-row .icon-btn.active {
-    color: #fff;
-    background-color: var(--color-primary);
-  }
-
   .file-table {
     flex: 1;
-    overflow-y: auto;
-    padding: var(--spacing-md);
+    overflow: hidden;
+    padding: var(--spacing-sm);
   }
 
   .table-head,
@@ -379,12 +406,7 @@
     font-size: var(--font-size-sm);
   }
 
-  .file-status button {
-    background: transparent;
-    border: none;
-    color: var(--color-primary);
-    cursor: pointer;
-  }
+  
 
   .preview-panel h2 {
     margin: 0 0 var(--spacing-md);
@@ -443,7 +465,15 @@
     font-style: normal;
     color: var(--color-text-tertiary);
     font-size: 11px;
+    font-variant-numeric: tabular-nums;
   }
+
+  .wave-preview-area {
+    border-radius: var(--border-radius);
+    overflow: hidden;
+  }
+
+  .hidden-audio { display: none; }
 
   .info-list {
     border-top: 1px solid var(--color-border-secondary);
@@ -513,13 +543,12 @@
     gap: var(--spacing-sm);
   }
 
-  .preview-actions button {
+  .preview-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+  }
+
+  .preview-actions :global(.ui-btn) {
     flex: 1;
-    height: 32px;
-    border-radius: var(--border-radius);
-    border: 1px solid var(--color-border-secondary);
-    background: transparent;
-    color: var(--color-text-secondary);
-    cursor: pointer;
   }
 </style>

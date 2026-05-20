@@ -32,19 +32,27 @@ const defaultSettings = {
   ui: {
     sidebarCollapsed: false,
   },
+  llm: {
+    apiBaseUrl: 'https://api.deepseek.com/v1',
+    apiKey: '',
+    model: 'deepseek-chat',
+  },
 };
 
 export type DubbingSettings = typeof defaultSettings.dubbing;
 export type UiSettings = typeof defaultSettings.ui;
+export type LlmSettings = typeof defaultSettings.llm;
 export type AppSettingsState = {
   dubbing: DubbingSettings;
   ui: UiSettings;
+  llm: LlmSettings;
 };
 
 function createSettingsState(): AppSettingsState {
   return {
     dubbing: { ...defaultSettings.dubbing },
     ui: { ...defaultSettings.ui },
+    llm: { ...defaultSettings.llm },
   };
 }
 
@@ -62,6 +70,11 @@ async function loadSettings(): Promise<void> {
   settings.ui = savedUi
     ? { ...defaultSettings.ui, ...savedUi }
     : { ...defaultSettings.ui };
+
+  const savedLlm = await s.get<LlmSettings>('llm');
+  settings.llm = savedLlm
+    ? { ...defaultSettings.llm, ...savedLlm }
+    : { ...defaultSettings.llm };
 }
 
 function initSettings(): Promise<void> {
@@ -87,11 +100,20 @@ async function saveUiSettings(uiSettings: Partial<UiSettings>): Promise<void> {
   await s.save();
 }
 
+async function saveLlmSettings(llmSettings: Partial<LlmSettings>): Promise<void> {
+  await initSettings();
+  settings.llm = { ...settings.llm, ...llmSettings };
+  const s = await getStore();
+  await s.set('llm', settings.llm);
+  await s.save();
+}
+
 async function resetSettings(): Promise<void> {
   settings = createSettingsState();
   const s = await getStore();
   await s.set('dubbing', settings.dubbing);
   await s.set('ui', settings.ui);
+  await s.set('llm', settings.llm);
   await s.save();
 }
 
@@ -101,5 +123,6 @@ export const appSettings = {
   init: initSettings,
   saveDubbing: saveDubbingSettings,
   saveUi: saveUiSettings,
+  saveLlm: saveLlmSettings,
   reset: resetSettings,
 };

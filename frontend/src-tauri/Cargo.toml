@@ -34,6 +34,7 @@ dirs-next = "2"
 rand = "0.8"
 thiserror = "1"
 futures-util = "0.3"
+hound = "3.5"
 aes-gcm = "0.10"
 keyring = "3.6"
 

@@ -1,546 +1,764 @@
 <script lang="ts">
   import Icon from '$lib/icons/Icon.svelte';
+  import { rolesStore, type EmotionStrength } from '$lib/stores/roles.svelte';
   import { toast } from '$lib/stores/toast.svelte';
+  import * as ttsApi from '$lib/api/tts';
+  import { convertFileSrc } from '@tauri-apps/api/core';
+  import type { EngineMode } from '$lib/types/dubbing';
+  import Modal from '$lib/components/ui/Modal.svelte';
+  import Button from '$lib/components/ui/Button.svelte';
+  import { appSettings } from '$lib/stores/settings.svelte';
 
-  type EngineKey = 'light' | 'emotion' | 'cloud';
+  const engineLabels: Record<EngineMode, string> = { lightweight: '轻量', emotion: '情感', cloud: '云端' };
+  const engineColors: Record<EngineMode, string> = { lightweight: 'var(--color-primary)', emotion: 'var(--color-accent)', cloud: 'var(--color-info)' };
+  const emotions = ['平静', '开心', '悲伤', '愤怒', '紧张', '惊讶', '冷漠', '坚定', '害怕'];
+  const strengths: EmotionStrength[] = ['微弱', '中等', '强烈'];
 
-  const engines: Array<{ key: EngineKey; name: string; desc: string; icon: string }> = [
-    { key: 'light', name: '轻量引擎', desc: '速度优先，适合批量台词', icon: 'thunderbolt' },
-    { key: 'emotion', name: '情感引擎', desc: '情绪与韵律更自然', icon: 'heart' },
-    { key: 'cloud', name: '云端引擎', desc: '云端情感能力', icon: 'cloud' },
-  ];
+  let playingLineId = $state<string | null>(null);
+  let audioEl: HTMLAudioElement | undefined = $state();
 
-  const roles = [
-    { name: '林澈', type: '主角', voice: '磁性男声', lines: 48, color: '#4096ff', active: true },
-    { name: '苏晚', type: '女主', voice: '温暖女声', lines: 36, color: '#b37feb' },
-    { name: '旁白', type: '旁白', voice: '沉稳男声', lines: 22, color: '#faad14' },
-    { name: '少年', type: '配角', voice: '活力少年', lines: 18, color: '#36cfc9' },
-    { name: '反派', type: '配角', voice: '低沉男声', lines: 14, color: '#ff7875' },
-  ];
+  let showImportModal = $state(false);
+  let importText = $state('');
+  let isSplitting = $state(false);
 
-  const lines = [
-    { id: '001', role: '林澈', text: '如果这扇门真的通往过去，那我们必须在天亮前做出选择。', emotion: '紧张', speed: '1.00', duration: '00:04.8', status: '待生成' },
-    { id: '002', role: '苏晚', text: '我不怕改变历史，我只怕你再也回不来了。', emotion: '悲伤', speed: '0.92', duration: '00:05.2', status: '已生成' },
-    { id: '003', role: '旁白', text: '走廊尽头的钟声敲响，所有人的呼吸都停在了同一秒。', emotion: '旁白', speed: '0.96', duration: '00:06.4', status: '已生成' },
-    { id: '004', role: '少年', text: '快看，墙上的影子动了！', emotion: '惊讶', speed: '1.08', duration: '00:02.7', status: '待生成' },
-    { id: '005', role: '反派', text: '你以为自己是在拯救他们，其实只是亲手打开了牢笼。', emotion: '冷漠', speed: '0.88', duration: '00:06.1', status: '草稿' },
-    { id: '006', role: '林澈', text: '我会回来，这是我给你的承诺。', emotion: '坚定', speed: '0.98', duration: '00:03.9', status: '待生成' },
-  ];
+  let dragFromIdx = $state<number | null>(null);
+  let dragOverIdx = $state<number | null>(null);
 
-  let activeEngine: EngineKey = $state('emotion');
+  function handleDragStart(e: DragEvent, idx: number) {
+    dragFromIdx = idx;
+    if (e.dataTransfer) {
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', String(idx));
+    }
+  }
 
-  const engineTitle = $derived(engines.find((item) => item.key === activeEngine)?.name ?? '情感引擎');
+  function handleDragOver(e: DragEvent, idx: number) {
+    e.preventDefault();
+    dragOverIdx = idx;
+  }
+
+  function handleDrop(e: DragEvent, idx: number) {
+    e.preventDefault();
+    if (dragFromIdx !== null && dragFromIdx !== idx) {
+      const pageOffset = (rolesStore.currentPage - 1) * rolesStore.pageSize;
+      rolesStore.reorderLines(pageOffset + dragFromIdx, pageOffset + idx);
+      void rolesStore.saveToStore();
+    }
+    dragFromIdx = null;
+    dragOverIdx = null;
+  }
+
+  function handleDragEnd() {
+    dragFromIdx = null;
+    dragOverIdx = null;
+  }
+
+  let llmConfigured = $derived(!!appSettings.settings.llm.apiKey);
+
+  async function handleSplitLines() {
+    if (!importText.trim()) { toast.warning('请输入文本'); return; }
+    const { apiBaseUrl, apiKey, model } = appSettings.settings.llm;
+    if (!apiKey) { toast.warning('请先在设置页配置 LLM API Key'); return; }
+
+    isSplitting = true;
+    try {
+      const existingRoles = rolesStore.roles.map(r => r.name);
+      const result = await ttsApi.splitLines({
+        text: importText,
+        api_base_url: apiBaseUrl,
+        api_key: apiKey,
+        model: model,
+        roles: existingRoles,
+      });
+
+      rolesStore.clearLines();
+      rolesStore.importLines(result.lines);
+      void rolesStore.saveToStore();
+      toast.success(`拆分完成：${result.count} 句台词`);
+      showImportModal = false;
+      importText = '';
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      toast.warning(`拆分失败: ${msg}`);
+    } finally {
+      isSplitting = false;
+    }
+  }
+
+  $effect(() => {
+    void (async () => {
+      const loaded = await rolesStore.loadFromStore();
+      if (!loaded && rolesStore.roles.length === 0) {
+        const r1 = rolesStore.createRole('林澈', '主角');
+        rolesStore.updateRole(r1.id, { engine: 'emotion', voiceName: '磁性男声' });
+        const r2 = rolesStore.createRole('苏晚', '女主');
+        rolesStore.updateRole(r2.id, { engine: 'emotion', voiceName: '温暖女声' });
+        const r3 = rolesStore.createRole('旁白', '旁白');
+        rolesStore.updateRole(r3.id, { engine: 'lightweight', voiceName: '沉稳男声' });
+
+        rolesStore.addLine(r1.id, '如果这扇门真的通往过去，那我们必须在天亮前做出选择。', '紧张', '强烈');
+        rolesStore.addLine(r2.id, '我不怕改变历史，我只怕你再也回不来了。', '悲伤', '中等');
+        rolesStore.addLine(r3.id, '走廊尽头的钟声敲响，所有人的呼吸都停在了同一秒。', '平静', '中等');
+        rolesStore.addLine(r1.id, '我会回来，这是我给你的承诺。', '坚定', '中等');
+        rolesStore.addLine(r2.id, '那就带我一起走吧。', '坚定', '强烈');
+        rolesStore.addLine(r3.id, '门缓缓打开，光芒倾泻而出。', '平静', '中等');
+      }
+    })();
+  });
+
+  async function handleTryPlay(lineId: string) {
+    const line = rolesStore.lines.find(l => l.id === lineId);
+    if (!line) return;
+
+    if (line.audioPath) {
+      playingLineId = lineId;
+      const src = line.audioPath.startsWith('http') || line.audioPath.startsWith('blob:')
+        ? line.audioPath : convertFileSrc(line.audioPath);
+      if (audioEl) {
+        audioEl.src = src;
+        void audioEl.play();
+      }
+      return;
+    }
+
+    const role = rolesStore.roles.find(r => r.id === line.roleId);
+    if (!role?.voiceAudioPath) {
+      toast.warning(`角色「${role?.name ?? '未知'}」未绑定参考音频`);
+      return;
+    }
+
+    rolesStore.updateLine(lineId, { status: '生成中' });
+
+    try {
+      const req: ttsApi.SynthesizeRequest = {
+        engine: role.engine,
+        text: line.text,
+        speaker_audio_path: role.voiceAudioPath,
+        inference_mode: 'normal',
+        interval_silence: role.intervalSilence,
+        max_text_tokens_per_segment: role.maxTextTokens,
+        bucket_max_size: 4,
+        emotion_method: role.emotionMethod,
+        emotion_vector: role.emotionMethod === 'slider' ? role.emotionVector : undefined,
+        emotion_text: role.emotionMethod === 'text' ? role.emotionText || undefined : undefined,
+        emotion_audio_path: role.emotionMethod === 'audio' ? role.emotionAudioPath || undefined : undefined,
+        emo_alpha: role.emoAlpha,
+        temperature: role.temperature,
+        top_p: role.topP,
+        top_k: role.topK,
+        num_beams: 3,
+        repetition_penalty: 10.0,
+        max_mel_tokens: 600,
+      };
+
+      const { promise } = ttsApi.synthesizeStream(req, {
+        onComplete: (evt) => {
+          rolesStore.updateLine(lineId, { status: '已生成', audioPath: evt.outputPath });
+          toast.success(`「${line.text.slice(0, 10)}…」生成完成`);
+        },
+        onError: (evt) => {
+          rolesStore.updateLine(lineId, { status: '失败' });
+          toast.warning(`生成失败: ${evt.message}`);
+        },
+      });
+
+      await promise;
+    } catch (err) {
+      rolesStore.updateLine(lineId, { status: '失败' });
+      const msg = err instanceof Error ? err.message : String(err);
+      toast.warning(`生成失败: ${msg}`);
+    }
+  }
+
+  function handleAudioEnded() {
+    playingLineId = null;
+  }
+
+  let showVoiceModal = $state(false);
+  let showAddRoleModal = $state(false);
+  let newRoleName = $state('');
+  let newRoleType = $state('配角');
+  let newRoleEngine = $state<EngineMode>('emotion');
+
+  function handleAddRole() {
+    if (!newRoleName.trim()) { toast.warning('请输入角色名'); return; }
+    const role = rolesStore.createRole(newRoleName.trim(), newRoleType);
+    rolesStore.updateRole(role.id, { engine: newRoleEngine });
+    void rolesStore.saveToStore();
+    toast.success(`角色「${role.name}」已创建`);
+    showAddRoleModal = false;
+    newRoleName = '';
+    newRoleType = '配角';
+    newRoleEngine = 'emotion';
+    rolesStore.selectRole(role.id);
+  }
+
+  async function handleUploadVoice() {
+    if (!rolesStore.activeRole) return;
+
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.wav,.mp3,.flac';
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file || !rolesStore.activeRole) return;
+
+      try {
+        const { writeFile, mkdir, exists } = await import('@tauri-apps/plugin-fs');
+        const { join } = await import('@tauri-apps/api/path');
+        const { getOutputDir } = await import('$lib/api/tts');
+
+        const ext = file.name.split('.').pop() || 'wav';
+        const uniqueName = `role-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+        const buf = new Uint8Array(await file.arrayBuffer());
+
+        let filePath: string;
+        try {
+          const outputDir = await getOutputDir();
+          const refDir = outputDir.ref_audio;
+          if (!await exists(refDir)) await mkdir(refDir, { recursive: true });
+          filePath = await join(refDir, uniqueName);
+        } catch {
+          const { appDataDir } = await import('@tauri-apps/api/path');
+          const dataDir = await appDataDir();
+          const refDir = await join(dataDir, 'ref_audio');
+          if (!await exists(refDir)) await mkdir(refDir, { recursive: true });
+          filePath = await join(refDir, uniqueName);
+        }
+
+        await writeFile(filePath, buf);
+        rolesStore.updateRole(rolesStore.activeRole.id, {
+          voiceName: file.name,
+          voiceAudioPath: filePath,
+        });
+        void rolesStore.saveToStore();
+        toast.success(`已绑定音色：${file.name}`);
+        showVoiceModal = false;
+      } catch (err) {
+        toast.warning(`上传失败: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    };
+    input.click();
+  }
+
+  function handleDeleteRole(id: string) {
+    rolesStore.deleteRole(id);
+    toast.success('角色已删除');
+  }
+
+  function handleDeleteLine(id: string) {
+    rolesStore.deleteLine(id);
+  }
+
+  async function handleBatchGenerate() {
+    const pending = rolesStore.lines.filter(l => l.status !== '已生成').length;
+    if (pending === 0) { toast.info('所有台词已生成'); return; }
+
+    const generated = await rolesStore.batchGenerate(async (line, role) => {
+      const req: ttsApi.SynthesizeRequest = {
+        engine: role.engine,
+        text: line.text,
+        speaker_audio_path: role.voiceAudioPath!,
+        inference_mode: 'normal',
+        interval_silence: role.intervalSilence,
+        max_text_tokens_per_segment: role.maxTextTokens,
+        bucket_max_size: 4,
+        emotion_method: role.emotionMethod,
+        emotion_vector: role.emotionMethod === 'slider' ? role.emotionVector : undefined,
+        emotion_text: role.emotionMethod === 'text' ? role.emotionText || undefined : undefined,
+        emotion_audio_path: role.emotionMethod === 'audio' ? role.emotionAudioPath || undefined : undefined,
+        emo_alpha: role.emoAlpha,
+        temperature: role.temperature,
+        top_p: role.topP,
+        top_k: role.topK,
+        num_beams: 3,
+        repetition_penalty: 10.0,
+        max_mel_tokens: 600,
+      };
+
+      return new Promise<string | null>((resolve) => {
+        const { promise } = ttsApi.synthesizeStream(req, {
+          onComplete: (evt) => resolve(evt.outputPath),
+          onError: () => resolve(null),
+        });
+        promise.catch(() => resolve(null));
+      });
+    });
+
+    void rolesStore.saveToStore();
+    toast.success(`批量生成完成：${generated} 句`);
+  }
+
+  function handleEngineChange(eng: EngineMode) {
+    if (rolesStore.activeRole) {
+      rolesStore.updateRole(rolesStore.activeRole.id, { engine: eng });
+      void rolesStore.saveToStore();
+    }
+  }
+
+  async function handleExportProject() {
+    try {
+      const { save } = await import('@tauri-apps/plugin-dialog');
+      const savePath = await save({
+        defaultPath: `${rolesStore.currentProjectName || '丸子配音工程'}.json`,
+        filters: [{ name: '丸子工程文件', extensions: ['json'] }],
+      });
+      if (!savePath) return;
+      const { writeTextFile } = await import('@tauri-apps/plugin-fs');
+      const json = rolesStore.exportProject();
+      await writeTextFile(savePath, json);
+      toast.success('工程导出成功');
+    } catch (err) {
+      toast.warning(`导出失败: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  async function handleImportProject() {
+    try {
+      const { open } = await import('@tauri-apps/plugin-dialog');
+      const filePath = await open({
+        filters: [{ name: '丸子工程文件', extensions: ['json'] }],
+        multiple: false,
+      });
+      if (!filePath) return;
+      const { readTextFile } = await import('@tauri-apps/plugin-fs');
+      const json = await readTextFile(filePath as string);
+      const result = rolesStore.importProject(json);
+      void rolesStore.saveToStore();
+      toast.success(`导入成功：${result.roles} 角色 · ${result.lines} 句台词`);
+    } catch (err) {
+      toast.warning(`导入失败: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  async function handleExport() {
+    const generated = rolesStore.lines.filter(l => l.status === '已生成' && l.audioPath);
+    if (generated.length === 0) {
+      toast.warning('没有已生成的音频可导出');
+      return;
+    }
+
+    try {
+      const { save } = await import('@tauri-apps/plugin-dialog');
+      const savePath = await save({
+        defaultPath: `${rolesStore.currentProjectName || '多角色配音'}.wav`,
+        filters: [{ name: 'WAV 音频', extensions: ['wav'] }],
+      });
+      if (!savePath) return;
+
+      const { invoke } = await import('@tauri-apps/api/core');
+      const segments = generated.map(l => ({
+        audio_path: l.audioPath!,
+        text: l.text,
+        role_name: rolesStore.getRoleName(l.roleId),
+      }));
+
+      const result = await invoke<{ audio_path: string; srt_path: string | null; segment_count: number; total_duration_ms: number }>(
+        'export_concat_audio',
+        { segments, outputPath: savePath, gapMs: 300, generateSrt: true },
+      );
+
+      const srtMsg = result.srt_path ? ` + SRT 字幕` : '';
+      toast.success(`导出完成：${result.segment_count} 段${srtMsg}，总时长 ${Math.round(result.total_duration_ms / 1000)}s`);
+    } catch (err) {
+      toast.warning(`导出失败: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
 </script>
 
 <div class="roles-page">
-  <aside class="role-panel">
-    <header class="panel-head">
+  <audio bind:this={audioEl} onended={handleAudioEnded} class="hidden"></audio>
+
+  <div class="card role-panel">
+    <div class="card-head">
       <h2>角色管理</h2>
-      <button type="button" onclick={() => toast.info('新增角色开发中')}>+ 新增</button>
-    </header>
+      <button class="add-role-btn" onclick={() => showAddRoleModal = true}>+ 新增</button>
+    </div>
     <div class="role-list">
-      {#each roles as role (role.name)}
-        <button type="button" class="role-card" class:active={role.active} style="--role-color:{role.color}">
-          <span class="avatar">{role.name.slice(0, 1)}</span>
-          <div>
-            <strong>{role.name}<em>{role.type}</em></strong>
-            <small>{role.voice} · {role.lines} 句台词</small>
+      {#each rolesStore.roles as role (role.id)}
+        {@const lineCount = rolesStore.lines.filter(l => l.roleId === role.id).length}
+        {@const doneCount = rolesStore.lines.filter(l => l.roleId === role.id && l.status === '已生成').length}
+        <button
+          type="button"
+          class="role-item"
+          class:active={rolesStore.activeRoleId === role.id}
+          style="--rc:{role.color}"
+          onclick={() => rolesStore.selectRole(role.id)}
+        >
+          <span class="role-avatar">{role.name.slice(0, 1)}</span>
+          <div class="role-meta">
+            <div class="role-top">
+              <strong>{role.name}</strong>
+              <span class="pill type">{role.type}</span>
+              <span class="pill eng" style="color:{engineColors[role.engine]}; background:color-mix(in srgb, {engineColors[role.engine]} 14%, transparent)">{engineLabels[role.engine]}</span>
+            </div>
+            <span class="role-voice">{role.voiceName}</span>
+          </div>
+          <div class="role-stats">
+            <span class="role-count">{lineCount}</span>
+            {#if doneCount > 0}<span class="role-done">{doneCount}/{lineCount}</span>{/if}
           </div>
         </button>
       {/each}
     </div>
+  </div>
 
-    <section class="import-card">
-      <Icon name="import" size={22} color="var(--color-primary)" />
-      <h3>脚本导入</h3>
-      <p>支持 TXT / SRT / JSON，自动识别角色与台词顺序。</p>
-      <button type="button" onclick={() => toast.info('脚本导入开发中')}>导入脚本</button>
-    </section>
-  </aside>
-
-  <main class="script-panel">
-    <header class="script-toolbar">
-      <div>
-        <h1>《风起云涌》第12集</h1>
-        <p>6 个角色 · 138 句台词 · 预计生成 23 分钟音频</p>
+  <div class="card script-panel">
+    <div class="card-head">
+      <div class="head-left">
+        <h2>{rolesStore.currentProjectName}</h2>
+        <span class="head-sub">{rolesStore.roles.length} 角色 · {rolesStore.lines.length} 句</span>
       </div>
-      <div class="toolbar-actions">
-        <button type="button"><Icon name="save" size={14} color="currentColor" />保存草稿</button>
-        <button type="button"><Icon name="play-fill" size={14} color="currentColor" />试听选中</button>
-        <button type="button" class="primary" onclick={() => toast.success('已加入批量生成队列')}>批量生成</button>
-      </div>
-    </header>
-
-    <section class="engine-strip" aria-label="引擎选择">
-      {#each engines as engine (engine.key)}
-        <button type="button" class:active={activeEngine === engine.key} onclick={() => (activeEngine = engine.key)}>
-          <Icon name={engine.icon} size={18} color="currentColor" />
-          <div><strong>{engine.name}</strong><span>{engine.desc}</span></div>
+      <div class="head-actions">
+        <button class="import-btn" onclick={() => showImportModal = true}>
+          <Icon name="import" size={12} color="currentColor" />
+          导入文本
         </button>
-      {/each}
-    </section>
-
-    <section class="line-table">
-      <div class="table-head"><span>#</span><span>角色</span><span>台词内容</span><span>情绪</span><span>语速</span><span>时长</span><span>状态</span><span>操作</span></div>
-      {#each lines as line (line.id)}
-        <article class="line-row">
-          <span class="line-id">{line.id}</span>
-          <span class="role-name">{line.role}</span>
-          <textarea value={line.text} aria-label={`${line.role} 台词`}></textarea>
-          <select value={line.emotion} aria-label="情绪">
-            <option>{line.emotion}</option>
-            <option>平静</option>
-            <option>开心</option>
-            <option>悲伤</option>
-            <option>愤怒</option>
-            <option>惊讶</option>
-          </select>
-          <input value={line.speed} aria-label="语速" />
-          <span>{line.duration}</span>
-          <span class="status {line.status}">{line.status}</span>
-          <div class="row-actions"><button><Icon name="play" size={14} color="currentColor" /></button><button><Icon name="copy" size={14} color="currentColor" /></button><button><Icon name="delete" size={14} color="currentColor" /></button></div>
-        </article>
-      {/each}
-    </section>
-  </main>
-
-  <aside class="param-panel">
-    <header class="panel-head">
-      <h2>{engineTitle}参数</h2>
-      <button type="button" onclick={() => toast.info('已恢复默认参数')}>重置</button>
-    </header>
-
-    {#if activeEngine === 'light'}
-      <section class="param-group">
-        <h3>基础生成</h3>
-        <label>语速倍率 <span>1.00</span><input type="range" min="0.75" max="1.25" step="0.01" value="1.00" /></label>
-        <label>随机种子 <input value="auto" /></label>
-        <label>分句长度 <select><option>智能分句</option><option>短句优先</option><option>长句优先</option></select></label>
-        <label>批量并发 <select><option>2 路</option><option>4 路</option></select></label>
-      </section>
-      <section class="tip-card"><Icon name="thunderbolt" size={16} color="var(--color-primary)" />轻量引擎适合稳定批量出音，不显示情感参考音频和高级情绪向量。</section>
-    {:else if activeEngine === 'emotion'}
-      <section class="param-group">
-        <h3>情感控制</h3>
-        <label>情感强度 <span>0.80</span><input type="range" min="0" max="1" step="0.01" value="0.80" /></label>
-        <label>情感参考音频 <button type="button">选择音频</button></label>
-        <label>情绪标签 <select><option>按台词情绪</option><option>统一使用：坚定</option></select></label>
-        <label>韵律稳定度 <span>0.65</span><input type="range" min="0" max="1" step="0.01" value="0.65" /></label>
-        <label>文本情感权重 <span>0.55</span><input type="range" min="0" max="1" step="0.01" value="0.55" /></label>
-      </section>
-      <section class="tip-card"><Icon name="heart" size={16} color="var(--color-primary)" />情感引擎用于需要情绪变化、停顿和语气层次的角色对白。</section>
-    {:else}
-      <section class="param-group">
-        <h3>云端生成</h3>
-        <label>云端账户 <button type="button">连接账户</button></label>
-        <label>情感模式 <select><option>云端情感增强</option><option>标准生成</option></select></label>
-        <label>队列优先级 <select><option>普通</option><option>加速</option></select></label>
-        <label>自动回传本地 <input type="checkbox" checked /></label>
-        <label>失败重试 <select><option>3 次</option><option>5 次</option></select></label>
-      </section>
-      <section class="tip-card"><Icon name="cloud" size={16} color="var(--color-primary)" />云端引擎等同情感能力云端版本，适合本地显存不足时使用。</section>
-    {/if}
-
-    <section class="param-group">
-      <h3>输出</h3>
-      <label>输出格式 <select><option>WAV 24kHz</option><option>MP3 320kbps</option></select></label>
-      <label>自动响度归一化 <input type="checkbox" checked /></label>
-      <label>生成后自动入库 <input type="checkbox" checked /></label>
-    </section>
-
-    <div class="summary-card">
-      <strong>生成预估</strong>
-      <span>选中台词：6 句</span>
-      <span>预计耗时：1 分 42 秒</span>
-      <span>输出大小：约 48 MB</span>
+        <button class="import-btn" onclick={handleImportProject} title="导入工程">
+          <Icon name="folder-open" size={12} color="currentColor" />
+        </button>
+        <button class="import-btn" onclick={handleExportProject} title="导出工程">
+          <Icon name="download" size={12} color="currentColor" />
+        </button>
+      </div>
     </div>
-  </aside>
+    <div class="line-list">
+      {#each rolesStore.pagedLines as line, idx (line.id)}
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <div
+          class="line-card"
+          class:playing={playingLineId === line.id}
+          class:drag-over={dragOverIdx === idx && dragFromIdx !== idx}
+          style="--lc:{rolesStore.getRoleColor(line.roleId)}"
+          role="listitem"
+          draggable="true"
+          ondragstart={(e) => handleDragStart(e, idx)}
+          ondragover={(e) => handleDragOver(e, idx)}
+          ondrop={(e) => handleDrop(e, idx)}
+          ondragend={handleDragEnd}
+        >
+          <span class="lc-avatar" style="background:{rolesStore.getRoleColor(line.roleId)}">{rolesStore.getRoleName(line.roleId).slice(0, 1)}</span>
+          <div class="lc-content">
+            <div class="lc-header">
+              <span class="lc-role-name">{rolesStore.getRoleName(line.roleId)}</span>
+              <span class="lc-emotion">{line.emotion} · {line.strength}</span>
+            </div>
+            <input class="lc-text" value={line.text} onchange={(e) => rolesStore.updateLine(line.id, { text: (e.target as HTMLInputElement).value })} />
+          </div>
+          <div class="lc-right">
+            <span class="pill st {line.status}">{line.status}</span>
+            <button class="lc-play" onclick={() => handleTryPlay(line.id)} title="试听/生成">
+              <Icon name={playingLineId === line.id ? 'pause-fill' : 'play-fill'} size={14} color="currentColor" />
+            </button>
+          </div>
+        </div>
+      {/each}
+      {#if rolesStore.lines.length === 0}
+        <div class="line-empty">
+          <Icon name="file-text" size={28} color="var(--color-text-quaternary)" />
+          <span>暂无台词，点击"导入文本"开始</span>
+        </div>
+      {/if}
+    </div>
+    <div class="batch-bar">
+      {#if rolesStore.batchGenerating}
+        <div class="batch-progress">
+          <div class="batch-fill" style="width:{rolesStore.batchProgress}%"></div>
+        </div>
+        <span class="batch-info">{rolesStore.batchCurrent}/{rolesStore.batchTotal}</span>
+        <button class="ibtn del" onclick={() => rolesStore.cancelBatch()} title="取消">
+          <Icon name="close" size={11} color="currentColor" />
+        </button>
+      {:else}
+        <button class="batch-btn" onclick={handleBatchGenerate} disabled={rolesStore.lines.length === 0}>
+          <Icon name="play-fill" size={12} color="currentColor" />
+          批量生成
+        </button>
+        <button class="export-btn" onclick={handleExport} disabled={rolesStore.lines.filter(l => l.status === '已生成').length === 0}>
+          <Icon name="download" size={12} color="currentColor" />
+          导出拼接
+        </button>
+      {/if}
+    </div>
+    <div class="pager">
+      <span class="pi">共 {rolesStore.lines.length} 句</span>
+      <div class="pbs">
+        <button class="pb" disabled={rolesStore.currentPage <= 1} onclick={() => rolesStore.setPage(rolesStore.currentPage - 1)}>‹</button>
+        {#each Array.from({ length: rolesStore.totalPages }, (_, i) => i + 1) as p}
+          <button class="pb" class:active={rolesStore.currentPage === p} onclick={() => rolesStore.setPage(p)}>{p}</button>
+        {/each}
+        <button class="pb" disabled={rolesStore.currentPage >= rolesStore.totalPages} onclick={() => rolesStore.setPage(rolesStore.currentPage + 1)}>›</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card param-panel">
+    {#if rolesStore.activeRole}
+      <div class="param-hero" style="--rc:{rolesStore.activeRole.color}">
+        <span class="param-avatar">{rolesStore.activeRole.name.slice(0, 1)}</span>
+        <div class="param-hero-meta">
+          <strong>{rolesStore.activeRole.name}</strong>
+          <span class="pill type" style="--rc:{rolesStore.activeRole.color}">{rolesStore.activeRole.type}</span>
+        </div>
+        <button class="ibtn del" title="删除角色" onclick={() => { if (confirm(`确定删除角色「${rolesStore.activeRole?.name}」？`)) handleDeleteRole(rolesStore.activeRole!.id); }}>
+          <Icon name="delete" size={12} color="currentColor" />
+        </button>
+      </div>
+      <div class="pbody">
+        <div class="psec-card">
+          <div class="psec-title"><Icon name="mic" size={13} color="var(--color-primary)" /><span>音色</span></div>
+          <button class="voice-card-btn" onclick={handleUploadVoice}>
+            <Icon name={rolesStore.activeRole.voiceAudioPath ? 'sound-fill' : 'upload'} size={16} color={rolesStore.activeRole.voiceAudioPath ? 'var(--color-primary)' : 'var(--color-text-tertiary)'} />
+            <span>{rolesStore.activeRole.voiceAudioPath ? rolesStore.activeRole.voiceName : '点击上传参考音频'}</span>
+          </button>
+        </div>
+
+        <div class="psec-card">
+          <div class="psec-title"><Icon name="zap" size={13} color="var(--color-primary)" /><span>引擎</span></div>
+          <div class="echips">
+            {#each (['lightweight', 'emotion', 'cloud'] as const) as eng}
+              <button
+                class="echip-btn"
+                class:active={rolesStore.activeRole?.engine === eng}
+                style="--ec:{engineColors[eng]}"
+                onclick={() => handleEngineChange(eng)}
+              >
+                <Icon name={eng === 'lightweight' ? 'zap' : eng === 'emotion' ? 'heart' : 'cloud'} size={12} color="currentColor" />
+                {engineLabels[eng]}
+              </button>
+            {/each}
+          </div>
+        </div>
+
+        <div class="psec-card">
+          <div class="psec-title"><Icon name="sliders" size={13} color="var(--color-primary)" /><span>采样参数</span></div>
+          <div class="param-grid">
+            <div class="pg-row"><span>温度</span><strong>{rolesStore.activeRole.temperature.toFixed(1)}</strong></div>
+            <div class="pg-row"><span>Top-P</span><strong>{rolesStore.activeRole.topP.toFixed(2)}</strong></div>
+            <div class="pg-row"><span>Top-K</span><strong>{rolesStore.activeRole.topK}</strong></div>
+            <div class="pg-row"><span>静音</span><strong>{rolesStore.activeRole.intervalSilence}ms</strong></div>
+          </div>
+        </div>
+
+        {#if rolesStore.activeRole.engine !== 'lightweight'}
+          <div class="psec-card">
+            <div class="psec-title"><Icon name="heart" size={13} color="var(--color-accent)" /><span>情感</span></div>
+            <div class="param-grid">
+              <div class="pg-row"><span>方式</span><strong>{rolesStore.activeRole.emotionMethod === 'slider' ? '向量控制' : rolesStore.activeRole.emotionMethod === 'text' ? '文本描述' : '音频参考'}</strong></div>
+              <div class="pg-row"><span>强度</span><strong>{rolesStore.activeRole.emoAlpha.toFixed(2)}</strong></div>
+            </div>
+          </div>
+        {/if}
+
+        <div class="psec-stats">
+          <div class="stat-item">
+            <span class="stat-num">{rolesStore.lines.filter(l => l.roleId === rolesStore.activeRole?.id).length}</span>
+            <span class="stat-label">台词</span>
+          </div>
+          <div class="stat-item done">
+            <span class="stat-num">{rolesStore.lines.filter(l => l.roleId === rolesStore.activeRole?.id && l.status === '已生成').length}</span>
+            <span class="stat-label">已生成</span>
+          </div>
+        </div>
+      </div>
+    {:else}
+      <div class="empty-param">
+        <Icon name="avatar" size={32} color="var(--color-text-quaternary)" />
+        <span>选择左侧角色查看属性</span>
+      </div>
+    {/if}
+  </div>
+  <Modal bind:open={showAddRoleModal} title="新建角色" size="sm">
+    <div class="add-role-form">
+      <label>
+        <span>角色名</span>
+        <input type="text" bind:value={newRoleName} placeholder="如：林澈" />
+      </label>
+      <label>
+        <span>类型</span>
+        <select bind:value={newRoleType}>
+          <option value="主角">主角</option>
+          <option value="女主">女主</option>
+          <option value="配角">配角</option>
+          <option value="旁白">旁白</option>
+        </select>
+      </label>
+      <label>
+        <span>引擎</span>
+        <select bind:value={newRoleEngine}>
+          <option value="lightweight">轻量</option>
+          <option value="emotion">情感</option>
+          <option value="cloud">云端</option>
+        </select>
+      </label>
+    </div>
+    {#snippet footer()}
+      <Button variant="default" onclick={() => showAddRoleModal = false}>取消</Button>
+      <Button variant="primary" onclick={handleAddRole}>创建</Button>
+    {/snippet}
+  </Modal>
+
+  <Modal bind:open={showImportModal} title="导入文本 · LLM 智能拆分" size="lg">
+    <div class="import-form">
+      {#if !llmConfigured}
+        <div class="llm-tip">
+          <Icon name="info-circle" size={14} color="var(--color-warning)" />
+          <span>请先在<strong>设置 → 云端账号</strong>中配置 LLM API Key</span>
+        </div>
+      {/if}
+      <div class="import-row">
+        <label for="import-text">粘贴小说/剧本文本</label>
+        <textarea id="import-text" bind:value={importText} placeholder="将文本粘贴到这里，LLM 会自动识别角色、台词、情绪…" rows={12}></textarea>
+      </div>
+      <div class="import-info">
+        <span>当前 LLM：{appSettings.settings.llm.model}</span>
+        <span>·</span>
+        <span>已有 {rolesStore.roles.length} 个角色会被保留</span>
+      </div>
+    </div>
+    {#snippet footer()}
+      <Button variant="default" onclick={() => showImportModal = false}>取消</Button>
+      <Button variant="primary" loading={isSplitting} disabled={!llmConfigured} onclick={handleSplitLines}>
+        {isSplitting ? '拆分中…' : '智能拆分'}
+      </Button>
+    {/snippet}
+  </Modal>
 </div>
 
 <style>
-  .roles-page {
-    flex: 1;
-    min-height: 0;
-    display: grid;
-    grid-template-columns: 260px minmax(0, 1fr) 320px;
-    background: var(--color-bg-container);
-    overflow: hidden;
-  }
+  .roles-page { flex:1; min-height:0; display:grid; grid-template-columns:240px minmax(0,1fr) 260px; gap:var(--spacing-sm); padding:15px; background:var(--color-bg-container); overflow:hidden; }
+  .card { background:var(--color-bg-elevated); border:1px solid var(--color-border-secondary); border-radius:var(--border-radius-lg); display:flex; flex-direction:column; overflow:hidden; }
+  .card-head { height:44px; padding:0 var(--spacing-md); border-bottom:1px solid var(--color-border-secondary); display:flex; align-items:center; justify-content:space-between; flex-shrink:0; }
+  .card-head h2 { margin:0; font-size:var(--font-size); font-weight:600; color:var(--color-text); }
+  .head-left { display:flex; flex-direction:column; gap:2px; }
+  .head-sub { font-size:11px; color:var(--color-text-disabled); }
+  .count-badge { font-size:11px; color:var(--color-text-disabled); background:var(--color-bg-base); padding:2px 8px; border-radius:var(--border-radius-pill); }
+  .hidden { display:none; }
+  button { cursor:pointer; font-family:inherit; }
 
-  .role-panel,
-  .param-panel {
-    border-right: 1px solid var(--color-border-secondary);
-    overflow-y: auto;
-    background: var(--color-bg-container);
-  }
+  .role-list { flex:1; padding:var(--spacing-sm); display:flex; flex-direction:column; gap:6px; min-height:0; overflow-y:auto; }
+  .role-item { display:flex; align-items:center; gap:var(--spacing-sm); padding:var(--spacing-sm) var(--spacing-md); border:1px solid var(--color-border-secondary); border-radius:var(--border-radius); background:var(--color-bg-base); color:var(--color-text); text-align:left; transition:border-color .2s,background .2s,box-shadow .2s; min-height:56px; }
+  .role-item:hover { border-color:color-mix(in srgb, var(--rc) 30%, var(--color-border)); }
+  .role-item.active { border-color:var(--rc); background:color-mix(in srgb, var(--rc) 6%, var(--color-bg-base)); box-shadow:inset 3px 0 0 var(--rc); }
+  .role-avatar { width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; background:var(--rc); color:#fff; font-weight:700; font-size:16px; flex-shrink:0; box-shadow:0 2px 8px color-mix(in srgb, var(--rc) 30%, transparent); }
+  .role-meta { flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; }
+  .role-top { display:flex; align-items:center; gap:4px; }
+  .role-meta strong { font-size:var(--font-size-sm); font-weight:600; white-space:nowrap; }
+  .role-voice { font-size:11px; color:var(--color-text-tertiary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100%; }
+  .role-stats { display:flex; flex-direction:column; align-items:center; gap:1px; flex-shrink:0; }
+  .role-count { font-size:var(--font-size); font-weight:600; color:var(--color-text-secondary); font-variant-numeric:tabular-nums; }
+  .role-done { font-size:9px; color:var(--color-success); font-variant-numeric:tabular-nums; }
+  .pill { padding:1px 7px; border-radius:var(--border-radius-pill); font-size:10px; font-weight:500; line-height:1.7; }
+  .pill.type { color:var(--rc); background:color-mix(in srgb, var(--rc) 14%, transparent); }
 
-  .param-panel {
-    border-right: none;
-    border-left: 1px solid var(--color-border-secondary);
-  }
+  .script-panel { min-width:0; }
 
-  .panel-head {
-    height: 48px;
-    padding: 0 var(--spacing-md);
-    border-bottom: 1px solid var(--color-border-secondary);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
+  .line-list { flex:1; display:flex; flex-direction:column; gap:6px; padding:var(--spacing-sm); min-height:0; overflow-y:auto; }
 
-  .panel-head h2 {
-    margin: 0;
-    color: var(--color-text);
-    font-size: var(--font-size);
-  }
+  .line-card { display:flex; align-items:stretch; gap:var(--spacing-sm); padding:var(--spacing-sm) var(--spacing-md); border:1px solid var(--color-border-secondary); border-radius:var(--border-radius); background:var(--color-bg-base); border-left:4px solid var(--lc); transition:border-color .15s,background .15s,box-shadow .15s; }
+  .line-card:hover { background:var(--color-bg-elevated); box-shadow:0 2px 8px rgba(0,0,0,.15); }
+  .line-card.playing { border-color:var(--color-primary); border-left-color:var(--color-primary); background:color-mix(in srgb, var(--color-primary) 6%, transparent); }
+  .line-card[draggable="true"] { cursor:grab; }
+  .line-card[draggable="true"]:active { cursor:grabbing; opacity:.85; }
+  .line-card.drag-over { border-top:2px solid var(--color-primary); margin-top:-2px; }
 
-  button {
-    cursor: pointer;
-    font-family: inherit;
-  }
+  .lc-avatar { width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#fff; font-size:13px; font-weight:600; flex-shrink:0; align-self:center; }
 
-  .panel-head button {
-    border: none;
-    background: transparent;
-    color: var(--color-primary);
-  }
+  .lc-content { flex:1; min-width:0; display:flex; flex-direction:column; gap:12px; }
+  .lc-header { display:flex; align-items:center; gap:var(--spacing-xs); }
+  .lc-role-name { font-size:12px; font-weight:600; color:var(--lc); white-space:nowrap; }
+  .lc-emotion { font-size:11px; color:var(--color-text-disabled); white-space:nowrap; }
 
-  .role-list {
-    padding: var(--spacing-md);
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-sm);
-  }
+  .lc-text { width:100%; border:none; background:transparent; color:var(--color-text); font-size:var(--font-size-sm); font-family:inherit; outline:none; line-height:1.5; }
+  .lc-text:focus { color:var(--color-text); background:color-mix(in srgb, var(--lc) 6%, transparent); border-radius:var(--border-radius-sm); padding:4px 6px; margin:-4px -6px; }
 
-  .role-card {
-    width: 100%;
-    min-height: 64px;
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-sm);
-    padding: var(--spacing-sm);
-    border: 1px solid var(--color-border-secondary);
-    border-radius: var(--border-radius);
-    background: var(--color-bg-elevated);
-    color: var(--color-text);
-    text-align: left;
-  }
+  .lc-right { display:flex; flex-direction:column; align-items:center; gap:6px; flex-shrink:0; align-self:center; }
+  .lc-play { width:34px; height:34px; display:flex; align-items:center; justify-content:center; border:1px solid var(--color-border-secondary); border-radius:50%; background:transparent; color:var(--color-primary); flex-shrink:0; transition:border-color .15s,background .15s,transform .1s; }
+  .lc-play:hover { border-color:var(--color-primary); background:color-mix(in srgb, var(--color-primary) 10%, transparent); transform:scale(1.05); }
 
-  .role-card.active,
-  .role-card:hover {
-    border-color: var(--role-color);
-    background: color-mix(in srgb, var(--role-color) 12%, var(--color-bg-elevated));
-  }
+  .pill.st { color:var(--color-primary); background:color-mix(in srgb, var(--color-primary) 14%, transparent); flex-shrink:0; }
+  .pill.st.\5DF2\751F\6210 { color:var(--color-success); background:color-mix(in srgb, var(--color-success) 14%, transparent); }
+  .pill.st.\8349\7A3F { color:var(--color-warning); background:color-mix(in srgb, var(--color-warning) 14%, transparent); }
+  .pill.st.\5931\8D25 { color:var(--color-error); background:color-mix(in srgb, var(--color-error) 14%, transparent); }
+  .pill.st.\751F\6210\4E2D { color:var(--color-info); background:color-mix(in srgb, var(--color-info) 14%, transparent); }
 
-  .avatar {
-    width: 40px;
-    height: 40px;
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--role-color);
-    color: #fff;
-    font-weight: 700;
-  }
+  .line-empty { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:var(--spacing-sm); color:var(--color-text-disabled); font-size:var(--font-size-sm); }
+  .ibtn { width:26px; height:26px; display:flex; align-items:center; justify-content:center; border:1px solid var(--color-border-secondary); border-radius:var(--border-radius-sm); background:transparent; color:var(--color-text-tertiary); transition:border-color .15s,color .15s; }
+  .ibtn:hover { border-color:var(--color-primary); color:var(--color-primary); }
+  .ibtn.del:hover { border-color:var(--color-error); color:var(--color-error); }
 
-  .role-card div {
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
+  .pager { display:flex; align-items:center; justify-content:space-between; padding:var(--spacing-xs) var(--spacing-sm); border-top:1px solid var(--color-border-secondary); flex-shrink:0; }
+  .pi { font-size:10px; color:var(--color-text-disabled); }
+  .pbs { display:flex; gap:3px; }
+  .pb { width:24px; height:24px; display:flex; align-items:center; justify-content:center; border:1px solid var(--color-border-secondary); border-radius:var(--border-radius-sm); background:transparent; color:var(--color-text-tertiary); font-size:11px; transition:border-color .15s,color .15s,background .15s; }
+  .pb:hover:not(:disabled) { border-color:var(--color-primary); color:var(--color-primary); }
+  .pb.active { background:var(--color-primary); border-color:var(--color-primary); color:#fff; }
+  .pb:disabled { opacity:.35; cursor:not-allowed; }
 
-  .role-card strong {
-    display: flex;
-    gap: 6px;
-    align-items: center;
-    font-size: var(--font-size);
-  }
+  .param-panel { min-width:0; }
 
-  .role-card em {
-    font-style: normal;
-    color: var(--role-color);
-    font-size: 11px;
-  }
+  .param-hero { display:flex; align-items:center; gap:var(--spacing-sm); padding:var(--spacing-md); border-bottom:1px solid var(--color-border-secondary); background:linear-gradient(135deg, color-mix(in srgb, var(--rc) 12%, transparent) 0%, transparent 60%); flex-shrink:0; }
+  .param-avatar { width:40px; height:40px; border-radius:var(--border-radius); display:flex; align-items:center; justify-content:center; background:var(--rc); color:#fff; font-weight:700; font-size:17px; flex-shrink:0; }
+  .param-hero-meta { flex:1; min-width:0; display:flex; align-items:center; gap:var(--spacing-xs); }
+  .param-hero-meta strong { font-size:var(--font-size); color:var(--color-text); }
 
-  .role-card small {
-    color: var(--color-text-tertiary);
-    font-size: 11px;
-  }
+  .pbody { flex:1; padding:var(--spacing-sm); display:flex; flex-direction:column; gap:var(--spacing-sm); min-height:0; overflow-y:auto; }
 
-  .import-card {
-    margin: var(--spacing-md);
-    padding: var(--spacing-md);
-    border: 1px dashed var(--color-primary);
-    border-radius: var(--border-radius-lg);
-    background: color-mix(in srgb, var(--color-primary) 8%, transparent);
-  }
+  .psec-card { padding:var(--spacing-sm); background:var(--color-bg-base); border:1px solid var(--color-border-secondary); border-radius:var(--border-radius); display:flex; flex-direction:column; gap:var(--spacing-sm); }
+  .psec-title { display:flex; align-items:center; gap:var(--spacing-xs); font-size:12px; color:var(--color-text-secondary); font-weight:500; }
 
-  .import-card h3 {
-    margin: var(--spacing-sm) 0 4px;
-    color: var(--color-text);
-    font-size: var(--font-size);
-  }
+  .voice-card-btn { display:flex; align-items:center; gap:var(--spacing-sm); height:36px; padding:0 var(--spacing-sm); border:1px dashed var(--color-border); border-radius:var(--border-radius-sm); background:transparent; color:var(--color-text-secondary); font-size:12px; transition:border-color .15s,color .15s; width:100%; }
+  .voice-card-btn:hover { border-color:var(--color-primary); color:var(--color-primary); }
 
-  .import-card p {
-    margin: 0 0 var(--spacing-md);
-    color: var(--color-text-tertiary);
-    font-size: var(--font-size-sm);
-    line-height: 1.5;
-  }
+  .echips { display:flex; gap:4px; }
+  .echip-btn { flex:1; height:30px; display:flex; align-items:center; justify-content:center; gap:4px; padding:0; border:1px solid var(--color-border-secondary); border-radius:var(--border-radius-sm); background:transparent; color:var(--color-text-tertiary); font-size:11px; transition:border-color .15s,color .15s,background .15s; }
+  .echip-btn.active { color:var(--ec); border-color:var(--ec); background:color-mix(in srgb, var(--ec) 14%, transparent); }
+  .echip-btn:hover:not(.active) { border-color:var(--ec); color:var(--ec); }
 
-  .import-card button,
-  .toolbar-actions .primary {
-    border: none;
-    border-radius: var(--border-radius);
-    background: var(--color-primary);
-    color: #fff;
-  }
+  .param-grid { display:grid; grid-template-columns:1fr 1fr; gap:4px; }
+  .pg-row { display:flex; justify-content:space-between; align-items:center; font-size:12px; color:var(--color-text-tertiary); padding:2px var(--spacing-xs); background:var(--color-bg-elevated); border-radius:var(--border-radius-xs); min-height:26px; }
+  .pg-row strong { color:var(--color-text-secondary); font-weight:400; font-variant-numeric:tabular-nums; }
 
-  .import-card button {
-    height: 32px;
-    padding: 0 var(--spacing-md);
-  }
+  .psec-stats { display:grid; grid-template-columns:1fr 1fr; gap:var(--spacing-xs); margin-top:auto; padding-top:var(--spacing-xs); }
+  .stat-item { display:flex; flex-direction:column; align-items:center; gap:2px; padding:var(--spacing-sm); background:var(--color-bg-base); border:1px solid var(--color-border-secondary); border-radius:var(--border-radius); }
+  .stat-num { font-size:var(--font-size-xl); font-weight:600; color:var(--color-text); font-variant-numeric:tabular-nums; }
+  .stat-item.done .stat-num { color:var(--color-success); }
+  .stat-label { font-size:10px; color:var(--color-text-disabled); }
 
-  .script-panel {
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
+  .empty-param { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:var(--spacing-sm); color:var(--color-text-disabled); font-size:var(--font-size-sm); }
 
-  .script-toolbar {
-    padding: var(--spacing-md);
-    border-bottom: 1px solid var(--color-border-secondary);
-    display: flex;
-    justify-content: space-between;
-    gap: var(--spacing-md);
-  }
+  .batch-bar { display:flex; align-items:center; gap:var(--spacing-sm); padding:var(--spacing-xs) var(--spacing-sm); border-top:1px solid var(--color-border-secondary); flex-shrink:0; }
+  .batch-btn { display:flex; align-items:center; gap:4px; height:28px; padding:0 var(--spacing-md); border:none; border-radius:var(--border-radius-sm); background:var(--color-primary); color:#fff; font-size:12px; font-weight:500; transition:background .15s; }
+  .batch-btn:hover:not(:disabled) { background:var(--color-primary-hover); }
+  .batch-btn:disabled { opacity:.4; cursor:not-allowed; }
+  .export-btn { display:flex; align-items:center; gap:4px; height:28px; padding:0 var(--spacing-md); border:1px solid var(--color-border-secondary); border-radius:var(--border-radius-sm); background:transparent; color:var(--color-text-secondary); font-size:12px; transition:border-color .15s,color .15s; }
+  .export-btn:hover:not(:disabled) { border-color:var(--color-primary); color:var(--color-primary); }
+  .export-btn:disabled { opacity:.4; cursor:not-allowed; }
+  .batch-progress { flex:1; height:4px; background:var(--color-border); border-radius:2px; overflow:hidden; }
+  .batch-fill { height:100%; background:linear-gradient(90deg,var(--color-primary),var(--color-primary-hover)); border-radius:2px; transition:width .3s; }
+  .batch-info { font-size:11px; color:var(--color-text-tertiary); font-variant-numeric:tabular-nums; }
 
-  .script-toolbar h1 {
-    margin: 0;
-    color: var(--color-text);
-    font-size: 20px;
-  }
+  .import-btn { display:flex; align-items:center; gap:4px; height:28px; padding:0 var(--spacing-sm); border:1px solid var(--color-border-secondary); border-radius:var(--border-radius-sm); background:transparent; color:var(--color-primary); font-size:12px; transition:border-color .15s,background .15s; }
+  .import-btn:hover { border-color:var(--color-primary); background:var(--color-primary-bg); }
+  .head-actions { display:flex; gap:3px; }
 
-  .script-toolbar p {
-    margin: 6px 0 0;
-    color: var(--color-text-tertiary);
-    font-size: var(--font-size-sm);
-  }
+  .import-form { display:flex; flex-direction:column; gap:var(--spacing-md); }
+  .import-row { display:flex; flex-direction:column; gap:4px; }
+  .import-row label { font-size:var(--font-size-sm); color:var(--color-text-secondary); }
+  .import-row textarea { width:100%; padding:var(--spacing-sm); border:1px solid var(--color-border-secondary); border-radius:var(--border-radius-sm); background:var(--color-bg-base); color:var(--color-text); font-family:inherit; font-size:var(--font-size-sm); resize:vertical; }
+  .import-row textarea:focus { border-color:var(--color-primary); outline:none; }
+  .llm-tip { display:flex; align-items:center; gap:var(--spacing-xs); padding:var(--spacing-sm); background:var(--color-warning-bg); border-radius:var(--border-radius-sm); font-size:var(--font-size-sm); color:var(--color-warning); }
+  .llm-tip strong { color:var(--color-text); }
+  .import-info { display:flex; align-items:center; gap:var(--spacing-xs); font-size:11px; color:var(--color-text-disabled); }
 
-  .toolbar-actions {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-sm);
-  }
+  .voice-btn { border:1px solid var(--color-border-secondary); border-radius:var(--border-radius-sm); background:var(--color-bg-base); color:var(--color-primary); font-size:11px; padding:2px 8px; height:24px; transition:border-color .15s; }
+  .voice-btn:hover { border-color:var(--color-primary); }
 
-  .toolbar-actions button {
-    height: 34px;
-    padding: 0 var(--spacing-sm);
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    border: 1px solid var(--color-border-secondary);
-    border-radius: var(--border-radius);
-    background: var(--color-bg-base);
-    color: var(--color-text-secondary);
-  }
+  .add-role-btn { height:24px; padding:0 8px; border:1px solid var(--color-border-secondary); border-radius:var(--border-radius-sm); background:transparent; color:var(--color-primary); font-size:11px; transition:border-color .15s,background .15s; }
+  .add-role-btn:hover { border-color:var(--color-primary); background:var(--color-primary-bg); }
 
-  .engine-strip {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: var(--spacing-sm);
-    padding: var(--spacing-md);
-    border-bottom: 1px solid var(--color-border-secondary);
-  }
-
-  .engine-strip button {
-    min-height: 68px;
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-sm);
-    padding: var(--spacing-md);
-    border: 1px solid var(--color-border-secondary);
-    border-radius: var(--border-radius-lg);
-    background: var(--color-bg-elevated);
-    color: var(--color-text-secondary);
-    text-align: left;
-  }
-
-  .engine-strip button.active {
-    border-color: var(--color-primary);
-    color: var(--color-primary);
-    background: color-mix(in srgb, var(--color-primary) 10%, transparent);
-  }
-
-  .engine-strip div {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-  }
-
-  .engine-strip strong {
-    color: var(--color-text);
-    font-size: var(--font-size);
-  }
-
-  .engine-strip span {
-    font-size: 11px;
-    color: var(--color-text-tertiary);
-  }
-
-  .line-table {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    padding: var(--spacing-md);
-  }
-
-  .table-head,
-  .line-row {
-    display: grid;
-    grid-template-columns: 48px 78px minmax(260px, 1fr) 90px 58px 70px 78px 92px;
-    gap: var(--spacing-sm);
-    align-items: center;
-    font-size: var(--font-size-sm);
-  }
-
-  .table-head {
-    height: 34px;
-    color: var(--color-text-tertiary);
-    border-bottom: 1px solid var(--color-border-secondary);
-  }
-
-  .line-row {
-    min-height: 62px;
-    color: var(--color-text-secondary);
-    border-bottom: 1px solid var(--color-border-secondary);
-  }
-
-  .line-id,
-  .role-name {
-    color: var(--color-text);
-  }
-
-  textarea,
-  select,
-  input {
-    border: 1px solid var(--color-border-secondary);
-    border-radius: var(--border-radius-sm);
-    background: var(--color-bg-base);
-    color: var(--color-text-secondary);
-    font-family: inherit;
-    font-size: var(--font-size-sm);
-  }
-
-  textarea {
-    height: 46px;
-    padding: 7px var(--spacing-sm);
-    resize: none;
-  }
-
-  select,
-  input {
-    height: 30px;
-    padding: 0 7px;
-  }
-
-  .status {
-    justify-self: start;
-    padding: 2px 7px;
-    border-radius: var(--border-radius-sm);
-    color: var(--color-primary);
-    background: color-mix(in srgb, var(--color-primary) 14%, transparent);
-    font-size: 11px;
-  }
-
-  .status.已生成 { color: var(--color-success); background: color-mix(in srgb, var(--color-success) 14%, transparent); }
-  .status.草稿 { color: var(--color-warning); background: color-mix(in srgb, var(--color-warning) 14%, transparent); }
-
-  .row-actions {
-    display: flex;
-    gap: 4px;
-  }
-
-  .row-actions button {
-    width: 25px;
-    height: 25px;
-    border: none;
-    border-radius: var(--border-radius-sm);
-    background: transparent;
-    color: var(--color-text-tertiary);
-  }
-
-  .row-actions button:hover {
-    color: var(--color-text);
-    background: var(--color-bg-spotlight);
-  }
-
-  .param-group {
-    padding: var(--spacing-md);
-    border-bottom: 1px solid var(--color-border-secondary);
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-sm);
-  }
-
-  .param-group h3 {
-    margin: 0 0 var(--spacing-xs);
-    color: var(--color-text);
-    font-size: var(--font-size);
-  }
-
-  .param-group label {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    gap: var(--spacing-sm);
-    align-items: center;
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-sm);
-  }
-
-  .param-group label > input[type='range'],
-  .param-group label > select,
-  .param-group label > input:not([type='checkbox']),
-  .param-group label > button {
-    grid-column: 1 / -1;
-  }
-
-  .param-group button {
-    height: 30px;
-    border: 1px solid var(--color-border-secondary);
-    border-radius: var(--border-radius-sm);
-    background: var(--color-bg-base);
-    color: var(--color-primary);
-  }
-
-  .tip-card,
-  .summary-card {
-    margin: var(--spacing-md);
-    border-radius: var(--border-radius);
-    background: var(--color-bg-elevated);
-    border: 1px solid var(--color-border-secondary);
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-sm);
-  }
-
-  .tip-card {
-    padding: var(--spacing-md);
-    display: flex;
-    gap: var(--spacing-sm);
-    line-height: 1.5;
-  }
-
-  .summary-card {
-    padding: var(--spacing-md);
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .summary-card strong {
-    color: var(--color-text);
-  }
+  .add-role-form { display:flex; flex-direction:column; gap:var(--spacing-md); }
+  .add-role-form label { display:flex; flex-direction:column; gap:4px; font-size:var(--font-size-sm); color:var(--color-text-secondary); }
+  .add-role-form input, .add-role-form select { height:36px; border:1px solid var(--color-border-secondary); border-radius:var(--border-radius-sm); background:var(--color-bg-base); color:var(--color-text); padding:0 var(--spacing-sm); font-family:inherit; font-size:var(--font-size-sm); }
+  .add-role-form input:focus, .add-role-form select:focus { border-color:var(--color-primary); outline:none; }
 </style>

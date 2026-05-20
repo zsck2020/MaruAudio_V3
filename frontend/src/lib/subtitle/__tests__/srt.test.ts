@@ -8,8 +8,8 @@ import {
   shiftCues,
   totalDurationMs,
   normalize,
-} from '$lib/subtitle';
-import type { SubtitleCue } from '$lib/subtitle';
+  type SubtitleCue,
+} from '$lib/subtitle/srt';
 
 describe('srtTimeToMs', () => {
   test('标准 HH:MM:SS,mmm 格式', () => {

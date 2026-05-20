@@ -84,7 +84,8 @@ pub struct SynthesizeResponse {
 /// TTS 服务状态（Tauri managed state）
 #[derive(Debug)]
 pub struct TtsState {
-    /// 当前推理任务 ID
+    /// 当前推理任务 ID（预留给未来多任务并发调度）
+    #[allow(dead_code)]
     current_task_id: AtomicU64,
     /// 是否正在推理
     is_synthesizing: AtomicBool,
@@ -115,10 +116,12 @@ impl TtsState {
         self.is_synthesizing.store(val, Ordering::Relaxed);
     }
 
+    #[allow(dead_code)]
     pub fn next_task_id(&self) -> u64 {
         self.current_task_id.fetch_add(1, Ordering::Relaxed) + 1
     }
 
+    #[allow(dead_code)]
     pub fn current_task_id(&self) -> u64 {
         self.current_task_id.load(Ordering::Relaxed)
     }
@@ -255,6 +258,8 @@ pub async fn synthesize_stream(
                                     "type": "error",
                                     "message": message,
                                 }));
+                                clear_cancel_token(state).await;
+                                return Err(anyhow::anyhow!("{}", message));
                             }
                         }
                     }

@@ -213,6 +213,8 @@ pub async fn transcribe_stream(
                                         "message": message,
                                     }),
                                 );
+                                clear_cancel_token(state).await;
+                                return Err(anyhow::anyhow!("{}", message));
                             }
                         }
                     }

@@ -6,6 +6,7 @@ use tauri_plugin_store::{Store, StoreBuilder};
 
 const STORAGE_KEY_TOKEN: &str = "auth_token";
 const STORAGE_KEY_USER_INFO: &str = "user_info";
+const STORAGE_KEY_LLM_API_KEY: &str = "llm_api_key";
 const STORE_PATH: &str = ".auth-store.json";
 const TOKEN_ENCODING_VERSION: u8 = 3;
 const TOKEN_ENCODING: &str = "aes-gcm-256";
@@ -18,6 +19,14 @@ struct PersistedTokens {
     encoding: String,
     access_token: String,
     refresh_token: String,
+}
+
+/// LLM API Key 加密载荷
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+struct PersistedLlmKey {
+    version: u8,
+    encoding: String,
+    api_key: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -157,6 +166,49 @@ impl Storage {
     pub async fn clear_user_info(app: &tauri::AppHandle) -> Result<(), String> {
         let store = Self::open_store(app)?;
         Self::delete_and_save(&store, STORAGE_KEY_USER_INFO)
+    }
+
+    /// 保存 LLM API Key（AES-256-GCM 加密 + 同一 keyring 密钥）
+    pub async fn save_llm_api_key(
+        app: &tauri::AppHandle,
+        api_key: &str,
+    ) -> Result<(), String> {
+        let store = Self::open_store(app)?;
+        let persisted = PersistedLlmKey {
+            version: TOKEN_ENCODING_VERSION,
+            encoding: TOKEN_ENCODING.to_string(),
+            api_key: encrypt_token(api_key)?,
+        };
+        Self::set_and_save(&store, STORAGE_KEY_LLM_API_KEY, &persisted)
+    }
+
+    /// 获取 LLM API Key（解密）
+    pub async fn get_llm_api_key(
+        app: &tauri::AppHandle,
+    ) -> Result<Option<String>, String> {
+        let store = Self::open_store(app)?;
+        match store.get(STORAGE_KEY_LLM_API_KEY) {
+            Some(value) => {
+                let persisted: PersistedLlmKey = serde_json::from_value(value.clone())
+                    .map_err(|e| format!("Failed to deserialize llm_api_key: {}", e))?;
+                if persisted.version != TOKEN_ENCODING_VERSION
+                    || persisted.encoding != TOKEN_ENCODING
+                {
+                    return Err(format!(
+                        "Unsupported llm_api_key encoding: version={} encoding={}",
+                        persisted.version, persisted.encoding
+                    ));
+                }
+                Ok(Some(decrypt_token(&persisted.api_key)?))
+            }
+            None => Ok(None),
+        }
+    }
+
+    /// 清除 LLM API Key
+    pub async fn clear_llm_api_key(app: &tauri::AppHandle) -> Result<(), String> {
+        let store = Self::open_store(app)?;
+        Self::delete_and_save(&store, STORAGE_KEY_LLM_API_KEY)
     }
 }
 

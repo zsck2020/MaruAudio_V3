@@ -81,7 +81,8 @@
         top_k: dubbing.topK,
         num_beams: 3,
         repetition_penalty: 10.0,
-        max_mel_tokens: 600,
+        // 轻量引擎 (v1.5) 用 600，情感/云端 (v2.0) 提到 1500 以容纳更长输出
+        max_mel_tokens: dubbing.engineMode === 'lightweight' ? 600 : 1500,
       };
 
       const { promise, cancel } = ttsApi.synthesizeStream(req, {

@@ -1,4 +1,5 @@
 import { Store } from '@tauri-apps/plugin-store';
+import { invoke } from '@tauri-apps/api/core';
 
 let store: Store | null = null;
 let initPromise: Promise<void> | null = null;
@@ -8,6 +9,31 @@ async function getStore(): Promise<Store> {
     store = await Store.load('settings.json');
   }
   return store;
+}
+
+/**
+ * LLM API Key 走 Rust 端加密 store（与 auth_token 同款 AES-256-GCM）；
+ * Web/vitest 环境下 fallback 到内存缓存，避免明文落 settings.json
+ */
+let _llmApiKeyMemoryCache: string = '';
+
+async function loadLlmApiKey(): Promise<string> {
+  try {
+    const key = await invoke<string | null>('llm_get_api_key');
+    return key ?? '';
+  } catch {
+    // 非 Tauri 环境（vitest jsdom）或调用失败，用内存值兜底
+    return _llmApiKeyMemoryCache;
+  }
+}
+
+async function persistLlmApiKey(apiKey: string): Promise<void> {
+  _llmApiKeyMemoryCache = apiKey;
+  try {
+    await invoke('llm_save_api_key', { apiKey });
+  } catch {
+    // 非 Tauri 环境，仅保留内存值
+  }
 }
 
 const defaultSettings = {
@@ -34,6 +60,7 @@ const defaultSettings = {
   },
   llm: {
     apiBaseUrl: 'https://api.deepseek.com/v1',
+    /** API Key 不写入 settings.json，运行时由 Rust 端加密 store 加载 */
     apiKey: '',
     model: 'deepseek-chat',
   },
@@ -71,10 +98,38 @@ async function loadSettings(): Promise<void> {
     ? { ...defaultSettings.ui, ...savedUi }
     : { ...defaultSettings.ui };
 
+  // 读取 LLM 非敏感字段（base url / model）— 注意：旧版本可能在 settings.json 里残留 apiKey 明文，
+  // 这里读后立即丢弃明文，由 Rust store 提供加密 apiKey
   const savedLlm = await s.get<LlmSettings>('llm');
-  settings.llm = savedLlm
-    ? { ...defaultSettings.llm, ...savedLlm }
-    : { ...defaultSettings.llm };
+  let migratedLlmKey: string | null = null;
+  if (savedLlm) {
+    if (savedLlm.apiKey && savedLlm.apiKey.trim().length > 0) {
+      // 一次性迁移：把残留明文搬到加密 store，然后从 settings.json 删除
+      migratedLlmKey = savedLlm.apiKey;
+    }
+    settings.llm = {
+      ...defaultSettings.llm,
+      apiBaseUrl: savedLlm.apiBaseUrl ?? defaultSettings.llm.apiBaseUrl,
+      model: savedLlm.model ?? defaultSettings.llm.model,
+      apiKey: '',
+    };
+  } else {
+    settings.llm = { ...defaultSettings.llm };
+  }
+
+  if (migratedLlmKey) {
+    await persistLlmApiKey(migratedLlmKey);
+    // 重写 settings.json 把 apiKey 字段清空
+    await s.set('llm', {
+      apiBaseUrl: settings.llm.apiBaseUrl,
+      model: settings.llm.model,
+      apiKey: '',
+    });
+    await s.save();
+  }
+
+  // 从加密 store 加载 apiKey 到内存 state
+  settings.llm.apiKey = await loadLlmApiKey();
 }
 
 function initSettings(): Promise<void> {
@@ -103,8 +158,19 @@ async function saveUiSettings(uiSettings: Partial<UiSettings>): Promise<void> {
 async function saveLlmSettings(llmSettings: Partial<LlmSettings>): Promise<void> {
   await initSettings();
   settings.llm = { ...settings.llm, ...llmSettings };
+
+  // apiKey 单独走加密 store，不写到 settings.json
+  if (Object.prototype.hasOwnProperty.call(llmSettings, 'apiKey')) {
+    await persistLlmApiKey(llmSettings.apiKey ?? '');
+  }
+
+  // 仅持久化非敏感字段
   const s = await getStore();
-  await s.set('llm', settings.llm);
+  await s.set('llm', {
+    apiBaseUrl: settings.llm.apiBaseUrl,
+    model: settings.llm.model,
+    apiKey: '',
+  });
   await s.save();
 }
 
@@ -113,8 +179,14 @@ async function resetSettings(): Promise<void> {
   const s = await getStore();
   await s.set('dubbing', settings.dubbing);
   await s.set('ui', settings.ui);
-  await s.set('llm', settings.llm);
+  // llm.apiKey 不入 settings.json，单独清加密 store
+  await s.set('llm', {
+    apiBaseUrl: settings.llm.apiBaseUrl,
+    model: settings.llm.model,
+    apiKey: '',
+  });
   await s.save();
+  await persistLlmApiKey('');
 }
 
 export const appSettings = {

@@ -40,6 +40,13 @@
   - **第二批（性能与体验）**：⑦ 加速开关五件套（FP16/CUDA_KERNEL/DEEPSPEED/ACCEL/TORCH_COMPILE env 控制）⑧ 角色从音库选预置音色 ⑨ 批量失败重试按钮 ⑩ SSE 段级进度+duration+RTF 填充 ⑪ 分页从 6 改 15 + 省略式页码
   - **第三批（产品力增强）**：⑫ max_mel_tokens v2.0 自适应 1500 ⑬ cloud health 实际 HTTP ping ⑭ 随机情感向量按钮 ⑮ 自定义 LLM 拆分 Prompt 模板 ⑯ 术语词汇表 glossary CRUD API
   - svelte-check 0/0 · 改动文件：`project/+page.svelte`、`roles.svelte.ts`、`LeftBottomBar.svelte`、`cloud_engine.py`、`models.py`、`server.py`、`engine_manager.py`、`inference.py`、`tts.ts`
+- **2026-05-26 12:30** Sprint 1 五项必修落子完成（commit pending）：
+  - **S1** CSP 加 `http://127.0.0.1:9880` + `asset:` + `http://asset.localhost` → 6 处 fetch 直连不再被生产 CSP 拦截
+  - **S2** `subtitle_read_output` 加路径白名单（扩展名校验 + 拒绝 `..` + canonicalize + 必须落在 `output/subtitle/` + 32MB 大小上限 + **3 个 cargo test**）
+  - **S3** LLM API Key 切到加密 store：新建 `commands/llm.rs` 三命令 + `Storage::save/get/clear_llm_api_key`（复用 AES-256-GCM + 同 keyring 密钥）+ 前端 settings store 加自动迁移逻辑（旧版残留明文一次性搬入加密 store 后从 settings.json 删除）
+  - **H1** `capabilities/default.json` 加 `fs:scope`：allow 白名单 `$APPDATA/$RESOURCE/$DESKTOP/$DOCUMENT/$DOWNLOAD/$HOME/Music...` + 常见媒体扩展名 + `MaruAudio*/**`；deny `$HOME/.ssh/.aws/.gnupg/.config/.docker/.kube/.npmrc/.pypirc`
+  - **H6** `dubbing/+page.svelte` + `project/+page.svelte` 的 `max_mel_tokens` 改为按 engine 动态：v1.5 用 600、v2.0/cloud 用 1500（与 inference.py 自适应逻辑一致）
+  - 验证：svelte-check 0/0 · cargo check 0 err · vitest 57/57 · cargo test **35/35**（新增 3 个）
 - **2026-05-26 11:30** 接力恢复 sessionId `135721-e014239b` · 猫总令「全量提交一次 git」→ 主 agent 把跨多日累积的 29 文件 +1275/-418 行未提交改动统一打包：
   - **新增**：①`lib/components/ui/MiniPlayer.svelte` 通用音频迷你播放器（带波形+seek+时间）② `.cursor/rules/component-spec.mdc` UI 组件规范文档（AI 强制遵守）
   - **后端 5 文件**：server / models / inference / engine_manager / cloud_engine — 第三批产品力优化、422 修复、加速开关、max_mel_tokens、cloud HTTP ping、glossary CRUD、自定义 prompt

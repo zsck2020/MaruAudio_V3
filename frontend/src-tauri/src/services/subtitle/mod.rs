@@ -232,8 +232,94 @@ pub async fn transcribe_stream(
     Ok(output_path)
 }
 
-/// 读取转录输出文件（JSON 格式）
+/// 读取转录输出文件（JSON / SRT / VTT / ASS）
+///
+/// 安全：禁止任意文件读取。校验：
+/// 1. 文件扩展名必须在白名单（srt/vtt/ass/json）
+/// 2. canonicalize 后路径必须落在允许的输出目录之一：
+///    - 当前工作目录下的 `output/subtitle/`
+///    - 路径中必须含 `output/subtitle/` 或 `output\subtitle\` 片段
+/// 3. 拒绝路径穿越（canonicalize 已会拒绝 `..`）
 pub async fn read_subtitle_json(path: &str) -> Result<String> {
-    let content = tokio::fs::read_to_string(path).await?;
+    use std::path::{Component, PathBuf};
+
+    const ALLOWED_EXT: &[&str] = &["srt", "vtt", "ass", "json"];
+
+    let p = PathBuf::from(path);
+
+    // 拒绝包含 `..` 的相对路径片段
+    if p.components().any(|c| matches!(c, Component::ParentDir)) {
+        anyhow::bail!("非法路径（含 ..）: {}", path);
+    }
+
+    // 校验扩展名
+    let ext = p
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    if !ALLOWED_EXT.contains(&ext.as_str()) {
+        anyhow::bail!("禁止读取此类型文件（仅 srt/vtt/ass/json）: {}", path);
+    }
+
+    // canonicalize 解析符号链接 + 绝对化
+    let resolved = tokio::fs::canonicalize(&p).await.map_err(|e| {
+        anyhow::anyhow!("路径不存在或不可解析: {} ({})", path, e)
+    })?;
+
+    let resolved_str = resolved.to_string_lossy().replace('\\', "/");
+    // 路径必须落在 `output/subtitle/` 子树（Python 后端固定路径）
+    if !resolved_str.contains("/output/subtitle/") {
+        anyhow::bail!(
+            "路径不在允许的字幕输出目录内: {}",
+            resolved.display()
+        );
+    }
+
+    // 文件大小上限：32 MB（远大于任何合法字幕）
+    let meta = tokio::fs::metadata(&resolved).await?;
+    if meta.len() > 32 * 1024 * 1024 {
+        anyhow::bail!("字幕文件过大: {} bytes", meta.len());
+    }
+
+    let content = tokio::fs::read_to_string(&resolved).await?;
     Ok(content)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::read_subtitle_json;
+
+    #[tokio::test]
+    async fn rejects_path_traversal() {
+        let result = read_subtitle_json("../../../etc/passwd").await;
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("非法路径"));
+    }
+
+    #[tokio::test]
+    async fn rejects_disallowed_extension() {
+        let result = read_subtitle_json("/tmp/secret.key").await;
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("禁止读取此类型文件"));
+    }
+
+    #[tokio::test]
+    async fn rejects_outside_output_subtitle() {
+        // 临时建一个有效扩展名的文件在系统 tmp，且不在 output/subtitle 下
+        let mut tmp = std::env::temp_dir();
+        tmp.push(format!("rs_subtest_{}.srt", std::process::id()));
+        tokio::fs::write(&tmp, b"test").await.unwrap();
+
+        let result = read_subtitle_json(tmp.to_str().unwrap()).await;
+        let _ = tokio::fs::remove_file(&tmp).await;
+
+        assert!(result.is_err());
+        let msg = result.unwrap_err().to_string();
+        assert!(
+            msg.contains("不在允许的字幕输出目录") || msg.contains("路径不存在"),
+            "unexpected: {}",
+            msg
+        );
+    }
 }

@@ -152,7 +152,8 @@
       top_k: role.topK,
       num_beams: 3,
       repetition_penalty: 10.0,
-      max_mel_tokens: 600,
+      // 按角色绑定的引擎切换 mel token 上限（v1.5=600 / v2.0+=1500）
+      max_mel_tokens: role.engine === 'lightweight' ? 600 : 1500,
     };
   }
 

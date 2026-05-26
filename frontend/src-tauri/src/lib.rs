@@ -114,7 +114,10 @@ pub fn run() {
             commands::user::user_get_info,
             commands::user::user_refresh_token,
             commands::user::user_sync,
-            commands::user::user_is_logged_in
+            commands::user::user_is_logged_in,
+            commands::llm::llm_save_api_key,
+            commands::llm::llm_get_api_key,
+            commands::llm::llm_clear_api_key
         ])
         .run(tauri::generate_context!())
         .map_err(|e| eprintln!("Error running tauri application: {}", e))

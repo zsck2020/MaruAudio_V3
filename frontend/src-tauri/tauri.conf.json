@@ -23,7 +23,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https://auth.wzagent.cn data:; connect-src 'self' https://auth.wzagent.cn wss://auth.wzagent.cn; font-src 'self' data:; media-src 'self' blob:; worker-src 'self' blob:"
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https://auth.wzagent.cn http://127.0.0.1:9880 asset: http://asset.localhost data: blob:; connect-src 'self' http://127.0.0.1:9880 https://auth.wzagent.cn wss://auth.wzagent.cn; font-src 'self' data:; media-src 'self' http://127.0.0.1:9880 asset: http://asset.localhost blob:; worker-src 'self' blob:"
     }
   },
   "bundle": {

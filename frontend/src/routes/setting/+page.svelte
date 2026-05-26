@@ -1,5 +1,7 @@
 <script lang="ts">
   import Icon from '$lib/icons/Icon.svelte';
+  import Switch from '$lib/components/ui/Switch.svelte';
+  import Slider from '$lib/components/ui/Slider.svelte';
   import { toast } from '$lib/stores/toast.svelte';
   import * as ttsApi from '$lib/api/tts';
   import { dubbing, type EngineMode } from '$lib/stores/dubbing.svelte';
@@ -358,31 +360,19 @@
             </div>
             <div class="row">
               <div class="row-label">开机自启动</div>
-              <label class="switch">
-                <input type="checkbox" bind:checked={launchAtStartup} />
-                <span class="track"><span class="thumb"></span></span>
-              </label>
+              <Switch bind:checked={launchAtStartup} size="sm" />
             </div>
             <div class="row">
               <div class="row-label">最小化到托盘</div>
-              <label class="switch">
-                <input type="checkbox" bind:checked={minimizeToTray} />
-                <span class="track"><span class="thumb"></span></span>
-              </label>
+              <Switch bind:checked={minimizeToTray} size="sm" />
             </div>
             <div class="row">
               <div class="row-label">关闭主窗口时收起到托盘</div>
-              <label class="switch">
-                <input type="checkbox" bind:checked={closeToTray} />
-                <span class="track"><span class="thumb"></span></span>
-              </label>
+              <Switch bind:checked={closeToTray} size="sm" />
             </div>
             <div class="row">
               <div class="row-label">启动时检查更新</div>
-              <label class="switch">
-                <input type="checkbox" bind:checked={autoCheckUpdate} />
-                <span class="track"><span class="thumb"></span></span>
-              </label>
+              <Switch bind:checked={autoCheckUpdate} size="sm" />
             </div>
           </div>
         </article>
@@ -450,23 +440,20 @@
               <div class="row">
                 <div class="row-label">显存使用上限</div>
                 <div class="slider-row">
-                  <input type="range" min="50" max="95" step="5" bind:value={vramLimit} />
+                  <Slider min={50} max={95} step={5} value={vramLimit} onchange={(v) => vramLimit = v} />
                   <span class="slider-value">{vramLimit}%</span>
                 </div>
               </div>
               <div class="row">
                 <div class="row-label">并行推理任务数</div>
                 <div class="slider-row">
-                  <input type="range" min="1" max="8" step="1" bind:value={parallelTasks} />
+                  <Slider min={1} max={8} step={1} value={parallelTasks} onchange={(v) => parallelTasks = v} />
                   <span class="slider-value">{parallelTasks}</span>
                 </div>
               </div>
               <div class="row">
                 <div class="row-label">半精度推理（FP16）</div>
-                <label class="switch">
-                  <input type="checkbox" bind:checked={halfPrecision} />
-                  <span class="track"><span class="thumb"></span></span>
-                </label>
+                <Switch bind:checked={halfPrecision} size="sm" />
               </div>
             </div>
           </div>
@@ -603,23 +590,17 @@
               <div class="row">
                 <div class="row-label">默认段间静音</div>
                 <div class="slider-row">
-                  <input type="range" min="0" max="1000" step="50" bind:value={defaultIntervalSilence} />
+                  <Slider min={0} max={1000} step={50} value={defaultIntervalSilence} onchange={(v) => defaultIntervalSilence = v} />
                   <span class="slider-value">{defaultIntervalSilence} ms</span>
                 </div>
               </div>
               <div class="row">
                 <div class="row-label">响度归一化（−16 LUFS）</div>
-                <label class="switch">
-                  <input type="checkbox" bind:checked={normalizeLoudness} />
-                  <span class="track"><span class="thumb"></span></span>
-                </label>
+                <Switch bind:checked={normalizeLoudness} size="sm" />
               </div>
               <div class="row">
                 <div class="row-label">自动裁剪首尾静音</div>
-                <label class="switch">
-                  <input type="checkbox" bind:checked={trimSilence} />
-                  <span class="track"><span class="thumb"></span></span>
-                </label>
+                <Switch bind:checked={trimSilence} size="sm" />
               </div>
             </div>
           </div>
@@ -656,10 +637,7 @@
               </div>
               <div class="row">
                 <div class="row-label">嵌入说话人姓名</div>
-                <label class="switch">
-                  <input type="checkbox" bind:checked={speakerInSubtitle} />
-                  <span class="track"><span class="thumb"></span></span>
-                </label>
+                <Switch bind:checked={speakerInSubtitle} size="sm" />
               </div>
             </div>
           </div>
@@ -673,33 +651,24 @@
             <div class="grid-2">
               <div class="row">
                 <div class="row-label">启动应用时需密码</div>
-                <label class="switch">
-                  <input type="checkbox" bind:checked={requirePassword} />
-                  <span class="track"><span class="thumb"></span></span>
-                </label>
+                <Switch bind:checked={requirePassword} size="sm" />
               </div>
               <div class="row">
                 <div class="row-label">空闲自动锁定</div>
-                <label class="switch">
-                  <input type="checkbox" bind:checked={lockOnIdle} />
-                  <span class="track"><span class="thumb"></span></span>
-                </label>
+                <Switch bind:checked={lockOnIdle} size="sm" />
               </div>
               {#if lockOnIdle}
                 <div class="row">
                   <div class="row-label">锁定空闲分钟数</div>
                   <div class="slider-row">
-                    <input type="range" min="5" max="120" step="5" bind:value={idleMinutes} />
+                    <Slider min={5} max={120} step={5} value={idleMinutes} onchange={(v) => idleMinutes = v} />
                     <span class="slider-value">{idleMinutes} 分钟</span>
                   </div>
                 </div>
               {/if}
               <div class="row">
                 <div class="row-label">允许匿名诊断数据</div>
-                <label class="switch">
-                  <input type="checkbox" bind:checked={allowTelemetry} />
-                  <span class="track"><span class="thumb"></span></span>
-                </label>
+                <Switch bind:checked={allowTelemetry} size="sm" />
               </div>
             </div>
             <p class="card-hint">诊断数据仅用于改善产品稳定性，不包含您的文本内容、参考音频或生成结果。</p>
@@ -793,17 +762,11 @@
           <div class="card-body">
             <div class="row">
               <div class="row-label">开启开发者日志</div>
-              <label class="switch">
-                <input type="checkbox" />
-                <span class="track"><span class="thumb"></span></span>
-              </label>
+              <Switch size="sm" />
             </div>
             <div class="row">
               <div class="row-label">实验性功能</div>
-              <label class="switch">
-                <input type="checkbox" />
-                <span class="track"><span class="thumb"></span></span>
-              </label>
+              <Switch size="sm" />
             </div>
             <div class="row">
               <div class="row-label">重置全部偏好</div>
@@ -824,19 +787,21 @@
     flex-direction: column;
     flex: 1;
     min-height: 0;
-    padding: 15px;
+    padding: clamp(8px, 1.2vw, 15px);
     gap: var(--spacing-sm);
     background-color: var(--color-bg-container);
   }
 
   .settings-toolbar {
-    height: 56px;
+    min-height: 56px;
     flex-shrink: 0;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 var(--spacing-lg);
+    padding: var(--spacing-sm) var(--spacing-lg);
     border-bottom: 1px solid var(--color-border-secondary);
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
   }
 
   .page-title {
@@ -859,7 +824,7 @@
     gap: var(--spacing-xs);
     height: 32px;
     padding: 0 var(--spacing-sm);
-    width: 240px;
+    width: clamp(160px, 22vw, 240px);
     background-color: var(--color-bg-base);
     border: 1px solid var(--color-border-secondary);
     border-radius: var(--border-radius);
@@ -884,7 +849,7 @@
   }
 
   .settings-rail {
-    width: 200px;
+    width: clamp(140px, 18vw, 200px);
     flex-shrink: 0;
     padding: var(--spacing-md);
     display: flex;
@@ -1096,7 +1061,7 @@
 
   .grid-2 {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: var(--spacing-md) var(--spacing-xl);
   }
 
@@ -1133,33 +1098,6 @@
   }
   .seg button.active { background-color: var(--color-primary); color: #fff; }
 
-  .switch {
-    position: relative;
-    display: inline-flex;
-    width: 36px;
-    height: 20px;
-    cursor: pointer;
-  }
-  .switch input {
-    position: absolute; opacity: 0; pointer-events: none;
-  }
-  .track {
-    flex: 1;
-    background-color: var(--color-bg-base);
-    border: 1px solid var(--color-border);
-    border-radius: 999px;
-    transition: background-color var(--transition-duration) var(--transition-timing), border-color var(--transition-duration) var(--transition-timing);
-  }
-  .thumb {
-    position: absolute;
-    top: 2px; left: 2px;
-    width: 14px; height: 14px;
-    border-radius: 50%;
-    background-color: var(--color-text-secondary);
-    transition: transform var(--transition-duration) var(--transition-timing), background-color var(--transition-duration) var(--transition-timing);
-  }
-  .switch input:checked + .track { background-color: var(--color-primary); border-color: var(--color-primary); }
-  .switch input:checked + .track .thumb { transform: translateX(16px); background-color: #fff; }
 
   .engine-row {
     display: flex;
@@ -1185,30 +1123,12 @@
     border-radius: var(--border-radius-sm);
   }
 
-  .slider-row { display: flex; align-items: center; gap: var(--spacing-sm); min-width: 220px; }
-  .slider-row input[type="range"] {
-    flex: 1;
-    -webkit-appearance: none;
-    appearance: none;
-    height: 4px;
-    background: var(--color-border);
-    border-radius: 2px;
-    outline: none;
-  }
-  .slider-row input[type="range"]::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 12px; height: 12px;
-    border-radius: 50%;
-    background: var(--color-bg-elevated);
-    box-shadow: 0 1px 4px rgba(0,0,0,0.4);
-    cursor: pointer;
-  }
+  .slider-row { display: flex; align-items: center; gap: var(--spacing-sm); min-width: 0; }
   .slider-value { min-width: 60px; text-align: right; color: var(--color-text-tertiary); font-size: var(--font-size-sm); }
 
   .cloud-card {
     display: grid;
-    grid-template-columns: 1fr 1fr 200px;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     gap: var(--spacing-lg);
     align-items: center;
     padding: var(--spacing-lg);

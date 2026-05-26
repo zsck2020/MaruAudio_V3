@@ -1,0 +1,281 @@
+---
+description: 丸子配音 V3 · UI 组件规范 · AI 开发强制遵守
+globs:
+  - frontend/src/**/*.svelte
+  - frontend/src/**/*.ts
+---
+
+# 丸子配音 V3 · UI 组件规范 v1.0
+
+> **本规则在修改/创建任何 `frontend/src/` 下的文件时自动加载。**
+> AI 开发时**必须优先使用已有组件**，不得重复实现同等功能。
+
+---
+
+## 一、组件体系总览
+
+### 1. 原子组件（`lib/components/ui/`）— 全项目通用
+
+| 组件 | 路径 | 用途 | 关键 Props |
+|---|---|---|---|
+| **Button** | `ui/Button.svelte` | 所有按钮 | `variant`: default/primary/ghost/link/danger/warning/success · `size`: sm/md/lg · `loading` · `disabled` · `block` · `prefixIcon` · `iconOnly` |
+| **IconButton** | `ui/IconButton.svelte` | 纯图标按钮 | `icon` · `size` · `label` · `tooltip` |
+| **Input** | `ui/Input.svelte` | 文本输入 | `type` · `size` · `prefix` · `suffix` · `error` · `hint` |
+| **Switch** | `ui/Switch.svelte` | 开关 | `checked` (bindable) · `size`: sm/md · `disabled` |
+| **Slider** | `ui/Slider.svelte` | 滑块 | `min` · `max` · `step` · `value` · `onchange` · `showValue` |
+| **Modal** | `ui/Modal.svelte` | 弹窗 | `open` (bindable) · `title` · `size`: sm/md/lg/xl/full · `footer` snippet · `icon` · focus trap 已内置 |
+| **Card** | `ui/Card.svelte` | 卡片容器 | `title` · `extra` · `children` · `footer` snippets |
+| **Tag** | `ui/Tag.svelte` | 标签/徽标 | `variant` · `size` · `closable` · `onClose` |
+| **Spin** | `ui/Spin.svelte` | 加载动画 | `size` · `delay` · `tip` |
+| **Empty** | `ui/Empty.svelte` | 空状态 | `icon` · `title` · `description` |
+| **WaveformView** | `ui/WaveformView.svelte` | 音频波形 | `audioSrc` · `currentTime` · `duration` · `onSeek` · `height` · `barWidth` · `barGap` |
+| **MiniPlayer** | `ui/MiniPlayer.svelte` | 迷你播放器 | `src` · `label` · `height` · `onEnded` · 内含 WaveformView |
+
+### 2. 业务组件（`lib/components/dubbing/`）— 配音模块
+
+| 组件 | 用途 |
+|---|---|
+| AudioUploader | 拖拽上传 + 录制样音 |
+| AudioPlayer | 参考音频播放器（带波形） |
+| EngineSelector | 三引擎选择器 |
+| LeftBottomBar | 配音页底部操作栏 |
+| ParamAccordion | 参数折叠面板 |
+| PlayerBar | 配音页主播放器 |
+| PresetLibrary | 预置样音列表 |
+| ReferenceAudioPanel | 参考音频整合面板 |
+| TabEmotionControl | 情感控制面板 |
+| TabParamControl | 采样参数面板 |
+| TextEditor | 文本编辑器 |
+| TextToolbar | 文本工具栏 |
+
+### 3. 全局组件（`lib/components/`）
+
+| 组件 | 用途 |
+|---|---|
+| BannerCarousel | 首页轮播图 |
+| EmptyState | 空态占位 |
+| MenuItem | 侧边栏菜单项 |
+| Sidebar | 侧边栏导航 |
+| TitleBar | 标题栏（Tauri 定制） |
+| Toast | 全局提示 |
+| Tooltip | 悬浮提示 |
+
+---
+
+## 二、组件使用强制规则
+
+### 规则 1：按钮必须用 Button/IconButton
+
+```svelte
+<!-- ✅ 正确 -->
+<Button variant="primary" size="sm" onclick={handleSave}>保存</Button>
+<IconButton icon="delete" size="sm" tooltip="删除" onclick={handleDelete} />
+
+<!-- ❌ 禁止：手写原生 button 然后自行写 CSS -->
+<button class="my-custom-btn" onclick={handleSave}>保存</button>
+```
+
+**例外**：以下场景允许原生 button：
+- 侧边栏 MenuItem 内部（已有专属样式系统）
+- 组件内部实现（如 Modal 的关闭按钮）
+- 极特殊的交互元素（如拖拽手柄、卡片整体可点击）
+
+### 规则 2：弹窗必须用 Modal
+
+```svelte
+<!-- ✅ -->
+<Modal bind:open={showModal} title="标题" size="md">
+  内容
+  {#snippet footer()}
+    <Button variant="default" onclick={() => showModal = false}>取消</Button>
+    <Button variant="primary" onclick={handleConfirm}>确认</Button>
+  {/snippet}
+</Modal>
+```
+
+### 规则 3：开关必须用 Switch
+
+```svelte
+<!-- ✅ -->
+<Switch bind:checked={enabled} size="sm" />
+
+<!-- ❌ 禁止：手写 checkbox + 自定义样式 -->
+<label class="switch"><input type="checkbox" /><span class="track">...</span></label>
+```
+
+### 规则 4：滑块必须用 Slider
+
+```svelte
+<!-- ✅ -->
+<Slider min={0} max={100} step={1} value={val} onchange={(v) => val = v} />
+```
+
+### 规则 5：音频播放必须带波形
+
+任何音频播放功能必须集成 `WaveformView` 或使用 `MiniPlayer`：
+
+```svelte
+<!-- 简单场景用 MiniPlayer -->
+<MiniPlayer src={audioPath} label="试听" onEnded={handleEnd} />
+
+<!-- 自定义场景用 WaveformView -->
+<WaveformView audioSrc={src} currentTime={t} duration={d} onSeek={seek} height={36} />
+```
+
+### 规则 6：空状态必须用 Empty
+
+```svelte
+<Empty icon="inbox" title="暂无数据" description="点击上方按钮添加" />
+```
+
+### 规则 7：加载状态必须用 Spin
+
+```svelte
+<Spin size="md" tip="加载中…" />
+```
+
+---
+
+## 三、设计令牌使用规范
+
+### 颜色（0 硬编码原则）
+
+```css
+/* ✅ */
+color: var(--color-text);
+background: var(--color-bg-elevated);
+border-color: var(--color-primary);
+
+/* ❌ 禁止 */
+color: #fff;           /* 改用 var(--color-text-active) */
+background: #1a1a24;   /* 改用 var(--color-bg-base) */
+border: 1px solid #333; /* 改用 var(--color-border) */
+```
+
+**唯一例外**：`#fff` 仅用于 primary 按钮的文字色、播放按钮图标色等纯白场景。
+
+### 间距
+
+```css
+/* ✅ 用 CSS 变量 */
+padding: var(--spacing-md);
+gap: var(--spacing-sm);
+
+/* ❌ 禁止魔数 */
+padding: 12px;
+margin: 8px;
+```
+
+### 圆角
+
+```css
+/* ✅ */
+border-radius: var(--border-radius);       /* 10px 标准 */
+border-radius: var(--border-radius-lg);    /* 14px 卡片 */
+border-radius: var(--border-radius-sm);    /* 6px 小控件 */
+border-radius: var(--border-radius-pill);  /* 999px 胶囊 */
+```
+
+### 动画
+
+```css
+/* ✅ */
+transition: color var(--motion-duration-mid) var(--motion-ease-base);
+
+/* ❌ 禁止 */
+transition: color 0.2s ease;
+```
+
+---
+
+## 四、Svelte 5 编码规范
+
+### Props
+
+```svelte
+<script lang="ts">
+  interface Props {
+    value: string;
+    disabled?: boolean;
+    onchange?: (v: string) => void;
+  }
+
+  let { value = $bindable(), disabled = false, onchange }: Props = $props();
+</script>
+```
+
+### 状态管理
+
+```svelte
+let count = $state(0);
+let doubled = $derived(count * 2);
+```
+
+### 图标
+
+统一使用 `Icon` 组件：
+
+```svelte
+import Icon from '$lib/icons/Icon.svelte';
+
+<Icon name="play-fill" size={16} color="var(--color-primary)" />
+```
+
+### 事件命名
+
+- Props 回调用 `on` 前缀：`onclick`、`onchange`、`onSubmit`
+- 内部处理函数用 `handle` 前缀：`handleClick`、`handleSubmit`
+
+---
+
+## 五、页面布局公式
+
+### 统一列宽规范
+
+| 位置 | 值 | 用途 |
+|---|---|---|
+| **左侧窄栏** | `clamp(180px, 20vw, 240px)` | 分类导航/目录树/角色列表 |
+| **右侧窄栏** | `clamp(220px, 24vw, 300px)` | 属性面板/详情/参数 |
+| **设置页左导航** | `clamp(140px, 18vw, 200px)` | 章节导航（比内容栏窄） |
+| **中间主区** | `minmax(0, 1fr)` | 弹性填充 |
+
+### 模板
+
+```svelte
+<div class="xxx-page">
+  <!-- 三栏布局 -->
+</div>
+
+<style>
+  .xxx-page {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: clamp(180px, 20vw, 240px) minmax(0, 1fr) clamp(220px, 24vw, 300px);
+    gap: var(--spacing-sm);
+    padding: clamp(8px, 1.2vw, 15px);
+    background: var(--color-bg-container);
+    overflow: hidden;
+  }
+
+  @media (max-width: 900px) {
+    .xxx-page { grid-template-columns: 1fr; overflow-y: auto; }
+  }
+</style>
+```
+
+---
+
+## 六、新组件创建检查清单
+
+创建新 UI 组件前，必须确认：
+
+1. [ ] 已有组件无法满足需求（查本文件第一节）
+2. [ ] 放在正确的目录：通用 → `ui/`，业务 → `dubbing/` 或对应模块
+3. [ ] TypeScript Props 接口已定义
+4. [ ] 使用 $props() / $state() / $derived() / $bindable()
+5. [ ] 所有颜色使用 CSS 变量
+6. [ ] 所有间距/圆角/动画使用 CSS 变量
+7. [ ] aria-* 属性已添加
+8. [ ] 键盘可操作
+9. [ ] focus-visible 样式已设置

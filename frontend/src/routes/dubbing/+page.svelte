@@ -6,6 +6,7 @@
   import TabParamControl from '$lib/components/dubbing/TabParamControl.svelte';
   import TabEmotionControl from '$lib/components/dubbing/TabEmotionControl.svelte';
   import Modal from '$lib/components/ui/Modal.svelte';
+  import Button from '$lib/components/ui/Button.svelte';
   import Icon from '$lib/icons/Icon.svelte';
   import PlayerBar from '$lib/components/dubbing/PlayerBar.svelte';
   import { goto } from '$app/navigation';
@@ -13,11 +14,13 @@
   import { toast } from '$lib/stores/toast.svelte';
   import * as ttsApi from '$lib/api/tts';
 
-  const PAUSE_MARKER = '[#0.5s#]';
+  const PAUSE_MARKER = '…';
 
-  let editorRef: { insertAtCursor: (s: string) => void } | undefined = $state();
+  let editorRef: { insertAtCursor: (s: string) => void; getSelectedText: () => string; replaceSelection: (s: string) => void } | undefined = $state();
   let showParamModal = $state(false);
   let showEmotionModal = $state(false);
+  let showPinyinPicker = $state(false);
+  let pinyinOptions = $state<{ char: string; readings: string[]; selected: string }[]>([]);
 
   $effect(() => {
     void dubbing.checkEngineAvailability();
@@ -166,14 +169,58 @@
     editorRef?.insertAtCursor(PAUSE_MARKER);
   }
 
-  function handlePinyin() {
-    const example = '[拼音 ZHONG4]';
-    editorRef?.insertAtCursor(example);
-    toast.success('已插入拼音标记，格式：[拼音 PINYIN+声调]');
+  async function handlePinyin() {
+    const selected = editorRef?.getSelectedText() ?? '';
+    if (!selected.trim()) {
+      toast.info('请先选中要标注拼音的汉字');
+      return;
+    }
+
+    const chineseChars = selected.match(/[\u4e00-\u9fff]/g);
+    if (!chineseChars || chineseChars.length === 0) {
+      toast.warning('选中文本中没有汉字');
+      return;
+    }
+
+    try {
+      const { pinyin, polyphonic } = await import('pinyin-pro');
+      const contextPinyin = pinyin(selected, { toneType: 'num', type: 'array' }) as string[];
+      const allReadings = polyphonic(selected, { toneType: 'num', type: 'array' }) as string[][];
+
+      const hasPolyphonic = allReadings.some(r => r.length > 1);
+      if (!hasPolyphonic) {
+        const result = contextPinyin.join(' ');
+        editorRef?.replaceSelection(result);
+        toast.success(`已将「${selected}」转为拼音：${result}`);
+        return;
+      }
+
+      pinyinOptions = [];
+      for (let i = 0; i < selected.length; i++) {
+        const ch = selected[i];
+        if (/[\u4e00-\u9fff]/.test(ch)) {
+          const idx = pinyinOptions.length;
+          const readings = allReadings[idx] ?? [contextPinyin[idx]];
+          const defaultReading = contextPinyin[idx] ?? readings[0];
+          pinyinOptions.push({ char: ch, readings, selected: defaultReading });
+        }
+      }
+      showPinyinPicker = true;
+    } catch {
+      toast.warning('拼音转换失败');
+    }
+  }
+
+  function confirmPinyin() {
+    const result = pinyinOptions.map(o => o.selected).join(' ');
+    editorRef?.replaceSelection(result);
+    toast.success(`拼音已确认：${result}`);
+    showPinyinPicker = false;
+    pinyinOptions = [];
   }
 
   function handleNumber() {
-    toast.info('引擎自动处理数字读法，无需手动切换');
+    toast.info('引擎自动将数字转为中文读法，无需手动处理');
   }
 
   async function handleDownload() {
@@ -272,6 +319,29 @@
   </div>
 </div>
 
+<!-- 拼音选择弹窗 -->
+<Modal bind:open={showPinyinPicker} title="拼音标注 · 多音字选择" size="sm">
+  <div class="pinyin-picker">
+    {#each pinyinOptions as opt, i (i)}
+      <div class="py-char-group">
+        <span class="py-char">{opt.char}</span>
+        <div class="py-readings">
+          {#each opt.readings as r (r)}
+            <button type="button" class="py-reading" class:active={opt.selected === r} onclick={() => { pinyinOptions[i].selected = r; pinyinOptions = pinyinOptions; }}>
+              {r}
+            </button>
+          {/each}
+        </div>
+      </div>
+    {/each}
+    <div class="py-preview">{pinyinOptions.map(o => o.selected).join(' ')}</div>
+  </div>
+  {#snippet footer()}
+    <Button variant="default" onclick={() => showPinyinPicker = false}>取消</Button>
+    <Button variant="primary" onclick={confirmPinyin}>确认</Button>
+  {/snippet}
+</Modal>
+
 <!-- 参数设置弹窗 -->
 <Modal bind:open={showParamModal} title="参数设置" size="md" icon="sliders">
   <TabParamControl />
@@ -293,7 +363,7 @@
     flex: 1;
     min-height: 0;
     overflow: hidden;
-    padding: 15px;
+    padding: clamp(8px, 1.2vw, 15px);
     gap: var(--spacing-sm);
   }
 
@@ -317,7 +387,7 @@
 
   /* 右侧控制面板 */
   .control-column {
-    width: 340px;
+    width: clamp(220px, 24vw, 300px);
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
@@ -403,6 +473,71 @@
     flex-shrink: 0;
     background-color: var(--color-bg-elevated);
     border-radius: var(--border-radius);
+  }
+
+  /* 拼音选择器 */
+  .pinyin-picker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-lg);
+    padding: var(--spacing-md) 0;
+    justify-content: center;
+  }
+
+  .py-char-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-sm);
+    min-width: 72px;
+    padding: var(--spacing-md);
+    background: var(--color-bg-base);
+    border: 1px solid var(--color-border-secondary);
+    border-radius: var(--border-radius-lg);
+  }
+
+  .py-char {
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--color-text);
+    line-height: 1.2;
+  }
+
+  .py-readings {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    justify-content: center;
+  }
+
+  .py-reading {
+    height: 30px;
+    min-width: 56px;
+    padding: 0 var(--spacing-md);
+    border: 1px solid var(--color-border-secondary);
+    border-radius: var(--border-radius);
+    background: transparent;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size);
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    cursor: pointer;
+    transition: border-color var(--motion-duration-mid) var(--motion-ease-base), background var(--motion-duration-mid) var(--motion-ease-base), color var(--motion-duration-mid) var(--motion-ease-base), transform 0.1s;
+  }
+
+  .py-reading:hover { border-color: var(--color-primary); color: var(--color-primary); transform: scale(1.04); }
+  .py-reading.active { background: var(--color-primary); border-color: var(--color-primary); color: #fff; box-shadow: 0 2px 8px color-mix(in srgb, var(--color-primary) 35%, transparent); }
+
+  .py-preview {
+    width: 100%;
+    text-align: center;
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: var(--color-bg-base);
+    border-radius: var(--border-radius);
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: var(--font-size-lg);
+    color: var(--color-primary);
+    letter-spacing: 2px;
+    margin-top: var(--spacing-sm);
   }
 
   /* 响应式 */

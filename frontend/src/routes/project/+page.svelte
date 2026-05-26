@@ -8,6 +8,10 @@
   import Modal from '$lib/components/ui/Modal.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import Slider from '$lib/components/ui/Slider.svelte';
+  import MiniPlayer from '$lib/components/ui/MiniPlayer.svelte';
+  import TabParamControl from '$lib/components/dubbing/TabParamControl.svelte';
+  import TabEmotionControl from '$lib/components/dubbing/TabEmotionControl.svelte';
+  import { dubbing } from '$lib/stores/dubbing.svelte';
   import { appSettings } from '$lib/stores/settings.svelte';
 
   const engineLabels: Record<EngineMode, string> = { lightweight: '轻量', emotion: '情感', cloud: '云端' };
@@ -16,11 +20,14 @@
   const strengths: EmotionStrength[] = ['微弱', '中等', '强烈'];
 
   let playingLineId = $state<string | null>(null);
-  let audioEl: HTMLAudioElement | undefined = $state();
+  let playingLineSrc = $state('');
+  let playingLineText = $state('');
 
   let showImportModal = $state(false);
   let importText = $state('');
   let isSplitting = $state(false);
+  let showPromptEditor = $state(false);
+  let customPrompt = $state('');
 
   let dragFromIdx = $state<number | null>(null);
   let dragOverIdx = $state<number | null>(null);
@@ -70,6 +77,7 @@
         api_key: apiKey,
         model: model,
         roles: existingRoles,
+        custom_prompt: customPrompt.trim() || undefined,
       });
 
       rolesStore.clearLines();
@@ -107,18 +115,55 @@
     })();
   });
 
+  function buildEmotionParams(role: import('$lib/stores/roles.svelte').RoleConfig, line: import('$lib/stores/roles.svelte').ScriptLine) {
+    const useLineEmotion = role.engine !== 'lightweight' && line.emotion && line.emotion !== '平静';
+    if (useLineEmotion) {
+      const emotionDesc = `${line.emotion}，${line.strength}程度`;
+      return {
+        emotion_method: 'text' as const,
+        emotion_vector: undefined,
+        emotion_text: emotionDesc,
+        emotion_audio_path: undefined,
+        emo_alpha: role.emoAlpha,
+      };
+    }
+    return {
+      emotion_method: role.emotionMethod,
+      emotion_vector: role.emotionMethod === 'slider' ? role.emotionVector : undefined,
+      emotion_text: role.emotionMethod === 'text' ? role.emotionText || undefined : undefined,
+      emotion_audio_path: role.emotionMethod === 'audio' ? role.emotionAudioPath || undefined : undefined,
+      emo_alpha: role.emoAlpha,
+    };
+  }
+
+  function buildSynthRequest(role: import('$lib/stores/roles.svelte').RoleConfig, line: import('$lib/stores/roles.svelte').ScriptLine): ttsApi.SynthesizeRequest {
+    const emo = buildEmotionParams(role, line);
+    return {
+      engine: role.engine,
+      text: line.text,
+      speaker_audio_path: role.voiceAudioPath!,
+      inference_mode: 'normal',
+      interval_silence: role.intervalSilence,
+      max_text_tokens_per_segment: role.maxTextTokens,
+      bucket_max_size: 4,
+      ...emo,
+      temperature: role.temperature,
+      top_p: role.topP,
+      top_k: role.topK,
+      num_beams: 3,
+      repetition_penalty: 10.0,
+      max_mel_tokens: 600,
+    };
+  }
+
   async function handleTryPlay(lineId: string) {
     const line = rolesStore.lines.find(l => l.id === lineId);
     if (!line) return;
 
     if (line.audioPath) {
       playingLineId = lineId;
-      const src = line.audioPath.startsWith('http') || line.audioPath.startsWith('blob:')
-        ? line.audioPath : convertFileSrc(line.audioPath);
-      if (audioEl) {
-        audioEl.src = src;
-        void audioEl.play();
-      }
+      playingLineSrc = line.audioPath;
+      playingLineText = line.text.slice(0, 20);
       return;
     }
 
@@ -131,26 +176,7 @@
     rolesStore.updateLine(lineId, { status: '生成中' });
 
     try {
-      const req: ttsApi.SynthesizeRequest = {
-        engine: role.engine,
-        text: line.text,
-        speaker_audio_path: role.voiceAudioPath,
-        inference_mode: 'normal',
-        interval_silence: role.intervalSilence,
-        max_text_tokens_per_segment: role.maxTextTokens,
-        bucket_max_size: 4,
-        emotion_method: role.emotionMethod,
-        emotion_vector: role.emotionMethod === 'slider' ? role.emotionVector : undefined,
-        emotion_text: role.emotionMethod === 'text' ? role.emotionText || undefined : undefined,
-        emotion_audio_path: role.emotionMethod === 'audio' ? role.emotionAudioPath || undefined : undefined,
-        emo_alpha: role.emoAlpha,
-        temperature: role.temperature,
-        top_p: role.topP,
-        top_k: role.topK,
-        num_beams: 3,
-        repetition_penalty: 10.0,
-        max_mel_tokens: 600,
-      };
+      const req = buildSynthRequest(role, line);
 
       const { promise } = ttsApi.synthesizeStream(req, {
         onComplete: (evt) => {
@@ -173,10 +199,107 @@
 
   function handleAudioEnded() {
     playingLineId = null;
+    playingLineSrc = '';
+    playingLineText = '';
   }
 
   let showVoiceModal = $state(false);
   let showAddRoleModal = $state(false);
+  let showPresetPicker = $state(false);
+  let presetVoices = $state<ttsApi.PresetVoice[]>([]);
+  let presetLoading = $state(false);
+
+  async function handleOpenPresetPicker() {
+    showPresetPicker = true;
+    if (presetVoices.length > 0) return;
+    presetLoading = true;
+    try {
+      const result = await ttsApi.listPresets();
+      presetVoices = result.presets ?? [];
+    } catch {
+      toast.warning('加载预置音色库失败');
+    } finally {
+      presetLoading = false;
+    }
+  }
+
+  function handleSelectPreset(preset: ttsApi.PresetVoice) {
+    if (!rolesStore.activeRole) return;
+    rolesStore.updateRole(rolesStore.activeRole.id, {
+      voiceName: preset.name,
+      voiceAudioPath: preset.file_path,
+    });
+    void rolesStore.saveToStore();
+    showPresetPicker = false;
+    toast.success(`已绑定音色：${preset.name}`);
+  }
+  let showParamModal = $state(false);
+  let showEmotionModal = $state(false);
+
+  function syncRoleToDubbing() {
+    const role = rolesStore.activeRole;
+    if (!role) return;
+    dubbing.setEngine(role.engine);
+    dubbing.temperature = role.temperature;
+    dubbing.topP = role.topP;
+    dubbing.topK = role.topK;
+    dubbing.intervalSilence = role.intervalSilence;
+    dubbing.maxTextTokens = role.maxTextTokens;
+    dubbing.emoAlpha = role.emoAlpha;
+    dubbing.emotionMethod = role.emotionMethod;
+    if (role.emotionVector.length === 8) {
+      dubbing.emotionSliders = {
+        happy: role.emotionVector[0], angry: role.emotionVector[1],
+        sad: role.emotionVector[2], afraid: role.emotionVector[3],
+        disgusted: role.emotionVector[4], melancholic: role.emotionVector[5],
+        surprised: role.emotionVector[6], calm: role.emotionVector[7],
+      };
+    }
+    dubbing.emotionText = role.emotionText;
+  }
+
+  function syncDubbingToRole() {
+    const role = rolesStore.activeRole;
+    if (!role) return;
+    rolesStore.updateRole(role.id, {
+      temperature: dubbing.temperature,
+      topP: dubbing.topP,
+      topK: dubbing.topK,
+      intervalSilence: dubbing.intervalSilence,
+      maxTextTokens: dubbing.maxTextTokens,
+      emoAlpha: dubbing.emoAlpha,
+      emotionMethod: dubbing.emotionMethod,
+      emotionVector: [
+        dubbing.emotionSliders.happy, dubbing.emotionSliders.angry,
+        dubbing.emotionSliders.sad, dubbing.emotionSliders.afraid,
+        dubbing.emotionSliders.disgusted, dubbing.emotionSliders.melancholic,
+        dubbing.emotionSliders.surprised, dubbing.emotionSliders.calm,
+      ],
+      emotionText: dubbing.emotionText,
+    });
+    void rolesStore.saveToStore();
+  }
+
+  function openParamModal() {
+    syncRoleToDubbing();
+    showParamModal = true;
+  }
+
+  function closeParamModal() {
+    syncDubbingToRole();
+    showParamModal = false;
+  }
+
+  function openEmotionModal() {
+    syncRoleToDubbing();
+    showEmotionModal = true;
+  }
+
+  function closeEmotionModal() {
+    syncDubbingToRole();
+    showEmotionModal = false;
+  }
+
   let newRoleName = $state('');
   let newRoleType = $state('配角');
   let newRoleEngine = $state<EngineMode>('emotion');
@@ -244,11 +367,22 @@
 
   function handleDeleteRole(id: string) {
     rolesStore.deleteRole(id);
+    void rolesStore.saveToStore();
     toast.success('角色已删除');
   }
 
   function handleDeleteLine(id: string) {
     rolesStore.deleteLine(id);
+    void rolesStore.saveToStore();
+  }
+
+  function handleAddLine() {
+    const roleId = rolesStore.activeRoleId || rolesStore.roles[0]?.id;
+    if (!roleId) { toast.warning('请先创建角色'); return; }
+    rolesStore.addLine(roleId, '', '平静', '中等');
+    const lastPage = Math.max(1, Math.ceil(rolesStore.lines.length / rolesStore.pageSize));
+    rolesStore.setPage(lastPage);
+    void rolesStore.saveToStore();
   }
 
   async function handleBatchGenerate() {
@@ -256,26 +390,7 @@
     if (pending === 0) { toast.info('所有台词已生成'); return; }
 
     const generated = await rolesStore.batchGenerate(async (line, role) => {
-      const req: ttsApi.SynthesizeRequest = {
-        engine: role.engine,
-        text: line.text,
-        speaker_audio_path: role.voiceAudioPath!,
-        inference_mode: 'normal',
-        interval_silence: role.intervalSilence,
-        max_text_tokens_per_segment: role.maxTextTokens,
-        bucket_max_size: 4,
-        emotion_method: role.emotionMethod,
-        emotion_vector: role.emotionMethod === 'slider' ? role.emotionVector : undefined,
-        emotion_text: role.emotionMethod === 'text' ? role.emotionText || undefined : undefined,
-        emotion_audio_path: role.emotionMethod === 'audio' ? role.emotionAudioPath || undefined : undefined,
-        emo_alpha: role.emoAlpha,
-        temperature: role.temperature,
-        top_p: role.topP,
-        top_k: role.topK,
-        num_beams: 3,
-        repetition_penalty: 10.0,
-        max_mel_tokens: 600,
-      };
+      const req = buildSynthRequest(role, line);
 
       return new Promise<string | null>((resolve) => {
         const { promise } = ttsApi.synthesizeStream(req, {
@@ -288,6 +403,16 @@
 
     void rolesStore.saveToStore();
     toast.success(`批量生成完成：${generated} 句`);
+  }
+
+  function handleRetryFailed() {
+    for (const line of rolesStore.lines) {
+      if (line.status === '失败') {
+        rolesStore.updateLine(line.id, { status: '待生成', audioPath: null });
+      }
+    }
+    void rolesStore.saveToStore();
+    void handleBatchGenerate();
   }
 
   function handleEngineChange(eng: EngineMode) {
@@ -368,7 +493,6 @@
 </script>
 
 <div class="roles-page">
-  <audio bind:this={audioEl} onended={handleAudioEnded} class="hidden"></audio>
 
   <div class="card role-panel">
     <div class="card-head">
@@ -441,26 +565,57 @@
           <span class="lc-avatar" style="background:{rolesStore.getRoleColor(line.roleId)}">{rolesStore.getRoleName(line.roleId).slice(0, 1)}</span>
           <div class="lc-content">
             <div class="lc-header">
-              <span class="lc-role-name">{rolesStore.getRoleName(line.roleId)}</span>
-              <span class="lc-emotion">{line.emotion} · {line.strength}</span>
+              <select class="lc-role-sel" value={line.roleId} onchange={(e) => { rolesStore.updateLine(line.id, { roleId: (e.target as HTMLSelectElement).value }); void rolesStore.saveToStore(); }}>
+                {#each rolesStore.roles as r (r.id)}
+                  <option value={r.id}>{r.name}</option>
+                {/each}
+                {#if !rolesStore.roles.find(r => r.id === line.roleId)}
+                  <option value="" disabled selected>未知</option>
+                {/if}
+              </select>
+              <select class="lc-emo-sel" value={line.emotion} onchange={(e) => { rolesStore.updateLine(line.id, { emotion: (e.target as HTMLSelectElement).value, status: line.status === '已生成' ? '待生成' : line.status, audioPath: line.status === '已生成' ? null : line.audioPath }); void rolesStore.saveToStore(); }}>
+                {#each emotions as emo}
+                  <option value={emo}>{emo}</option>
+                {/each}
+              </select>
+              <select class="lc-str-sel" value={line.strength} onchange={(e) => { rolesStore.updateLine(line.id, { strength: (e.target as HTMLSelectElement).value as EmotionStrength, status: line.status === '已生成' ? '待生成' : line.status, audioPath: line.status === '已生成' ? null : line.audioPath }); void rolesStore.saveToStore(); }}>
+                {#each strengths as str}
+                  <option value={str}>{str}</option>
+                {/each}
+              </select>
+              <span class="pill st {line.status}">{line.status}</span>
             </div>
-            <input class="lc-text" value={line.text} onchange={(e) => rolesStore.updateLine(line.id, { text: (e.target as HTMLInputElement).value })} />
-          </div>
-          <div class="lc-right">
-            <span class="pill st {line.status}">{line.status}</span>
-            <button class="lc-play" onclick={() => handleTryPlay(line.id)} title="试听/生成">
-              <Icon name={playingLineId === line.id ? 'pause-fill' : 'play-fill'} size={14} color="currentColor" />
-            </button>
+            <div class="lc-text-row">
+              <input class="lc-text" value={line.text} onchange={(e) => { rolesStore.updateLine(line.id, { text: (e.target as HTMLInputElement).value }); void rolesStore.saveToStore(); }} />
+              <button class="lc-play" onclick={() => handleTryPlay(line.id)} title="试听/生成">
+                <Icon name={playingLineId === line.id ? 'pause-fill' : 'play-fill'} size={14} color="currentColor" />
+              </button>
+              <button class="ibtn del" onclick={() => { if (confirm('删除这句台词？')) handleDeleteLine(line.id); }} title="删除台词">
+                <Icon name="close" size={10} color="currentColor" />
+              </button>
+            </div>
           </div>
         </div>
       {/each}
       {#if rolesStore.lines.length === 0}
         <div class="line-empty">
           <Icon name="file-text" size={28} color="var(--color-text-quaternary)" />
-          <span>暂无台词，点击"导入文本"开始</span>
+          <span>暂无台词，点击"导入文本"或"添加台词"开始</span>
+          <button class="add-line-btn" onclick={handleAddLine}>+ 添加台词</button>
         </div>
       {/if}
+      {#if rolesStore.lines.length > 0}
+        <button class="add-line-inline" onclick={handleAddLine} title="添加台词">
+          <Icon name="plus" size={11} color="currentColor" />
+          <span>添加台词</span>
+        </button>
+      {/if}
     </div>
+    {#if playingLineSrc}
+      <div class="preview-player">
+        <MiniPlayer src={playingLineSrc} label={playingLineText} onEnded={handleAudioEnded} height={28} />
+      </div>
+    {/if}
     <div class="batch-bar">
       {#if rolesStore.batchGenerating}
         <div class="batch-progress">
@@ -471,10 +626,17 @@
           <Icon name="close" size={11} color="currentColor" />
         </button>
       {:else}
+        {@const failedCount = rolesStore.lines.filter(l => l.status === '失败').length}
         <button class="batch-btn" onclick={handleBatchGenerate} disabled={rolesStore.lines.length === 0}>
           <Icon name="play-fill" size={12} color="currentColor" />
           批量生成
         </button>
+        {#if failedCount > 0}
+          <button class="retry-btn" onclick={handleRetryFailed} title="重试失败项">
+            <Icon name="refresh" size={12} color="currentColor" />
+            重试 {failedCount} 项
+          </button>
+        {/if}
         <button class="export-btn" onclick={handleExport} disabled={rolesStore.lines.filter(l => l.status === '已生成').length === 0}>
           <Icon name="download" size={12} color="currentColor" />
           导出拼接
@@ -482,12 +644,22 @@
       {/if}
     </div>
     <div class="pager">
-      <span class="pi">共 {rolesStore.lines.length} 句</span>
+      <span class="pi">共 {rolesStore.lines.length} 句 · 第 {rolesStore.currentPage}/{rolesStore.totalPages} 页</span>
       <div class="pbs">
         <button class="pb" disabled={rolesStore.currentPage <= 1} onclick={() => rolesStore.setPage(rolesStore.currentPage - 1)}>‹</button>
-        {#each Array.from({ length: rolesStore.totalPages }, (_, i) => i + 1) as p}
-          <button class="pb" class:active={rolesStore.currentPage === p} onclick={() => rolesStore.setPage(p)}>{p}</button>
-        {/each}
+        {#if rolesStore.totalPages <= 7}
+          {#each Array.from({ length: rolesStore.totalPages }, (_, i) => i + 1) as p}
+            <button class="pb" class:active={rolesStore.currentPage === p} onclick={() => rolesStore.setPage(p)}>{p}</button>
+          {/each}
+        {:else}
+          <button class="pb" class:active={rolesStore.currentPage === 1} onclick={() => rolesStore.setPage(1)}>1</button>
+          {#if rolesStore.currentPage > 3}<span class="pb-dots">…</span>{/if}
+          {#each Array.from({ length: 3 }, (_, i) => rolesStore.currentPage - 1 + i).filter(p => p > 1 && p < rolesStore.totalPages) as p}
+            <button class="pb" class:active={rolesStore.currentPage === p} onclick={() => rolesStore.setPage(p)}>{p}</button>
+          {/each}
+          {#if rolesStore.currentPage < rolesStore.totalPages - 2}<span class="pb-dots">…</span>{/if}
+          <button class="pb" class:active={rolesStore.currentPage === rolesStore.totalPages} onclick={() => rolesStore.setPage(rolesStore.totalPages)}>{rolesStore.totalPages}</button>
+        {/if}
         <button class="pb" disabled={rolesStore.currentPage >= rolesStore.totalPages} onclick={() => rolesStore.setPage(rolesStore.currentPage + 1)}>›</button>
       </div>
     </div>
@@ -510,7 +682,11 @@
           <div class="psec-title"><Icon name="mic" size={13} color="var(--color-primary)" /><span>音色</span></div>
           <button class="voice-card-btn" onclick={handleUploadVoice}>
             <Icon name={rolesStore.activeRole.voiceAudioPath ? 'sound-fill' : 'upload'} size={16} color={rolesStore.activeRole.voiceAudioPath ? 'var(--color-primary)' : 'var(--color-text-tertiary)'} />
-            <span>{rolesStore.activeRole.voiceAudioPath ? rolesStore.activeRole.voiceName : '点击上传参考音频'}</span>
+            <span>{rolesStore.activeRole.voiceAudioPath ? rolesStore.activeRole.voiceName : '上传参考音频'}</span>
+          </button>
+          <button class="voice-card-btn" onclick={handleOpenPresetPicker}>
+            <Icon name="library" size={16} color="var(--color-info)" />
+            <span>从音库选择</span>
           </button>
         </div>
 
@@ -531,53 +707,16 @@
           </div>
         </div>
 
-        <div class="psec-card">
-          <div class="psec-title"><Icon name="sliders" size={13} color="var(--color-primary)" /><span>采样参数</span></div>
-          <div class="param-sliders">
-            <div class="ps-row">
-              <span class="ps-label">温度</span>
-              <span class="ps-value">{rolesStore.activeRole.temperature.toFixed(1)}</span>
-            </div>
-            <Slider min={0} max={2} step={0.1} value={rolesStore.activeRole.temperature} onchange={(v) => { rolesStore.updateRole(rolesStore.activeRole!.id, { temperature: v }); void rolesStore.saveToStore(); }} />
-            <div class="ps-row">
-              <span class="ps-label">Top-P</span>
-              <span class="ps-value">{rolesStore.activeRole.topP.toFixed(2)}</span>
-            </div>
-            <Slider min={0} max={1} step={0.05} value={rolesStore.activeRole.topP} onchange={(v) => { rolesStore.updateRole(rolesStore.activeRole!.id, { topP: v }); void rolesStore.saveToStore(); }} />
-            <div class="ps-row">
-              <span class="ps-label">Top-K</span>
-              <span class="ps-value">{rolesStore.activeRole.topK}</span>
-            </div>
-            <Slider min={0} max={100} step={1} value={rolesStore.activeRole.topK} onchange={(v) => { rolesStore.updateRole(rolesStore.activeRole!.id, { topK: v }); void rolesStore.saveToStore(); }} />
-            <div class="ps-row">
-              <span class="ps-label">静音</span>
-              <span class="ps-value">{rolesStore.activeRole.intervalSilence}ms</span>
-            </div>
-            <Slider min={0} max={1000} step={50} value={rolesStore.activeRole.intervalSilence} onchange={(v) => { rolesStore.updateRole(rolesStore.activeRole!.id, { intervalSilence: v }); void rolesStore.saveToStore(); }} />
-          </div>
-        </div>
+        <button type="button" class="psec-card psec-clickable" onclick={openParamModal}>
+          <div class="psec-title"><Icon name="sliders" size={13} color="var(--color-primary)" /><span>参数设置</span><Icon name="ant-design:right-outlined" size={10} color="var(--color-text-tertiary)" /></div>
+          <div class="psec-summary">温度 {rolesStore.activeRole.temperature.toFixed(1)} · Top-P {rolesStore.activeRole.topP.toFixed(1)} · Top-K {rolesStore.activeRole.topK} · 静音 {rolesStore.activeRole.intervalSilence}ms</div>
+        </button>
 
         {#if rolesStore.activeRole.engine !== 'lightweight'}
-          <div class="psec-card">
-            <div class="psec-title"><Icon name="heart" size={13} color="var(--color-accent)" /><span>情感</span></div>
-            <div class="param-sliders">
-              <div class="ps-row">
-                <span class="ps-label">方式</span>
-                <div class="echips compact">
-                  {#each (['slider', 'text', 'audio'] as const) as m}
-                    <button class="echip-sm" class:active={rolesStore.activeRole?.emotionMethod === m} onclick={() => { rolesStore.updateRole(rolesStore.activeRole!.id, { emotionMethod: m }); void rolesStore.saveToStore(); }}>
-                      {m === 'slider' ? '向量' : m === 'text' ? '文本' : '音频'}
-                    </button>
-                  {/each}
-                </div>
-              </div>
-              <div class="ps-row">
-                <span class="ps-label">强度</span>
-                <span class="ps-value">{rolesStore.activeRole.emoAlpha.toFixed(2)}</span>
-              </div>
-              <Slider min={0} max={1} step={0.05} value={rolesStore.activeRole.emoAlpha} onchange={(v) => { rolesStore.updateRole(rolesStore.activeRole!.id, { emoAlpha: v }); void rolesStore.saveToStore(); }} />
-            </div>
-          </div>
+          <button type="button" class="psec-card psec-clickable" onclick={openEmotionModal}>
+            <div class="psec-title"><Icon name="heart" size={13} color="var(--color-accent)" /><span>情感控制</span><Icon name="ant-design:right-outlined" size={10} color="var(--color-text-tertiary)" /></div>
+            <div class="psec-summary">{rolesStore.activeRole.emotionMethod === 'slider' ? '向量模式' : rolesStore.activeRole.emotionMethod === 'text' ? '文本模式' : '音频模式'} · 强度 {rolesStore.activeRole.emoAlpha.toFixed(1)}</div>
+          </button>
         {/if}
 
         <div class="psec-stats">
@@ -628,6 +767,32 @@
     {/snippet}
   </Modal>
 
+  <Modal bind:open={showPresetPicker} title="选择预置音色" size="md">
+    <div class="preset-grid">
+      {#if presetLoading}
+        <div class="line-empty"><span>加载中…</span></div>
+      {:else if presetVoices.length === 0}
+        <div class="line-empty"><span>暂无预置音色，请先在资源页导入</span></div>
+      {:else}
+        {#each presetVoices as preset (preset.name)}
+          <button class="preset-item" onclick={() => handleSelectPreset(preset)}>
+            <Icon name="sound-fill" size={14} color="var(--color-primary)" />
+            <span class="preset-name">{preset.name}</span>
+            {#if preset.description}<span class="preset-desc">{preset.description}</span>{/if}
+          </button>
+        {/each}
+      {/if}
+    </div>
+  </Modal>
+
+  <Modal open={showParamModal} title="参数设置{rolesStore.activeRole ? ` · ${rolesStore.activeRole.name}` : ''}" size="md" icon="sliders" onClose={closeParamModal}>
+    <TabParamControl />
+  </Modal>
+
+  <Modal open={showEmotionModal} title="情感控制{rolesStore.activeRole ? ` · ${rolesStore.activeRole.name}` : ''}" size="md" icon="heart" onClose={closeEmotionModal}>
+    <TabEmotionControl />
+  </Modal>
+
   <Modal bind:open={showImportModal} title="导入文本 · LLM 智能拆分" size="lg">
     <div class="import-form">
       {#if !llmConfigured}
@@ -644,7 +809,16 @@
         <span>当前 LLM：{appSettings.settings.llm.model}</span>
         <span>·</span>
         <span>已有 {rolesStore.roles.length} 个角色会被保留</span>
+        <button class="prompt-toggle" onclick={() => showPromptEditor = !showPromptEditor}>
+          {showPromptEditor ? '收起 Prompt' : '自定义 Prompt'}
+        </button>
       </div>
+      {#if showPromptEditor}
+        <div class="import-row">
+          <label for="custom-prompt">自定义拆分 Prompt（留空使用内置模板，可用变量：{'{roles}'} {'{emotions}'} {'{strengths}'} {'{text}'}）</label>
+          <textarea id="custom-prompt" bind:value={customPrompt} placeholder="留空使用内置拆分 Prompt…" rows={6}></textarea>
+        </div>
+      {/if}
     </div>
     {#snippet footer()}
       <Button variant="default" onclick={() => showImportModal = false}>取消</Button>
@@ -656,7 +830,12 @@
 </div>
 
 <style>
-  .roles-page { flex:1; min-height:0; display:grid; grid-template-columns:240px minmax(0,1fr) 260px; gap:var(--spacing-sm); padding:15px; background:var(--color-bg-container); overflow:hidden; }
+  .roles-page { flex:1; min-height:0; display:grid; grid-template-columns:clamp(180px, 20vw, 240px) minmax(0,1fr) clamp(220px, 24vw, 300px); gap:var(--spacing-sm); padding:clamp(8px, 1.2vw, 15px); background:var(--color-bg-container); overflow:hidden; }
+  @media (max-width: 900px) {
+    .roles-page { grid-template-columns:1fr; grid-template-rows:auto 1fr auto; overflow-y:auto; }
+    .roles-page .role-panel { max-height:180px; }
+    .roles-page .param-panel { max-height:260px; overflow-y:auto; }
+  }
   .card { background:var(--color-bg-elevated); border:1px solid var(--color-border-secondary); border-radius:var(--border-radius-lg); display:flex; flex-direction:column; overflow:hidden; }
   .card-head { height:44px; padding:0 var(--spacing-md); border-bottom:1px solid var(--color-border-secondary); display:flex; align-items:center; justify-content:space-between; flex-shrink:0; }
   .card-head h2 { margin:0; font-size:var(--font-size); font-weight:600; color:var(--color-text); }
@@ -667,7 +846,11 @@
   button { cursor:pointer; font-family:inherit; }
 
   .role-list { flex:1; padding:var(--spacing-sm); display:flex; flex-direction:column; gap:6px; min-height:0; overflow-y:auto; }
-  .role-item { display:flex; align-items:center; gap:var(--spacing-sm); padding:var(--spacing-sm) var(--spacing-md); border:1px solid var(--color-border-secondary); border-radius:var(--border-radius); background:var(--color-bg-base); color:var(--color-text); text-align:left; transition:border-color .2s,background .2s,box-shadow .2s; min-height:56px; }
+  .role-item { display:flex; align-items:center; gap:var(--spacing-sm); padding:var(--spacing-sm) var(--spacing-md); border:1px solid var(--color-border-secondary); border-radius:var(--border-radius); background:var(--color-bg-base); color:var(--color-text); text-align:left; transition:border-color .2s,background .2s,box-shadow .2s; min-height:56px; min-width:0; }
+  @media (max-width: 900px) {
+    .role-list { flex-direction:row; flex-wrap:wrap; overflow-x:auto; overflow-y:hidden; }
+    .role-item { min-width:160px; flex:0 0 auto; }
+  }
   .role-item:hover { border-color:color-mix(in srgb, var(--rc) 30%, var(--color-border)); }
   .role-item.active { border-color:var(--rc); background:color-mix(in srgb, var(--rc) 6%, var(--color-bg-base)); box-shadow:inset 3px 0 0 var(--rc); }
   .role-avatar { width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; background:var(--rc); color:#fff; font-weight:700; font-size:16px; flex-shrink:0; box-shadow:0 2px 8px color-mix(in srgb, var(--rc) 30%, transparent); }
@@ -686,7 +869,7 @@
   .line-list { flex:1; display:flex; flex-direction:column; gap:6px; padding:var(--spacing-sm); min-height:0; overflow-y:auto; }
 
   .line-card { display:flex; align-items:stretch; gap:var(--spacing-sm); padding:var(--spacing-sm) var(--spacing-md); border:1px solid var(--color-border-secondary); border-radius:var(--border-radius); background:var(--color-bg-base); border-left:4px solid var(--lc); transition:border-color .15s,background .15s,box-shadow .15s; }
-  .line-card:hover { background:var(--color-bg-elevated); box-shadow:0 2px 8px rgba(0,0,0,.15); }
+  .line-card:hover { background:var(--color-bg-elevated); box-shadow:var(--shadow-1); }
   .line-card.playing { border-color:var(--color-primary); border-left-color:var(--color-primary); background:color-mix(in srgb, var(--color-primary) 6%, transparent); }
   .line-card[draggable="true"] { cursor:grab; }
   .line-card[draggable="true"]:active { cursor:grabbing; opacity:.85; }
@@ -698,6 +881,12 @@
   .lc-header { display:flex; align-items:center; gap:var(--spacing-xs); }
   .lc-role-name { font-size:12px; font-weight:600; color:var(--lc); white-space:nowrap; }
   .lc-emotion { font-size:11px; color:var(--color-text-disabled); white-space:nowrap; }
+  .lc-role-sel, .lc-emo-sel, .lc-str-sel { height:22px; padding:0 4px; border:1px solid transparent; border-radius:var(--border-radius-sm); background:transparent; font-family:inherit; font-size:11px; cursor:pointer; outline:none; transition:border-color .15s,background .15s; appearance:none; -webkit-appearance:none; }
+  .lc-role-sel { font-weight:600; color:var(--lc); max-width:80px; }
+  .lc-emo-sel { color:var(--color-text-secondary); max-width:60px; }
+  .lc-str-sel { color:var(--color-text-disabled); max-width:50px; }
+  .lc-role-sel:hover, .lc-emo-sel:hover, .lc-str-sel:hover { border-color:var(--color-border-secondary); background:var(--color-bg-base); }
+  .lc-role-sel:focus, .lc-emo-sel:focus, .lc-str-sel:focus { border-color:var(--color-primary); background:var(--color-bg-base); }
 
   .lc-text {
     width:100%;
@@ -726,6 +915,11 @@
   .pill.st.\751F\6210\4E2D { color:var(--color-info); background:color-mix(in srgb, var(--color-info) 14%, transparent); }
 
   .line-empty { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:var(--spacing-sm); color:var(--color-text-disabled); font-size:var(--font-size-sm); }
+  .add-line-btn { height:30px; padding:0 16px; border:1px dashed var(--color-primary); border-radius:var(--border-radius-sm); background:transparent; color:var(--color-primary); font-size:12px; cursor:pointer; transition:background .15s; }
+  .add-line-btn:hover { background:var(--color-primary-bg); }
+  .add-line-inline { display:flex; align-items:center; justify-content:center; gap:4px; height:28px; border:1px dashed var(--color-border-secondary); border-radius:var(--border-radius-sm); background:transparent; color:var(--color-text-disabled); font-size:11px; cursor:pointer; transition:border-color .15s,color .15s; flex-shrink:0; }
+  .add-line-inline:hover { border-color:var(--color-primary); color:var(--color-primary); }
+  .lc-actions { display:flex; gap:4px; align-items:center; }
   .ibtn { width:26px; height:26px; display:flex; align-items:center; justify-content:center; border:1px solid var(--color-border-secondary); border-radius:var(--border-radius-sm); background:transparent; color:var(--color-text-tertiary); transition:border-color .15s,color .15s; }
   .ibtn:hover { border-color:var(--color-primary); color:var(--color-primary); }
   .ibtn.del:hover { border-color:var(--color-error); color:var(--color-error); }
@@ -737,6 +931,7 @@
   .pb:hover:not(:disabled) { border-color:var(--color-primary); color:var(--color-primary); }
   .pb.active { background:var(--color-primary); border-color:var(--color-primary); color:#fff; }
   .pb:disabled { opacity:.35; cursor:not-allowed; }
+  .pb-dots { font-size:11px; color:var(--color-text-disabled); padding:0 2px; }
 
   .param-panel { min-width:0; }
 
@@ -758,14 +953,16 @@
   .echip-btn.active { color:var(--ec); border-color:var(--ec); background:color-mix(in srgb, var(--ec) 14%, transparent); }
   .echip-btn:hover:not(.active) { border-color:var(--ec); color:var(--ec); }
 
-  .param-sliders { display:flex; flex-direction:column; gap:2px; }
-  .ps-row { display:flex; justify-content:space-between; align-items:center; font-size:12px; color:var(--color-text-tertiary); padding:2px 0; }
-  .ps-label { color:var(--color-text-secondary); }
-  .ps-value { color:var(--color-primary); font-variant-numeric:tabular-nums; font-weight:500; }
+  .psec-clickable { cursor:pointer; text-align:left; transition:border-color .15s,background .15s; width:100%; }
+  .psec-clickable:hover { border-color:var(--color-primary); background:color-mix(in srgb, var(--color-primary) 5%, var(--color-bg-base)); }
+  .psec-summary { font-size:11px; color:var(--color-text-disabled); }
+  .psec-title :global(svg:last-child) { margin-left:auto; }
+
   .echips.compact { display:flex; gap:2px; }
   .echip-sm { height:22px; padding:0 8px; border:1px solid var(--color-border-secondary); border-radius:var(--border-radius-sm); background:transparent; color:var(--color-text-tertiary); font-size:11px; transition:border-color .15s,background .15s,color .15s; }
   .echip-sm.active { border-color:var(--color-accent); background:color-mix(in srgb, var(--color-accent) 12%, transparent); color:var(--color-accent); }
   .echip-sm:hover:not(.active) { border-color:var(--color-accent); color:var(--color-accent); }
+  .random-emo { margin-left:auto; display:flex; align-items:center; gap:2px; }
 
   .psec-stats { display:grid; grid-template-columns:1fr 1fr; gap:var(--spacing-xs); margin-top:auto; padding-top:var(--spacing-xs); }
   .stat-item { display:flex; flex-direction:column; align-items:center; gap:2px; padding:var(--spacing-sm); background:var(--color-bg-base); border:1px solid var(--color-border-secondary); border-radius:var(--border-radius); }
@@ -775,10 +972,13 @@
 
   .empty-param { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:var(--spacing-sm); color:var(--color-text-disabled); font-size:var(--font-size-sm); }
 
+  .preview-player { padding:var(--spacing-xs) var(--spacing-sm); border-top:1px solid var(--color-border-secondary); flex-shrink:0; }
   .batch-bar { display:flex; align-items:center; gap:var(--spacing-sm); padding:var(--spacing-xs) var(--spacing-sm); border-top:1px solid var(--color-border-secondary); flex-shrink:0; }
   .batch-btn { display:flex; align-items:center; gap:4px; height:28px; padding:0 var(--spacing-md); border:none; border-radius:var(--border-radius-sm); background:var(--color-primary); color:#fff; font-size:12px; font-weight:500; transition:background .15s; }
   .batch-btn:hover:not(:disabled) { background:var(--color-primary-hover); }
   .batch-btn:disabled { opacity:.4; cursor:not-allowed; }
+  .retry-btn { display:flex; align-items:center; gap:4px; height:28px; padding:0 var(--spacing-md); border:1px solid var(--color-warning); border-radius:var(--border-radius-sm); background:transparent; color:var(--color-warning); font-size:12px; transition:border-color .15s,background .15s; }
+  .retry-btn:hover { background:color-mix(in srgb, var(--color-warning) 12%, transparent); }
   .export-btn { display:flex; align-items:center; gap:4px; height:28px; padding:0 var(--spacing-md); border:1px solid var(--color-border-secondary); border-radius:var(--border-radius-sm); background:transparent; color:var(--color-text-secondary); font-size:12px; transition:border-color .15s,color .15s; }
   .export-btn:hover:not(:disabled) { border-color:var(--color-primary); color:var(--color-primary); }
   .export-btn:disabled { opacity:.4; cursor:not-allowed; }
@@ -797,7 +997,9 @@
   .import-row textarea:focus { border-color:var(--color-primary); outline:none; }
   .llm-tip { display:flex; align-items:center; gap:var(--spacing-xs); padding:var(--spacing-sm); background:var(--color-warning-bg); border-radius:var(--border-radius-sm); font-size:var(--font-size-sm); color:var(--color-warning); }
   .llm-tip strong { color:var(--color-text); }
-  .import-info { display:flex; align-items:center; gap:var(--spacing-xs); font-size:11px; color:var(--color-text-disabled); }
+  .import-info { display:flex; align-items:center; gap:var(--spacing-xs); font-size:11px; color:var(--color-text-disabled); flex-wrap:wrap; }
+  .prompt-toggle { margin-left:auto; border:1px solid var(--color-border-secondary); border-radius:var(--border-radius-sm); background:transparent; color:var(--color-text-tertiary); font-size:11px; padding:1px 8px; cursor:pointer; transition:border-color .15s,color .15s; }
+  .prompt-toggle:hover { border-color:var(--color-primary); color:var(--color-primary); }
 
   .voice-btn { border:1px solid var(--color-border-secondary); border-radius:var(--border-radius-sm); background:var(--color-bg-base); color:var(--color-primary); font-size:11px; padding:2px 8px; height:24px; transition:border-color .15s; }
   .voice-btn:hover { border-color:var(--color-primary); }
@@ -809,4 +1011,10 @@
   .add-role-form label { display:flex; flex-direction:column; gap:4px; font-size:var(--font-size-sm); color:var(--color-text-secondary); }
   .add-role-form input, .add-role-form select { height:36px; border:1px solid var(--color-border-secondary); border-radius:var(--border-radius-sm); background:var(--color-bg-base); color:var(--color-text); padding:0 var(--spacing-sm); font-family:inherit; font-size:var(--font-size-sm); }
   .add-role-form input:focus, .add-role-form select:focus { border-color:var(--color-primary); outline:none; }
+
+  .preset-grid { display:flex; flex-direction:column; gap:4px; max-height:360px; overflow-y:auto; }
+  .preset-item { display:flex; align-items:center; gap:var(--spacing-sm); padding:var(--spacing-sm) var(--spacing-md); border:1px solid var(--color-border-secondary); border-radius:var(--border-radius-sm); background:var(--color-bg-base); cursor:pointer; transition:border-color .15s,background .15s; text-align:left; }
+  .preset-item:hover { border-color:var(--color-primary); background:var(--color-primary-bg); }
+  .preset-name { font-size:var(--font-size-sm); font-weight:500; color:var(--color-text); flex:1; }
+  .preset-desc { font-size:11px; color:var(--color-text-disabled); max-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 </style>

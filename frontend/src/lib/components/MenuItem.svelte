@@ -63,16 +63,21 @@
     box-shadow: inset 0 0 0 1px var(--color-primary);
   }
 
-  .menu-item.active::before {
+  .menu-item::before {
     content: '';
     position: absolute;
     left: -16px;
     top: 50%;
-    transform: translateY(-50%);
+    transform: translateY(-50%) scaleY(0);
     width: 4px;
     height: 32px;
     background-color: var(--color-primary);
     border-radius: 0 var(--border-radius-sm) var(--border-radius-sm) 0;
+    transition: transform var(--motion-duration-mid) var(--motion-ease-out);
+  }
+
+  .menu-item.active::before {
+    transform: translateY(-50%) scaleY(1);
   }
 
   .menu-icon {

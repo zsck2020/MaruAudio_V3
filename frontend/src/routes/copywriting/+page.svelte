@@ -341,11 +341,31 @@
     flex: 1;
     min-height: 0;
     display: grid;
-    grid-template-columns: 240px minmax(0, 1fr) 300px;
+    grid-template-columns: clamp(180px, 20vw, 240px) minmax(0, 1fr) clamp(220px, 24vw, 300px);
     gap: var(--spacing-sm);
-    padding: 15px;
+    padding: clamp(8px, 1.2vw, 15px);
     background: var(--color-bg-container);
     overflow: hidden;
+  }
+
+  @media (max-width: 1000px) {
+    .subtitle-page {
+      grid-template-columns: minmax(0, 1fr) clamp(200px, 24vw, 260px);
+    }
+    .asr-panel {
+      display: none;
+    }
+  }
+
+  @media (max-width: 800px) {
+    .subtitle-page {
+      grid-template-columns: 1fr;
+      overflow-y: auto;
+    }
+    .editor-panel {
+      max-height: 320px;
+      overflow-y: auto;
+    }
   }
 
   button {
@@ -353,13 +373,24 @@
     font-family: inherit;
   }
 
-  .asr-panel,
+  .asr-panel {
+    padding: var(--spacing-md);
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border-secondary);
+    border-radius: var(--border-radius-lg);
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
   .editor-panel {
     padding: var(--spacing-md);
     background: var(--color-bg-elevated);
     border: 1px solid var(--color-border-secondary);
     border-radius: var(--border-radius-lg);
-    overflow: hidden;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
   }
 
   .upload-card {
@@ -406,7 +437,7 @@
   .edit-card label,
   .style-card label {
     display: grid;
-    grid-template-columns: 88px 1fr;
+    grid-template-columns: 88px minmax(0, 1fr);
     align-items: center;
     gap: var(--spacing-sm);
     margin-bottom: var(--spacing-sm);
@@ -422,6 +453,9 @@
     background: var(--color-bg-base);
     color: var(--color-text);
     font-family: inherit;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
   }
 
   input,
@@ -520,6 +554,7 @@
 
   .subtitle-main {
     min-width: 0;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -567,7 +602,7 @@
   }
 
   .screen {
-    height: 220px;
+    height: clamp(140px, 22vw, 220px);
     border: 1px solid var(--color-border-secondary);
     border-radius: var(--border-radius-lg);
     background: radial-gradient(circle at 50% 20%, color-mix(in srgb, var(--color-primary) 20%, transparent), transparent 38%), var(--color-bg-base);
@@ -591,9 +626,9 @@
   .transport {
     height: 42px;
     display: grid;
-    grid-template-columns: 32px 38px 32px 90px 1fr 100px;
+    grid-template-columns: 32px 38px 32px minmax(60px, 90px) 1fr minmax(60px, 100px);
     align-items: center;
-    gap: var(--spacing-sm);
+    gap: var(--spacing-xs);
     color: var(--color-text-tertiary);
     font-size: var(--font-size-sm);
   }
@@ -636,9 +671,9 @@
   .subtitle-head,
   .subtitle-row {
     display: grid;
-    grid-template-columns: 44px 110px 110px 72px minmax(260px, 1fr) 72px;
+    grid-template-columns: 36px minmax(80px, 110px) minmax(80px, 110px) 60px minmax(160px, 1fr) 60px;
     align-items: center;
-    gap: var(--spacing-sm);
+    gap: var(--spacing-xs);
     font-size: var(--font-size-sm);
   }
 

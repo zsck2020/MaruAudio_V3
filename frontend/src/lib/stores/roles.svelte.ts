@@ -64,7 +64,7 @@ const defaultRole: Omit<RoleConfig, 'id' | 'name' | 'color'> = {
   emotionAudioPath: null,
 };
 
-const roleColors = ['#4096ff', '#b37feb', '#faad14', '#36cfc9', '#ff7875', '#52c41a', '#eb2f96', '#13c2c2'];
+const roleColors = ['#3b6eaf', '#8B5CF6', '#e0924a', '#36a890', '#c05770', '#4a8c5c', '#7c6ec4', '#2d8e9e'];
 
 let roles = $state<RoleConfig[]>([]);
 let lines = $state<ScriptLine[]>([]);
@@ -74,7 +74,7 @@ let currentProjectName = $state('新项目');
 
 let activeRole = $derived(roles.find(r => r.id === activeRoleId) ?? null);
 let currentPage = $state(1);
-const pageSize = 6;
+const pageSize = 15;
 let totalPages = $derived(Math.max(1, Math.ceil(lines.length / pageSize)));
 let pagedLines = $derived(lines.slice((currentPage - 1) * pageSize, currentPage * pageSize));
 

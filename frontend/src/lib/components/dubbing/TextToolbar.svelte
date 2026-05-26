@@ -70,19 +70,19 @@
         <span class="tool-label">文义分段</span>
       </button>
     </Tooltip>
-    <Tooltip text="在光标位置插入停顿标记" position="bottom">
+    <Tooltip text="插入省略号（…）作为自然停顿" position="bottom">
       <button type="button" class="tool-btn" onclick={onPause}>
         <Icon name="pause" size={16} color="var(--color-text-tertiary)" />
         <span class="tool-label">插入停顿</span>
       </button>
     </Tooltip>
-    <Tooltip text="选中文字后标注拼音" position="bottom">
+    <Tooltip text="插入拼音标注（如 zhong4 = 重）" position="bottom">
       <button type="button" class="tool-btn" onclick={onPinyin}>
         <Icon name="font-size" size={16} color="var(--color-text-tertiary)" />
         <span class="tool-label">拼音标注</span>
       </button>
     </Tooltip>
-    <Tooltip text="切换数字朗读规则" position="bottom">
+    <Tooltip text="引擎自动处理数字读法" position="bottom">
       <button type="button" class="tool-btn" onclick={onNumber}>
         <Icon name="number" size={16} color="var(--color-text-tertiary)" />
         <span class="tool-label">数字读法</span>

@@ -474,6 +474,7 @@ export interface SplitLinesRequest {
   roles?: string[];
   emotions?: string[];
   strengths?: string[];
+  custom_prompt?: string;
 }
 
 export interface SplitLineResult {

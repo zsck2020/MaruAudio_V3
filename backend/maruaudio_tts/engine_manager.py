@@ -31,8 +31,25 @@ def _ensure_path(path: str) -> None:
         sys.path.insert(0, abs_path)
 
 
+def _env_bool(key: str, default: bool = False) -> bool:
+    val = os.environ.get(key, "").lower()
+    if val in ("1", "true", "yes"):
+        return True
+    if val in ("0", "false", "no"):
+        return False
+    return default
+
+
 class EngineManager:
-    """管理两个 IndexTTS 引擎实例的生命周期"""
+    """管理两个 IndexTTS 引擎实例的生命周期
+
+    加速开关通过环境变量控制：
+        MARUAUDIO_FP16=1           — v1.5/v2.0 半精度推理
+        MARUAUDIO_CUDA_KERNEL=1    — BigVGAN 融合 CUDA kernel
+        MARUAUDIO_DEEPSPEED=1      — v2.0 DeepSpeed KV cache
+        MARUAUDIO_ACCEL=1          — v2.0 AccelEngine (CUDA Graph)
+        MARUAUDIO_TORCH_COMPILE=1  — v2.0 S2Mel torch.compile
+    """
 
     def __init__(self) -> None:
         self._v15: Optional[object] = None
@@ -59,7 +76,12 @@ class EngineManager:
 
                 cfg_path = os.path.join(_V15_CKPT_DIR, "config.yaml")
                 model_dir = _V15_CKPT_DIR
-                self._v15 = IndexTTS(cfg_path=cfg_path, model_dir=model_dir)
+                self._v15 = IndexTTS(
+                    cfg_path=cfg_path,
+                    model_dir=model_dir,
+                    is_fp16=_env_bool("MARUAUDIO_FP16"),
+                    use_cuda_kernel=_env_bool("MARUAUDIO_CUDA_KERNEL") or None,
+                )
                 self._v15_device = str(getattr(self._v15, "device", "unknown"))
                 return self._v15
             except Exception as e:
@@ -85,7 +107,15 @@ class EngineManager:
 
                 cfg_path = os.path.join(_V20_CKPT_DIR, "config.yaml")
                 model_dir = _V20_CKPT_DIR
-                self._v20 = IndexTTS2(cfg_path=cfg_path, model_dir=model_dir)
+                self._v20 = IndexTTS2(
+                    cfg_path=cfg_path,
+                    model_dir=model_dir,
+                    use_fp16=_env_bool("MARUAUDIO_FP16"),
+                    use_cuda_kernel=_env_bool("MARUAUDIO_CUDA_KERNEL") or None,
+                    use_deepspeed=_env_bool("MARUAUDIO_DEEPSPEED"),
+                    use_accel=_env_bool("MARUAUDIO_ACCEL"),
+                    use_torch_compile=_env_bool("MARUAUDIO_TORCH_COMPILE"),
+                )
                 self._v20_device = str(getattr(self._v20, "device", "unknown"))
                 return self._v20
             except Exception as e:
@@ -146,22 +176,28 @@ class EngineManager:
 
         from . import cloud_engine
 
+        if not cloud_engine.is_configured():
+            return {
+                "engine": "cloud",
+                "available": False,
+                "message": "未配置远程实例端点（XIANGONG_TTS_BASE）",
+            }
+
         try:
             loop = asyncio.get_event_loop()
             if loop.is_running():
-                # 已在事件循环中：返回乐观估计（实际由 API 调用兜底）
-                if cloud_engine.is_configured():
-                    return {
-                        "engine": "cloud",
-                        "available": True,
-                        "message": "云端引擎已配置（实际可用性以推理结果为准）",
-                    }
-                return {
-                    "engine": "cloud",
-                    "available": False,
-                    "message": "未配置远程实例端点（XIANGONG_TTS_BASE）",
-                }
-        except RuntimeError:
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor() as pool:
+                    future = pool.submit(asyncio.run, cloud_engine.check_availability())
+                    return future.result(timeout=6)
+        except (RuntimeError, Exception):
             pass
 
-        return asyncio.run(cloud_engine.check_availability())
+        try:
+            return asyncio.run(cloud_engine.check_availability())  # type: ignore[arg-type]
+        except Exception as e:
+            return {
+                "engine": "cloud",
+                "available": False,
+                "message": f"云端检测失败：{e}",
+            }

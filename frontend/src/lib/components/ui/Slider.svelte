@@ -166,6 +166,11 @@
     border-color: var(--color-primary-active);
   }
 
+  .range:focus-visible::-webkit-slider-thumb {
+    outline: 2px solid var(--color-focus-ring);
+    outline-offset: 2px;
+  }
+
   .range::-moz-range-thumb {
     width: 14px;
     height: 14px;
@@ -174,6 +179,11 @@
     border: 2px solid rgba(255, 255, 255, 0.9);
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
     cursor: grab;
+  }
+
+  .range:focus-visible::-moz-range-thumb {
+    outline: 2px solid var(--color-focus-ring);
+    outline-offset: 2px;
   }
 
   .value-display {

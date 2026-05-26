@@ -26,6 +26,29 @@
       el.setSelectionRange(pos, pos);
     });
   }
+
+  /** 获取当前选中的文本 */
+  export function getSelectedText(): string {
+    const el = textareaEl;
+    if (!el) return '';
+    return dubbing.text.slice(el.selectionStart, el.selectionEnd);
+  }
+
+  /** 替换当前选中文本（供父组件调用） */
+  export function replaceSelection(replacement: string) {
+    const el = textareaEl;
+    if (!el) return;
+    const start = el.selectionStart;
+    const end = el.selectionEnd;
+    const value = dubbing.text;
+    const newValue = value.slice(0, start) + replacement + value.slice(end);
+    dubbing.setText(newValue);
+    requestAnimationFrame(() => {
+      el.focus();
+      const pos = start + replacement.length;
+      el.setSelectionRange(pos, pos);
+    });
+  }
 </script>
 
 <div class="editor-wrapper">

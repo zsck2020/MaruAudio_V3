@@ -4,7 +4,10 @@
 
 <script lang="ts">
   import type { Snippet } from 'svelte';
+  import { tick } from 'svelte';
   import Icon from '$lib/icons/Icon.svelte';
+
+  const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
 
   interface Props {
     open: boolean;
@@ -42,13 +45,38 @@
     onClose?.();
   }
 
+  let dialogEl: HTMLDivElement | undefined = $state();
+
   function handleKeyDown(event: KeyboardEvent) {
     if (!open) return;
     if (closeOnEscape && event.key === 'Escape') {
       event.preventDefault();
       close();
+      return;
+    }
+    if (event.key === 'Tab' && dialogEl) {
+      const focusable = Array.from(dialogEl.querySelectorAll<HTMLElement>(FOCUSABLE));
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     }
   }
+
+  $effect(() => {
+    if (open) {
+      void tick().then(() => {
+        const first = dialogEl?.querySelector<HTMLElement>(FOCUSABLE);
+        first?.focus();
+      });
+    }
+  });
 
   function handleBackdropClick() {
     if (closeOnBackdrop) close();
@@ -71,6 +99,7 @@
       aria-modal="true"
       aria-label={title || 'Dialog'}
       tabindex="-1"
+      bind:this={dialogEl}
       onclick={(e) => e.stopPropagation()}
       onkeydown={(e) => e.stopPropagation()}
     >

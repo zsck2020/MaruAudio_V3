@@ -5,6 +5,7 @@
   import Icon from '$lib/icons/Icon.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import { invoke } from '@tauri-apps/api/core';
+  import * as ttsApi from '$lib/api/tts';
   import type { BannerItem } from '$lib/types';
   import { MENU_ROUTES } from '$lib/utils/navigation';
   import type { MenuKey } from '$lib/types';
@@ -24,6 +25,8 @@
     { icon: 'sound', title: '音库管理', desc: '管理音色与音频资源', route: '/resource' },
   ];
 
+  const DEMO_DATA = true;
+
   const recentProjects = [
     { name: '《风起云涌》第12集', time: '2026-05-13 14:32', engine: '轻量', words: '12,840', tone: 'blue' },
     { name: '《星河漫游》宣传片', time: '2026-05-12 19:07', engine: '情感', words: '8,532', tone: 'gold' },
@@ -33,7 +36,47 @@
     { name: '英语教学课件配音', time: '2026-05-10 15:32', engine: '云端', words: '4,256', tone: 'green' },
   ];
 
-  const bars = [34, 42, 38, 50, 36, 44, 72];
+  interface EngineInfo {
+    name: string;
+    icon: string;
+    iconColor: string;
+    iconBg: string;
+    available: boolean;
+    message: string;
+    device?: string;
+    vramPercent?: number;
+  }
+
+  let engines = $state<EngineInfo[]>([
+    { name: '轻量引擎', icon: 'zap', iconColor: 'var(--color-primary)', iconBg: 'engine-icon--light', available: false, message: '检测中…' },
+    { name: '情感引擎', icon: 'heart', iconColor: 'var(--color-accent)', iconBg: 'engine-icon--emo', available: false, message: '检测中…' },
+    { name: '云端引擎', icon: 'cloud', iconColor: 'var(--color-info)', iconBg: 'engine-icon--cloud', available: false, message: '检测中…' },
+  ]);
+  let engineLoading = $state(true);
+
+  async function loadEngineHealth() {
+    engineLoading = true;
+    try {
+      const health = await ttsApi.checkHealth();
+      const map: Record<string, number> = { lightweight: 0, emotion: 1, cloud: 2 };
+      for (const eng of health.engines) {
+        const idx = map[eng.engine];
+        if (idx !== undefined) {
+          engines[idx] = {
+            ...engines[idx],
+            available: eng.available,
+            message: eng.available ? '可用' : eng.message,
+            device: eng.device ?? undefined,
+            vramPercent: eng.vram_mb ? Math.round(eng.vram_mb / 80) : undefined,
+          };
+        }
+      }
+    } catch {
+      engines = engines.map(e => ({ ...e, available: false, message: 'TTS 服务未启动' }));
+    } finally {
+      engineLoading = false;
+    }
+  }
 
   async function loadBanners() {
     try {
@@ -83,6 +126,7 @@
 
   onMount(() => {
     loadBanners();
+    loadEngineHealth();
   });
 </script>
 
@@ -126,7 +170,7 @@
   <section class="dashboard-grid">
     <article class="panel recent-panel">
       <header class="panel-head">
-        <h2>最近项目</h2>
+        <h2>最近项目{#if DEMO_DATA}<span class="demo-tag">示例</span>{/if}</h2>
         <Button variant="link" size="sm" onclick={() => goto('/cover')}>全部项目</Button>
       </header>
       <div class="recent-table">
@@ -160,6 +204,7 @@
     <aside class="side-stack">
       <article class="panel stat-panel">
         <div class="stat-content">
+          {#if DEMO_DATA}<span class="demo-tag" style="align-self:flex-end">示例数据</span>{/if}
           <div class="stat-top">
             <div class="stat-value-group">
               <span class="stat-value">12,840</span>
@@ -175,51 +220,41 @@
           </div>
           <div class="stat-meter">
             <div class="stat-meter-track">
-              <div class="stat-meter-yesterday" style="width:54%"></div>
               <div class="stat-meter-today" style="width:64%"></div>
             </div>
             <div class="stat-meter-legend">
-              <span><i class="legend-dot today"></i>今日</span>
+              <span><i class="legend-dot today"></i>今日 12,840</span>
               <span><i class="legend-dot yesterday"></i>昨日 10,880</span>
-              <span class="stat-target">目标 20,000</span>
+              <span class="stat-total">累计 156,720</span>
             </div>
           </div>
         </div>
       </article>
 
       <article class="panel health-panel">
-        <header class="panel-head"><h2>引擎健康状态</h2></header>
+        <header class="panel-head">
+          <h2>引擎状态</h2>
+          <button type="button" class="refresh-link" onclick={loadEngineHealth} disabled={engineLoading}>
+            <Icon name="refresh" size={12} color="var(--color-primary)" />
+          </button>
+        </header>
         <div class="engine-rows">
-          <div class="engine-row">
-            <div class="engine-icon-wrap engine-icon--light">
-              <Icon name="zap" size={14} color="var(--color-primary)" />
-            </div>
-            <div class="engine-info">
-              <div class="engine-name-line">
-                <strong>轻量引擎</strong>
-                <span class="engine-status ok">可用</span>
+          {#each engines as eng (eng.name)}
+            <div class="engine-row">
+              <div class="engine-icon-wrap {eng.iconBg}">
+                <Icon name={eng.icon} size={14} color={eng.iconColor} />
               </div>
-              <div class="engine-metric">
-                <div class="metric-bar"><div class="metric-fill" style="width:45%"></div></div>
-                <span class="metric-label">显存 45%</span>
-              </div>
-            </div>
-          </div>
-          <div class="engine-row">
-            <div class="engine-icon-wrap engine-icon--emo">
-              <Icon name="heart" size={14} color="var(--color-accent)" />
-            </div>
-            <div class="engine-info">
-              <div class="engine-name-line">
-                <strong>情感引擎</strong>
-                <span class="engine-status ok">可用</span>
-              </div>
-              <div class="engine-metric">
-                <div class="metric-bar"><div class="metric-fill warn" style="width:72%"></div></div>
-                <span class="metric-label">显存 72%</span>
+              <div class="engine-info">
+                <div class="engine-name-line">
+                  <strong>{eng.name}</strong>
+                  <span class="engine-status" class:ok={eng.available}>{eng.message}</span>
+                </div>
+                {#if eng.device}
+                  <span class="engine-device">{eng.device}</span>
+                {/if}
               </div>
             </div>
-          </div>
+          {/each}
         </div>
       </article>
     </aside>
@@ -237,7 +272,7 @@
     flex: 1;
     min-height: 0;
     overflow: hidden;
-    padding: 15px;
+    padding: clamp(8px, 1.2vw, 15px);
     background-color: var(--color-bg-container);
     display: flex;
     flex-direction: column;
@@ -247,7 +282,8 @@
   .hero-section {
     border-radius: var(--border-radius-lg);
     overflow: hidden;
-    flex-shrink: 0;
+    flex-shrink: 1;
+    min-height: 0;
     border: 1px solid var(--color-border-secondary);
     background-color: var(--color-bg-elevated);
   }
@@ -272,7 +308,7 @@
 
   .carousel-image {
     width: 100%;
-    height: 196px;
+    height: clamp(120px, 20vw, 196px);
     object-fit: cover;
     display: block;
     border-radius: 8px;
@@ -284,6 +320,12 @@
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: var(--spacing-sm);
+  }
+
+  @media (max-width: 1000px) {
+    .quick-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
   }
 
   .quick-card {
@@ -331,10 +373,17 @@
 
   .dashboard-grid {
     display: grid;
-    grid-template-columns: minmax(0, 1.45fr) minmax(280px, 0.55fr);
+    grid-template-columns: minmax(0, 1.45fr) minmax(240px, 0.55fr);
     gap: var(--spacing-sm);
     flex: 1;
     min-height: 0;
+  }
+
+  @media (max-width: 900px) {
+    .dashboard-grid {
+      grid-template-columns: 1fr;
+      overflow-y: auto;
+    }
   }
 
   .side-stack {
@@ -386,11 +435,24 @@
   .table-head,
   .project-row {
     display: grid;
-    grid-template-columns: minmax(220px, 1.5fr) 160px 80px 90px 60px;
+    grid-template-columns: minmax(120px, 1.5fr) minmax(100px, 160px) 60px 70px 50px;
     align-items: center;
-    gap: var(--spacing-md);
+    gap: var(--spacing-sm);
     min-height: 38px;
     font-size: var(--font-size-sm);
+  }
+
+  @media (max-width: 900px) {
+    .table-head,
+    .project-row {
+      grid-template-columns: minmax(100px, 1fr) 80px 50px;
+    }
+    .table-head span:nth-child(4),
+    .table-head span:nth-child(5),
+    .project-row span:nth-child(4),
+    .project-row :global(:nth-child(5)) {
+      display: none;
+    }
   }
 
   .table-head {
@@ -547,7 +609,7 @@
   }
 
   .stat-value {
-    font-size: 36px;
+    font-size: clamp(24px, 3.5vw, 36px);
     font-weight: 700;
     font-variant-numeric: tabular-nums;
     letter-spacing: -1px;
@@ -603,13 +665,6 @@
     overflow: hidden;
   }
 
-  .stat-meter-yesterday {
-    position: absolute;
-    inset: 0 auto 0 0;
-    background-color: color-mix(in srgb, var(--color-text-tertiary) 40%, transparent);
-    border-radius: 4px;
-  }
-
   .stat-meter-today {
     position: absolute;
     inset: 0 auto 0 0;
@@ -632,7 +687,7 @@
     gap: 4px;
   }
 
-  .stat-target {
+  .stat-total {
     margin-left: auto;
     color: var(--color-text-disabled);
   }
@@ -723,37 +778,30 @@
     background-color: var(--color-success-bg);
   }
 
-  .engine-metric {
+  .engine-device {
+    font-size: 10px;
+    color: var(--color-primary);
+    background: color-mix(in srgb, var(--color-primary) 14%, transparent);
+    padding: 1px 6px;
+    border-radius: var(--border-radius-sm);
+  }
+
+  .refresh-link {
+    width: 28px;
+    height: 28px;
     display: flex;
     align-items: center;
-    gap: var(--spacing-sm);
+    justify-content: center;
+    background: transparent;
+    border: none;
+    border-radius: var(--border-radius-sm);
+    cursor: pointer;
+    transition: background-color var(--motion-duration-mid) var(--motion-ease-base);
   }
 
-  .metric-bar {
-    flex: 1;
-    height: 4px;
-    background-color: var(--color-border);
-    border-radius: 2px;
-    overflow: hidden;
-  }
+  .refresh-link:hover { background-color: var(--color-bg-spotlight); }
+  .refresh-link:disabled { opacity: 0.4; cursor: not-allowed; }
 
-  .metric-fill {
-    height: 100%;
-    background: linear-gradient(90deg, var(--color-success), color-mix(in srgb, var(--color-success) 75%, white 25%));
-    border-radius: 2px;
-    transition: width 0.5s var(--motion-ease-out);
-  }
-
-  .metric-fill.warn {
-    background: linear-gradient(90deg, var(--color-warning), color-mix(in srgb, var(--color-warning) 75%, white 25%));
-  }
-
-  .metric-label {
-    font-size: 11px;
-    color: var(--color-text-tertiary);
-    white-space: nowrap;
-    flex-shrink: 0;
-  }
 
   .notice-bar {
     min-height: 50px;
@@ -774,8 +822,47 @@
     font-size: 11px;
   }
 
+  .demo-tag {
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--color-warning);
+    background: color-mix(in srgb, var(--color-warning) 14%, transparent);
+    padding: 1px 6px;
+    border-radius: var(--border-radius-sm);
+    margin-left: var(--spacing-xs);
+    vertical-align: middle;
+  }
+
   .notice-bar :global(.ui-btn) {
     margin-left: auto;
+  }
+
+  @media (max-width: 900px) {
+    .side-stack {
+      flex-direction: row;
+    }
+    .side-stack .stat-panel,
+    .side-stack .health-panel {
+      flex: 1;
+      min-width: 0;
+    }
+    .notice-bar {
+      flex-wrap: wrap;
+      min-height: auto;
+      padding: var(--spacing-sm);
+    }
+  }
+
+  @media (max-width: 700px) {
+    .home-page {
+      overflow-y: auto;
+    }
+    .quick-card {
+      padding: var(--spacing-md);
+    }
+    .quick-card strong {
+      font-size: var(--font-size);
+    }
   }
 
 </style>

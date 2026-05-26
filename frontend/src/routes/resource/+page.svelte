@@ -114,28 +114,35 @@
         // TTS Server 未运行，尝试前端直接读 metadata
         try {
           const { readTextFile, exists } = await import('@tauri-apps/plugin-fs');
-          const { join, appDataDir } = await import('@tauri-apps/api/path');
-          const { resolveResource } = await import('@tauri-apps/api/path');
+          const { join } = await import('@tauri-apps/api/path');
+          const { getOutputDir } = await import('$lib/api/tts');
 
-          const presetDir = 'E:\\Exploitation\\MaruAudio\\MaruAudio_V3\\output\\preset';
-          const metaPath = presetDir + '\\metadata.json';
+          let presetDir: string;
+          try {
+            const dirs = await getOutputDir();
+            presetDir = dirs.preset;
+          } catch {
+            const { appDataDir } = await import('@tauri-apps/api/path');
+            presetDir = await join(await appDataDir(), 'preset');
+          }
+          const metaPath = await join(presetDir, 'metadata.json');
 
           if (await exists(metaPath)) {
             const raw = await readTextFile(metaPath);
             const data = JSON.parse(raw) as Array<{ name: string; gender: string; language: string; display_tag: string; tags: string[]; is_premium: boolean; file_path: string; description: string; duration?: number }>;
-            voices = data.map(p => ({
+            voices = await Promise.all(data.map(async (p) => ({
               name: p.name,
               meta: `${p.language} · ${p.display_tag}`,
               tags: p.tags,
               pro: p.is_premium,
               uses: 0,
               tone: TONE_MAP[p.gender] ?? 'blue',
-              filePath: presetDir + '\\' + (p.file_path.includes('\\') || p.file_path.includes('/') ? p.file_path.split(/[/\\]/).pop()! : p.file_path),
+              filePath: await join(presetDir, p.file_path.includes('\\') || p.file_path.includes('/') ? p.file_path.split(/[/\\]/).pop()! : p.file_path),
               description: p.description,
               gender: p.gender,
               language: p.language,
               duration: p.duration,
-            }));
+            })));
           }
         } catch {
           // 读文件也失败
@@ -460,11 +467,31 @@
     flex: 1;
     min-height: 0;
     display: grid;
-    grid-template-columns: 200px minmax(0, 1fr) 300px;
+    grid-template-columns: clamp(180px, 20vw, 240px) minmax(0, 1fr) clamp(220px, 24vw, 300px);
     gap: var(--spacing-sm);
-    padding: 15px;
+    padding: clamp(8px, 1.2vw, 15px);
     background-color: var(--color-bg-container);
     overflow: hidden;
+  }
+
+  @media (max-width: 1000px) {
+    .library-page {
+      grid-template-columns: minmax(0, 1fr) clamp(200px, 24vw, 280px);
+    }
+    .library-sidebar {
+      display: none;
+    }
+  }
+
+  @media (max-width: 800px) {
+    .library-page {
+      grid-template-columns: 1fr;
+      overflow-y: auto;
+    }
+    .detail-panel {
+      max-height: 320px;
+      overflow-y: auto;
+    }
   }
 
   .library-sidebar,
@@ -639,6 +666,7 @@
     gap: var(--spacing-sm);
     align-items: center;
     flex-shrink: 0;
+    flex-wrap: wrap;
   }
 
   .search-box {
@@ -699,7 +727,7 @@
     min-height: 0;
     overflow: hidden;
     display: grid;
-    grid-template-columns: repeat(3, minmax(180px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
     gap: var(--spacing-md);
     align-content: start;
   }

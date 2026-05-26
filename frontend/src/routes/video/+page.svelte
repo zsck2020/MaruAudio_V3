@@ -136,11 +136,18 @@
     flex: 1;
     min-height: 0;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 300px;
+    grid-template-columns: minmax(0, 1fr) clamp(220px, 24vw, 300px);
     gap: var(--spacing-sm);
-    padding: 15px;
+    padding: clamp(8px, 1.2vw, 15px);
     background: var(--color-bg-container);
     overflow: hidden;
+  }
+
+  @media (max-width: 800px) {
+    .align-page {
+      grid-template-columns: 1fr;
+      overflow-y: auto;
+    }
   }
 
   button {
@@ -150,6 +157,7 @@
 
   .align-main {
     min-width: 0;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -159,7 +167,7 @@
   }
 
   .preview-area {
-    height: 260px;
+    height: clamp(160px, 26vw, 260px);
     display: grid;
     grid-template-columns: 1fr 88px;
     gap: var(--spacing-sm);
@@ -371,7 +379,9 @@
     border: 1px solid var(--color-border-secondary);
     border-radius: var(--border-radius-lg);
     padding: var(--spacing-md);
-    overflow: hidden;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
   }
 
   .property-panel header {
@@ -447,7 +457,7 @@
 
   .prop-group label {
     display: grid;
-    grid-template-columns: 82px 1fr;
+    grid-template-columns: 82px minmax(0, 1fr);
     align-items: center;
     gap: var(--spacing-sm);
     color: var(--color-text-secondary);
@@ -466,6 +476,9 @@
     background: var(--color-bg-base);
     color: var(--color-text);
     padding: 0 8px;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
   }
 
   .prop-group input[type='range'] {

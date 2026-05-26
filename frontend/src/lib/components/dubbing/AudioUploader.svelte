@@ -9,6 +9,14 @@
   let { onUpload }: Props = $props();
 
   let isDragging = $state(false);
+  let isRecording = $state(false);
+  let recordingDuration = $state(0);
+  let recordingInterval: ReturnType<typeof setInterval> | null = null;
+  let mediaRecorder: MediaRecorder | null = null;
+  let audioChunks: Blob[] = [];
+  let audioStream: MediaStream | null = null;
+
+  const MAX_RECORD_SECONDS = 30;
 
   function handleUpload() {
     const input = document.createElement('input');
@@ -69,8 +77,81 @@
     }
   }
 
-  function handleRecord() {
-    toast.info('录音功能将在后续版本开放');
+  async function handleRecord() {
+    if (isRecording) {
+      stopRecording();
+      return;
+    }
+
+    try {
+      const permResult = await navigator.permissions.query({ name: 'microphone' as PermissionName });
+      if (permResult.state === 'prompt') {
+        toast.info('首次录音需要授权麦克风访问，授权后会自动开始录制');
+      }
+    } catch {
+      // permissions API not available, proceed anyway
+    }
+
+    try {
+      audioStream = await navigator.mediaDevices.getUserMedia({
+        audio: { sampleRate: 24000, channelCount: 1, echoCancellation: true, noiseSuppression: true },
+      });
+    } catch (err) {
+      toast.warning('无法访问麦克风，请检查系统设置中的麦克风权限');
+      return;
+    }
+
+    audioChunks = [];
+    isRecording = true;
+    recordingDuration = 0;
+
+    const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+      ? 'audio/webm;codecs=opus'
+      : 'audio/webm';
+
+    mediaRecorder = new MediaRecorder(audioStream, { mimeType });
+
+    mediaRecorder.ondataavailable = (e) => {
+      if (e.data.size > 0) audioChunks.push(e.data);
+    };
+
+    mediaRecorder.onstop = () => {
+      const blob = new Blob(audioChunks, { type: mimeType });
+      const file = new File([blob], `record-${Date.now()}.webm`, { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      loadFile(file);
+      cleanupRecording();
+    };
+
+    mediaRecorder.start(250);
+
+    recordingInterval = setInterval(() => {
+      recordingDuration++;
+      if (recordingDuration >= MAX_RECORD_SECONDS) {
+        stopRecording();
+        toast.info(`已达到最大录制时长 ${MAX_RECORD_SECONDS} 秒`);
+      }
+    }, 1000);
+  }
+
+  function stopRecording() {
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+      mediaRecorder.stop();
+    }
+  }
+
+  function cleanupRecording() {
+    isRecording = false;
+    recordingDuration = 0;
+    if (recordingInterval) {
+      clearInterval(recordingInterval);
+      recordingInterval = null;
+    }
+    if (audioStream) {
+      audioStream.getTracks().forEach(t => t.stop());
+      audioStream = null;
+    }
+    mediaRecorder = null;
   }
 </script>
 
@@ -96,11 +177,18 @@
   <div class="or-divider"><span>或</span></div>
 
   <!-- 录制按钮 -->
-  <button type="button" class="record-btn" onclick={handleRecord} title="录音功能将在后续版本开放">
-    <Icon name="microphone" size={16} color="var(--color-text-disabled)" />
-    <span>录制样音</span>
-    <span class="coming-soon-tag">待开放</span>
+  <button type="button" class="record-btn" class:recording={isRecording} onclick={handleRecord} title={isRecording ? '点击停止录制' : '点击开始录制样音'}>
+    <Icon name={isRecording ? 'pause-fill' : 'microphone'} size={16} color={isRecording ? 'var(--color-error)' : 'var(--color-text-secondary)'} />
+    <span>{isRecording ? `录制中 ${recordingDuration}s / ${MAX_RECORD_SECONDS}s` : '录制样音'}</span>
+    {#if isRecording}
+      <span class="rec-dot"></span>
+    {/if}
   </button>
+  {#if isRecording}
+    <div class="rec-progress">
+      <div class="rec-fill" style="width:{(recordingDuration / MAX_RECORD_SECONDS) * 100}%"></div>
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -201,11 +289,43 @@
     color: var(--color-text-tertiary);
   }
 
-  .coming-soon-tag {
-    font-size: 10px;
-    padding: 1px 5px;
-    border-radius: var(--border-radius-sm);
-    background-color: color-mix(in srgb, var(--color-warning) 18%, transparent);
-    color: var(--color-warning);
+  .record-btn.recording {
+    border-color: var(--color-error);
+    color: var(--color-error);
+    background: color-mix(in srgb, var(--color-error) 8%, var(--color-bg-base));
+    animation: rec-pulse 1.5s ease-in-out infinite;
+  }
+
+  .rec-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--color-error);
+    animation: rec-blink 1s ease-in-out infinite;
+    flex-shrink: 0;
+  }
+
+  .rec-progress {
+    height: 3px;
+    border-radius: 2px;
+    background: var(--color-border);
+    overflow: hidden;
+  }
+
+  .rec-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--color-error), color-mix(in srgb, var(--color-error) 70%, var(--color-warning)));
+    border-radius: 2px;
+    transition: width 0.9s linear;
+  }
+
+  @keyframes rec-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  @keyframes rec-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-error) 30%, transparent); }
+    50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-error) 12%, transparent); }
   }
 </style>

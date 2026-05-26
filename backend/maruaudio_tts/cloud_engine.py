@@ -12,9 +12,11 @@
 
 from __future__ import annotations
 
+import base64
 import json
 import logging
 import os
+from pathlib import Path
 from typing import Any, AsyncIterator, Awaitable, Callable, Optional
 
 import httpx
@@ -100,6 +102,19 @@ async def check_availability() -> dict:
         }
 
 
+def _encode_audio_file(path: Optional[str]) -> tuple[Optional[str], str]:
+    """读取本地音频文件并 base64 编码，返回 (base64_str, ext)"""
+    if not path:
+        return None, "wav"
+    p = Path(path)
+    if not p.is_file():
+        logger.warning("音频文件不存在，无法编码转发: %s", path)
+        return None, "wav"
+    ext = p.suffix.lstrip(".") or "wav"
+    data = p.read_bytes()
+    return base64.b64encode(data).decode("ascii"), ext
+
+
 def _build_remote_payload(
     text: str,
     speaker_audio_path: Optional[str],
@@ -110,16 +125,22 @@ def _build_remote_payload(
     emo_alpha: float,
     temperature: float,
     top_p: float,
+    max_mel_tokens: int = 1500,
 ) -> dict[str, Any]:
     """构造转发到远程的 SynthesizeRequest payload
 
     远程实例运行的是本项目同款 backend.maruaudio_tts.server，所以请求体
     与本地后端 `/synthesize/stream` 一致：engine 强制为 "emotion"。
+
+    参考音频通过 base64 传输，避免跨机器文件路径不可达问题。
     """
-    return {
+    spk_b64, spk_ext = _encode_audio_file(speaker_audio_path)
+    emo_b64, emo_ext = _encode_audio_file(emotion_audio_path) if emotion_audio_path else (None, "wav")
+
+    payload: dict[str, Any] = {
         "engine": "emotion",
         "text": text,
-        "speaker_audio_path": speaker_audio_path or "",
+        "speaker_audio_path": "__cloud_base64__",
         "inference_mode": "normal",
         "interval_silence": 200,
         "max_text_tokens_per_segment": 120,
@@ -127,15 +148,21 @@ def _build_remote_payload(
         "emotion_method": emotion_method,
         "emotion_vector": emotion_vector,
         "emotion_text": emotion_text,
-        "emotion_audio_path": emotion_audio_path,
+        "emotion_audio_path": None,
         "emo_alpha": emo_alpha,
         "temperature": temperature,
         "top_p": top_p,
         "top_k": 30,
         "num_beams": 3,
         "repetition_penalty": 10.0,
-        "max_mel_tokens": 600,
+        "max_mel_tokens": max_mel_tokens,
     }
+
+    if spk_b64:
+        payload["speaker_audio_base64"] = spk_b64
+        payload["speaker_audio_ext"] = spk_ext
+
+    return payload
 
 
 async def synthesize(
@@ -148,6 +175,7 @@ async def synthesize(
     emo_alpha: float = 1.0,
     temperature: float = 1.0,
     top_p: float = 0.8,
+    max_mel_tokens: int = 1500,
     progress: Optional[ProgressCallback] = None,
 ) -> str:
     """同步式云端推理 — 内部走 SSE，收到 complete 事件后返回输出路径"""
@@ -162,6 +190,7 @@ async def synthesize(
         emo_alpha=emo_alpha,
         temperature=temperature,
         top_p=top_p,
+        max_mel_tokens=max_mel_tokens,
         progress=progress,
     ):
         if evt.get("type") == "complete":
@@ -184,6 +213,7 @@ async def synthesize_stream(
     emo_alpha: float = 1.0,
     temperature: float = 1.0,
     top_p: float = 0.8,
+    max_mel_tokens: int = 1500,
     progress: Optional[ProgressCallback] = None,
 ) -> AsyncIterator[dict]:
     """流式云端推理 — 转发到远程 IndexTTS 2.0 实例的 SSE 接口
@@ -209,6 +239,7 @@ async def synthesize_stream(
         emo_alpha=emo_alpha,
         temperature=temperature,
         top_p=top_p,
+        max_mel_tokens=max_mel_tokens,
     )
 
     url = f"{base}/synthesize/stream"

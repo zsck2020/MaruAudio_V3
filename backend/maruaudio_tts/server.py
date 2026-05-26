@@ -13,9 +13,45 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
 
+import base64
+import re
+import tempfile
+from typing import Optional
+
 from .engine_manager import EngineManager
 from .inference import synthesize_sync, synthesize_stream, _OUTPUT_DIR, _OUTPUT_AUDIO_DIR, _OUTPUT_VIDEO_DIR, _OUTPUT_SUBTITLE_DIR, _OUTPUT_REF_AUDIO_DIR, _OUTPUT_EMO_AUDIO_DIR, _OUTPUT_PRESET_DIR
 from . import cloud_engine
+
+
+_cloud_tmp_files: list[str] = []
+
+
+def _decode_base64_audio(req: "SynthesizeRequest") -> "SynthesizeRequest":
+    """如果请求包含 base64 音频，解码写入临时文件并替换路径"""
+    if not req.speaker_audio_base64:
+        return req
+    ext = req.speaker_audio_ext or "wav"
+    audio_bytes = base64.b64decode(req.speaker_audio_base64)
+    tmp = tempfile.NamedTemporaryFile(
+        suffix=f".{ext}", prefix="cloud_ref_", dir=str(_OUTPUT_REF_AUDIO_DIR), delete=False
+    )
+    tmp.write(audio_bytes)
+    tmp.close()
+    req.speaker_audio_path = tmp.name
+    req.speaker_audio_base64 = None
+    _cloud_tmp_files.append(tmp.name)
+    logger.info("云端转发音频已解码到: %s (%d bytes)", tmp.name, len(audio_bytes))
+    return req
+
+
+def _cleanup_cloud_tmp() -> None:
+    """清理云端转发产生的临时音频文件"""
+    while _cloud_tmp_files:
+        path = _cloud_tmp_files.pop()
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
 from .models import (
     SynthesizeRequest,
     HealthResponse,
@@ -79,6 +115,7 @@ def create_app() -> FastAPI:
     @app.post("/synthesize")
     async def synthesize(req: SynthesizeRequest):
         """同步推理 — 返回输出路径"""
+        req = _decode_base64_audio(req)
         try:
             if req.engine == "cloud":
                 output_path = await cloud_engine.synthesize(
@@ -91,18 +128,30 @@ def create_app() -> FastAPI:
                     emo_alpha=req.emo_alpha,
                     temperature=req.temperature,
                     top_p=req.top_p,
+                    max_mel_tokens=req.max_mel_tokens,
                 )
             else:
                 output_path = await synthesize_sync(_mgr, req)
             return {"output_path": output_path}
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
+        finally:
+            _cleanup_cloud_tmp()
 
     @app.post("/synthesize/stream")
     async def synthesize_sse(req: SynthesizeRequest):
         """SSE 流式推理 — 推送进度事件"""
+        req = _decode_base64_audio(req)
+
+        async def _stream_and_cleanup(gen):
+            try:
+                async for chunk in gen:
+                    yield chunk
+            finally:
+                _cleanup_cloud_tmp()
+
         if req.engine == "cloud":
-            return EventSourceResponse(cloud_engine.synthesize_stream(
+            return EventSourceResponse(_stream_and_cleanup(cloud_engine.synthesize_stream(
                 text=req.text,
                 speaker_audio_path=req.speaker_audio_path,
                 emotion_method=req.emotion_method,
@@ -112,8 +161,9 @@ def create_app() -> FastAPI:
                 emo_alpha=req.emo_alpha,
                 temperature=req.temperature,
                 top_p=req.top_p,
-            ))
-        return EventSourceResponse(synthesize_stream(_mgr, req))
+                max_mel_tokens=req.max_mel_tokens,
+            )))
+        return EventSourceResponse(_stream_and_cleanup(synthesize_stream(_mgr, req)))
 
     @app.post("/engine/{engine_name}/preload")
     async def preload_engine(engine_name: str):
@@ -372,13 +422,22 @@ def create_app() -> FastAPI:
             default_factory=lambda: ["平静", "开心", "悲伤", "愤怒", "紧张", "惊讶", "冷漠", "坚定", "害怕"],
         )
         strengths: list[str] = Field(default_factory=lambda: ["微弱", "中等", "强烈"])
+        custom_prompt: Optional[str] = Field(default=None, description="自定义 system prompt，传入后覆盖内置模板。变量占位符：{roles} {emotions} {strengths} {text}")
 
     @app.post("/split-lines")
     async def split_lines(req: SplitLinesRequest):
         """LLM 台词拆分 — 将小说/剧本文本拆分为角色台词"""
         import httpx
 
-        prompt = f"""你的任务是将给定的文本内容划分为角色台词和旁白，输出结构化 JSON 数组。
+        if req.custom_prompt:
+            prompt = req.custom_prompt.format(
+                roles=', '.join(req.roles) if req.roles else '（未提供，请自行识别）',
+                emotions=', '.join(req.emotions),
+                strengths=', '.join(req.strengths),
+                text=req.text,
+            )
+        else:
+            prompt = f"""你的任务是将给定的文本内容划分为角色台词和旁白，输出结构化 JSON 数组。
 
 规则：
 1. 识别所有角色对话（引号/破折号/冒号标记），非对话内容标记为"旁白"。
@@ -421,7 +480,6 @@ def create_app() -> FastAPI:
                 content = data["choices"][0]["message"]["content"]
 
                 # 提取 JSON 数组（可能包含 markdown 代码块）
-                import re
                 json_match = re.search(r'\[[\s\S]*\]', content)
                 if not json_match:
                     raise HTTPException(status_code=422, detail="LLM 未返回有效 JSON 数组")
@@ -437,6 +495,49 @@ def create_app() -> FastAPI:
             raise HTTPException(status_code=422, detail="LLM 返回内容无法解析为 JSON")
         except KeyError as e:
             raise HTTPException(status_code=422, detail=f"LLM 返回格式异常: {e}")
+
+    # ==================== 术语词汇表 ====================
+
+    @app.get("/glossary")
+    async def get_glossary():
+        """读取术语词汇表"""
+        glossary_path = Path(os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+            "checkpoints", "v20", "glossary.yaml"
+        ))
+        if not glossary_path.is_file():
+            return {"entries": [], "path": str(glossary_path)}
+        try:
+            import yaml
+            with open(glossary_path, "r", encoding="utf-8") as f:
+                data = yaml.safe_load(f)
+            entries = []
+            if isinstance(data, dict):
+                for k, v in data.items():
+                    entries.append({"term": k, "replacement": v})
+            return {"entries": entries, "path": str(glossary_path)}
+        except Exception as e:
+            return {"entries": [], "path": str(glossary_path), "error": str(e)}
+
+    class GlossaryUpdateRequest(BaseModel):
+        entries: list[dict] = Field(..., description="[{term: str, replacement: str}, ...]")
+
+    @app.post("/glossary")
+    async def update_glossary(req: GlossaryUpdateRequest):
+        """更新术语词汇表"""
+        glossary_path = Path(os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+            "checkpoints", "v20", "glossary.yaml"
+        ))
+        glossary_path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            import yaml
+            data = {e["term"]: e["replacement"] for e in req.entries if e.get("term")}
+            with open(glossary_path, "w", encoding="utf-8") as f:
+                yaml.dump(data, f, allow_unicode=True, default_flow_style=False)
+            return {"status": "ok", "count": len(data), "message": "词汇表已保存，重启引擎后生效"}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"保存失败: {e}")
 
     # ==================== 字幕翻译 ====================
 

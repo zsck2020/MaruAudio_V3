@@ -19,6 +19,10 @@ class SynthesizeRequest(BaseModel):
     # 说话人参考音频路径（本地绝对路径）
     speaker_audio_path: str
 
+    # 云端转发专用：base64 编码的参考音频（优先于 speaker_audio_path）
+    speaker_audio_base64: Optional[str] = None
+    speaker_audio_ext: Optional[str] = Field(default="wav", description="base64 音频的原始格式后缀")
+
     # ---- v1.5 参数 ----
     # 推理模式: "normal" (逐句) | "batch" (桶化批处理)
     inference_mode: str = Field(default="batch", pattern=r"^(normal|batch)$")

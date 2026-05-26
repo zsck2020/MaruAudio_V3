@@ -182,19 +182,15 @@
 
 <style>
   .dev-banner {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    z-index: 10000;
+    width: 100%;
     text-align: center;
-    padding: 4px 12px;
-    font-size: 12px;
+    padding: 3px 12px;
+    font-size: 11px;
     color: #fff;
     background: linear-gradient(90deg, var(--color-warning), color-mix(in srgb, var(--color-warning) 70%, var(--color-error)));
-    letter-spacing: 1px;
+    letter-spacing: 0.5px;
     pointer-events: none;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    flex-shrink: 0;
   }
 
   .desktop-only-shell {
@@ -281,6 +277,7 @@
     display: flex;
     flex-direction: column;
     min-height: 0;
+    min-width: 0;
   }
 
   :global(.content > .profile-page),
@@ -291,7 +288,7 @@
   :global(.content > .align-page),
   :global(.content > .about-page),
   :global(.content > .settings-page) {
-    padding: 15px;
+    padding: clamp(8px, 1.2vw, 15px);
   }
 
   @media (max-width: 768px) {

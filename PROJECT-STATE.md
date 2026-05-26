@@ -35,13 +35,28 @@
 - **2026-05-20 01:37** 接力恢复 sessionId 170503-0c2789f3 · 核对上轮审查报告待修项 → 发现 3 项已被前序会话修好（models.py cloud pattern / SSE Error break / ParamAccordion 默认值）· 主魂一口气落盘剩余 4 项修复：① `tts.ts::transcribeViaInvoke` 透传 segmentCurrent/segmentTotal 字段到 StreamProgressEvent ② `services/tts/mod.rs` 给 current_task_id 字段与方法加 `#[allow(dead_code)]` 消除 2 个 Rust warning ③ 删除 6 个孤儿文件（lib/subtitle/{mock-provider,tauri-provider,index}.ts + mock-provider.test.ts + components/dubbing/{ParamTabs,TabReferenceAudio}.svelte）④ 修 srt.test.ts 改为直接 import `$lib/subtitle/srt` · 验证结果：svelte-check 0/0 · cargo check 0 错 **0 warning** · vitest 4 文件 57 测试全过 · npm audit 仅剩 3 low（cookie 依赖需 breaking 降级 · 不值得）
 - **2026-05-20 01:44** 猫总要求"重启桌面端 + 音频播放器+波形重新设计" → 新建 2 文件 + 改造 2 组件：① 新 `lib/utils/waveform.ts`（Web Audio API 解码 + RMS 块采样 + 内存缓存）② 新 `lib/components/ui/WaveformView.svelte`（Canvas 绘制条形波形 + 已播/未播双色 + 播放指针 + 点击/拖拽 seek + 加载 skeleton + ResizeObserver 自适应宽度 + DPR 高清）③ 改造 `PlayerBar.svelte` 中间区域：原 seek slider 替换为 WaveformView（36px 高 · 保留生成中进度条 + 时间标签 · 清除旧 CSS）④ 改造 `AudioPlayer.svelte` 进度区域：原 seek-input + seek-track 替换为 WaveformView（32px 高 · 清除 6 块废弃 CSS）· 验证：svelte-check 0/0 · vitest 4/57 全过 · 桌面端重启 PID 变更
 - **2026-05-20 10:19** 猫总指令「完成未完成的工作」→ 主 agent 一口气落盘 4 个 commit：① `22fd4b6 feat(ui): 波形可视化组件 + 播放器重制`（4 文件 +361/-106）② `9ac7cba refactor: 清理孤儿文件 + Rust warning 消除 + 测试修复`（9 文件 -705）③ `e0e020d feat(pages): 全页面 ui/ 组件迁移 + 导出命令 + 角色 store`（18 文件 +2297/-888）④ `c509aeb feat(backend): 字幕翻译/优化接口 + 修复 FastAPI body 解析 bug`（6 文件 +330/-33）· 具体：6 个页面切 Button/Switch/Slider 原子组件 · 后端新增 /subtitle/translate + /subtitle/optimize-timing · 修复 `from __future__ import annotations` 导致 FastAPI 内部 Pydantic Model 被当 query 参数的 422 bug（同时修好了原有 /llm-models /split-lines）· 后端全链路 API 验证通过 · svelte-check 0/0
+- **2026-05-20 11:30** 猫总指令「全面优化」→ 完成竞品分析（Unitale + SonicVale）+ IndexTTS 1.5/2.0 引擎能力审计 + 两批优化共 11 项：
+  - **第一批（核心缺口）**：① 台词情绪驱动合成（emotion→emotion_text 映射）② 台词行级编辑（角色/情绪/强度下拉）③ 添加/删除台词按钮 ④ 删除角色后 auto-save ⑤ 配音页取消生成按钮 ⑥ 云端音频 base64 编码传输修复
+  - **第二批（性能与体验）**：⑦ 加速开关五件套（FP16/CUDA_KERNEL/DEEPSPEED/ACCEL/TORCH_COMPILE env 控制）⑧ 角色从音库选预置音色 ⑨ 批量失败重试按钮 ⑩ SSE 段级进度+duration+RTF 填充 ⑪ 分页从 6 改 15 + 省略式页码
+  - **第三批（产品力增强）**：⑫ max_mel_tokens v2.0 自适应 1500 ⑬ cloud health 实际 HTTP ping ⑭ 随机情感向量按钮 ⑮ 自定义 LLM 拆分 Prompt 模板 ⑯ 术语词汇表 glossary CRUD API
+  - svelte-check 0/0 · 改动文件：`project/+page.svelte`、`roles.svelte.ts`、`LeftBottomBar.svelte`、`cloud_engine.py`、`models.py`、`server.py`、`engine_manager.py`、`inference.py`、`tts.ts`
+- **2026-05-26 11:30** 接力恢复 sessionId `135721-e014239b` · 猫总令「全量提交一次 git」→ 主 agent 把跨多日累积的 29 文件 +1275/-418 行未提交改动统一打包：
+  - **新增**：①`lib/components/ui/MiniPlayer.svelte` 通用音频迷你播放器（带波形+seek+时间）② `.cursor/rules/component-spec.mdc` UI 组件规范文档（AI 强制遵守）
+  - **后端 5 文件**：server / models / inference / engine_manager / cloud_engine — 第三批产品力优化、422 修复、加速开关、max_mel_tokens、cloud HTTP ping、glossary CRUD、自定义 prompt
+  - **前端框架级 4 组件**：Modal/Slider 设计微调，MenuItem/Sidebar 体验优化
+  - **配音区 4 组件**：AudioUploader（录音占位）/ LeftBottomBar（取消按钮）/ TextEditor / TextToolbar
+  - **9 个页面**：+layout / +page（首页）/ dubbing / project（角色，含 440 行大改）/ setting / copywriting / cover / resource / video
+  - **store / API / 样式**：roles.svelte.ts / tts.ts / app.css 配套调整
+  - **依赖**：package.json 新增 pinyin-pro
+  - 验证：svelte-check 0/0 · 安全扫描无密钥泄露
 
 ## PChat 会话关联
 
-- **本项目当前 PChat sessionId**：`170503-0c2789f3`（自 2026-05-18 20:57 起 · 猫总指定恢复）
+- **本项目当前 PChat sessionId**：`135721-e014239b`（自 2026-05-26 11:26 起 · 猫总指定恢复）
 - **历史 sessionId（接力链）**：
   - `180017-c903de69`（2026-05-14 至 2026-05-16 12:50 · 已退役）
   - `124734-70193510`（2026-05-16 12:51 至 2026-05-18 20:57 · 已退役）
+  - `170503-0c2789f3`（2026-05-18 20:57 至 2026-05-26 11:26 · 已退役）
 
 ## 在跑的后台任务
 

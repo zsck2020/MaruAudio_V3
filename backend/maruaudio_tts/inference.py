@@ -46,20 +46,41 @@ async def synthesize_stream(
     _ensure_output_dir()
     output_path = str(_OUTPUT_AUDIO_DIR / f"{uuid.uuid4().hex}.wav")
 
-    yield f"data: {ProgressEvent(progress=0.05, message='正在预处理文本…').model_dump_json()}\n\n"
-    await asyncio.sleep(0)  # 让出事件循环
+    text_len = len(req.text)
+    est_segments = max(1, text_len // (req.max_text_tokens_per_segment * 2))
+    engine_label = "轻量引擎" if req.engine == "lightweight" else "情感引擎"
+
+    yield f"data: {ProgressEvent(progress=0.05, message=f'正在预处理文本（约 {est_segments} 段）…', segment_total=est_segments).model_dump_json()}\n\n"
+    await asyncio.sleep(0)
+
+    yield f"data: {ProgressEvent(progress=0.1, message=f'{engine_label}推理中…', segment_current=0, segment_total=est_segments).model_dump_json()}\n\n"
+    await asyncio.sleep(0)
 
     try:
+        t0 = time.time()
         if req.engine == "lightweight":
             result = await _run_v15(engine, req, output_path)
         else:
             result = await _run_v20(engine, req, output_path)
+        elapsed = time.time() - t0
 
         if result is None:
             yield f"data: {ErrorEvent(message='推理失败，未生成音频').model_dump_json()}\n\n"
             return
 
-        yield f"data: {CompleteEvent(output_path=result).model_dump_json()}\n\n"
+        duration_s = 0.0
+        try:
+            import wave
+            with wave.open(result, 'rb') as wf:
+                duration_s = wf.getnframes() / wf.getframerate()
+        except Exception:
+            pass
+        rtf = elapsed / duration_s if duration_s > 0 else 0.0
+
+        yield f"data: {ProgressEvent(progress=0.95, message='合成完成，正在保存…', segment_current=est_segments, segment_total=est_segments).model_dump_json()}\n\n"
+        await asyncio.sleep(0)
+
+        yield f"data: {CompleteEvent(output_path=result, duration_seconds=round(duration_s, 2), rtf=round(rtf, 3)).model_dump_json()}\n\n"
 
     except Exception as e:
         yield f"data: {ErrorEvent(message=str(e)).model_dump_json()}\n\n"
@@ -173,6 +194,8 @@ def _v20_infer(engine, req: SynthesizeRequest, output_path: str) -> str | None:
     elif req.emotion_method == "audio" and req.emotion_audio_path:
         emo_audio_prompt = req.emotion_audio_path
 
+    mel_tokens = req.max_mel_tokens if req.max_mel_tokens > 600 else 1500
+
     return engine.infer(
         spk_audio_prompt=req.speaker_audio_path,
         text=req.text,
@@ -190,5 +213,5 @@ def _v20_infer(engine, req: SynthesizeRequest, output_path: str) -> str | None:
         temperature=req.temperature,
         num_beams=req.num_beams,
         repetition_penalty=req.repetition_penalty,
-        max_mel_tokens=req.max_mel_tokens,
+        max_mel_tokens=mel_tokens,
     )

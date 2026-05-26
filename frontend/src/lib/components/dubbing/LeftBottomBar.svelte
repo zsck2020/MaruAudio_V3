@@ -103,18 +103,25 @@
     </span>
   </div>
 
-  <button
-    type="button"
-    class="generate-btn"
-    onclick={onGenerate}
-    disabled={dubbing.isGenerating || dubbing.wordCount === 0}
-  >
+  <div class="gen-group">
+    <button
+      type="button"
+      class="generate-btn"
+      onclick={onGenerate}
+      disabled={dubbing.isGenerating || dubbing.wordCount === 0}
+    >
+      {#if dubbing.isGenerating}
+        生成中...
+      {:else}
+        生成配音
+      {/if}
+    </button>
     {#if dubbing.isGenerating}
-      生成中...
-    {:else}
-      生成配音
+      <button type="button" class="cancel-btn" onclick={() => dubbing.cancelGeneration()} title="取消生成">
+        <Icon name="close" size={12} color="currentColor" />
+      </button>
     {/if}
-  </button>
+  </div>
 </div>
 
 <style>
@@ -280,4 +287,8 @@
     opacity: 0.5;
     cursor: not-allowed;
   }
+
+  .gen-group { display:flex; align-items:center; gap:4px; }
+  .cancel-btn { width:var(--control-height-sm); height:var(--control-height-sm); display:flex; align-items:center; justify-content:center; border:1px solid var(--color-error); border-radius:var(--border-radius); background:transparent; color:var(--color-error); cursor:pointer; transition:background .15s; flex-shrink:0; }
+  .cancel-btn:hover { background:color-mix(in srgb, var(--color-error) 12%, transparent); }
 </style>

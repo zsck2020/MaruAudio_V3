@@ -64,7 +64,7 @@
 
 <style>
   .sidebar {
-    width: 70px;
+    width: clamp(52px, 5.5vw, 70px);
     background-color: var(--color-bg-base);
     border-right: 1px solid var(--color-border-secondary);
     display: flex;

@@ -134,7 +134,7 @@
   --control-height-xs: 28px;
   --control-height-sm: 36px;
   --control-height: 40px;
-  --control-height-md: 40px;  /* 兼容旧名 */
+  --control-height-md: 40px;  /* = --control-height · 兼容旧名 · 下版移除 */
   --control-height-lg: 48px;
   --control-height-xl: 56px;
 
@@ -302,5 +302,15 @@ h1, h2, h3, h4, h5, h6 {
     animation-iteration-count: 1 !important;
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+@media (max-width: 600px) {
+  :root {
+    --font-size: 14px;
+    --font-size-sm: 12px;
+    --font-size-lg: 15px;
+    --spacing-md: 12px;
+    --spacing-lg: 16px;
   }
 }

@@ -104,14 +104,17 @@
   ></audio>
 {/if}
 
-<div class="player">
+<div class="player" class:playing={dubbing.isPlaying} class:has-audio={hasAudio} class:generating={dubbing.isGenerating}>
+  <div class="player-glow" aria-hidden="true"></div>
+
   <!-- 左侧：播放控件 -->
   <div class="transport">
     <button type="button" class="transport-btn" disabled={!transportEnabled} onclick={skipBackward} aria-label="后退 5 秒">
       <Icon name="ant-design:step-backward-outlined" size={14} color="currentColor" />
     </button>
     <button type="button" class="play-btn" disabled={!transportEnabled} onclick={togglePlay} aria-label={dubbing.isPlaying ? '暂停' : '播放'}>
-      <Icon name={dubbing.isPlaying ? 'pause-fill' : 'play-fill'} size={20} color="currentColor" />
+      <span class="play-btn-ring" aria-hidden="true"></span>
+      <Icon name={dubbing.isPlaying ? 'pause-fill' : 'play-fill'} size={20} color="#fff" />
     </button>
     <button type="button" class="transport-btn" disabled={!transportEnabled} onclick={skipForward} aria-label="前进 5 秒">
       <Icon name="ant-design:step-forward-outlined" size={14} color="currentColor" />
@@ -177,17 +180,56 @@
 
 <style>
   .player {
+    position: relative;
     display: flex;
     align-items: center;
     gap: var(--spacing-md);
     padding: var(--spacing-sm) var(--spacing-lg);
     min-height: 84px;
-    background-color: var(--color-bg-elevated);
-    border-radius: var(--border-radius);
+    background:
+      radial-gradient(circle at 92% -30%, color-mix(in srgb, var(--color-primary) 0%, transparent), transparent 55%),
+      linear-gradient(180deg, color-mix(in srgb, var(--color-bg-elevated) 96%, transparent), var(--color-bg-base));
+    border: 1px solid var(--color-border-secondary);
+    border-radius: var(--border-radius-lg);
+    overflow: visible;
+    transition:
+      border-color var(--transition-duration) var(--transition-timing),
+      box-shadow var(--transition-duration) var(--transition-timing),
+      background 0.45s ease;
+  }
+
+  .player.has-audio:hover,
+  .player.playing {
+    border-color: color-mix(in srgb, var(--color-primary) 35%, var(--color-border));
+    box-shadow:
+      0 6px 22px color-mix(in srgb, var(--color-primary) 12%, transparent),
+      inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  }
+
+  .player-glow {
+    position: absolute;
+    inset: 0;
+    border-radius: var(--border-radius-lg);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.45s ease, background 0.45s ease;
+    background: radial-gradient(circle at 92% -30%, color-mix(in srgb, var(--color-primary) 25%, transparent), transparent 55%);
+  }
+
+  .player.playing .player-glow,
+  .player.has-audio:hover .player-glow {
+    opacity: 1;
+  }
+
+  .player.generating .player-glow {
+    opacity: 1;
+    background: radial-gradient(circle at 92% -30%, color-mix(in srgb, var(--color-warning) 25%, transparent), transparent 55%);
   }
 
   /* 播放控件 */
   .transport {
+    position: relative;
+    z-index: 1;
     display: flex;
     align-items: center;
     gap: var(--spacing-xs);
@@ -205,13 +247,20 @@
     border-radius: var(--border-radius);
     cursor: pointer;
     color: var(--color-text-secondary);
-    transition: color var(--motion-duration-mid) var(--motion-ease-base),
-      background-color var(--motion-duration-mid) var(--motion-ease-base);
+    transition:
+      color var(--motion-duration-mid) var(--motion-ease-base),
+      background-color var(--motion-duration-mid) var(--motion-ease-base),
+      transform 0.15s var(--motion-ease-base);
   }
 
   .transport-btn:hover:not(:disabled) {
     background-color: var(--color-hover-bg);
     color: var(--color-text);
+    transform: scale(1.08);
+  }
+
+  .transport-btn:active:not(:disabled) {
+    transform: scale(0.95);
   }
 
   .transport-btn:disabled {
@@ -220,48 +269,106 @@
   }
 
   .play-btn {
-    width: var(--control-height-sm);
-    height: var(--control-height-sm);
+    position: relative;
+    width: var(--control-height);
+    height: var(--control-height);
     display: flex;
     align-items: center;
     justify-content: center;
-    background: transparent;
-    border: 1px solid var(--color-border);
+    border: none;
     border-radius: 50%;
     cursor: pointer;
-    color: var(--color-primary);
-    transition: color var(--motion-duration-mid) var(--motion-ease-base),
-      border-color var(--motion-duration-mid) var(--motion-ease-base),
-      background-color var(--motion-duration-mid) var(--motion-ease-base);
+    background:
+      radial-gradient(circle at 30% 30%, color-mix(in srgb, var(--color-primary) 80%, white 20%), var(--color-primary) 60%, var(--color-primary-active));
+    box-shadow:
+      0 4px 14px color-mix(in srgb, var(--color-primary) 35%, transparent),
+      inset 0 1px 0 rgba(255, 255, 255, 0.25);
+    transition:
+      transform 0.2s var(--motion-ease-base),
+      box-shadow 0.2s var(--motion-ease-base);
   }
 
   .play-btn:hover:not(:disabled) {
-    border-color: var(--color-primary);
-    background-color: color-mix(in srgb, var(--color-primary) 10%, transparent);
+    transform: scale(1.08);
+    box-shadow:
+      0 6px 20px color-mix(in srgb, var(--color-primary) 50%, transparent),
+      inset 0 1px 0 rgba(255, 255, 255, 0.32);
+  }
+
+  .play-btn:active:not(:disabled) {
+    transform: scale(0.96);
   }
 
   .play-btn:disabled {
-    color: var(--color-text-disabled);
-    border-color: var(--color-border-secondary);
+    background:
+      radial-gradient(circle at 30% 30%, color-mix(in srgb, var(--color-text-disabled) 70%, white 5%), var(--color-text-disabled));
+    box-shadow: none;
     cursor: not-allowed;
+    opacity: 0.6;
+  }
+
+  .play-btn-ring {
+    position: absolute;
+    inset: -5px;
+    border-radius: 50%;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 40%, transparent);
+    opacity: 0;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    pointer-events: none;
+  }
+
+  .play-btn:hover:not(:disabled) .play-btn-ring,
+  .player.playing .play-btn:not(:disabled) .play-btn-ring {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+
+  .player.playing .play-btn-ring {
+    animation: ring-pulse 1.8s ease-in-out infinite;
+  }
+
+  @keyframes ring-pulse {
+    0%, 100% { transform: scale(1.08); opacity: 0.7; }
+    50% { transform: scale(1.18); opacity: 0.2; }
   }
 
   /* 进度区 */
   .progress-area {
+    position: relative;
+    z-index: 1;
     flex: 1;
+    height: 48px;
     display: flex;
     align-items: center;
     gap: var(--spacing-sm);
     min-width: 0;
+    padding: 0 var(--spacing-sm);
+    border-radius: var(--border-radius);
+    background: color-mix(in srgb, var(--color-bg-base) 65%, transparent);
+    border: 1px solid var(--color-border-secondary);
+    transition: border-color var(--motion-duration-mid) var(--motion-ease-base);
+    box-sizing: border-box;
+  }
+
+  .player.playing .progress-area {
+    border-color: color-mix(in srgb, var(--color-primary) 25%, var(--color-border-secondary));
   }
 
   .time-label {
-    font-size: 12px;
+    font-size: 11px;
     color: var(--color-text-tertiary);
     font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+    letter-spacing: 0.3px;
     flex-shrink: 0;
     min-width: 38px;
     text-align: center;
+    transition: color var(--motion-duration-mid) var(--motion-ease-base);
+  }
+
+  .player.playing .time-label:first-child {
+    color: var(--color-primary);
+    font-weight: 500;
   }
 
   .waveform-empty-state {
@@ -317,23 +424,36 @@
 
   .gen-track {
     flex: 1;
-    height: 4px;
-    background-color: rgba(255, 255, 255, 0.1);
-    border-radius: 2px;
+    height: 6px;
+    background-color: color-mix(in srgb, var(--color-border) 50%, transparent);
+    border-radius: 3px;
     overflow: hidden;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2);
   }
 
   .gen-fill {
     height: 100%;
-    background-color: var(--color-primary);
-    border-radius: 2px;
+    background: linear-gradient(90deg,
+      var(--color-warning),
+      color-mix(in srgb, var(--color-warning) 60%, var(--color-primary) 40%),
+      var(--color-primary));
+    background-size: 200% 100%;
+    border-radius: 3px;
     transition: width 0.3s ease;
+    animation: gen-shimmer 2.5s ease-in-out infinite;
+    box-shadow: 0 0 8px color-mix(in srgb, var(--color-warning) 40%, transparent);
+  }
+
+  @keyframes gen-shimmer {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
   }
 
   .gen-pct {
     font-size: 12px;
-    color: var(--color-text-tertiary);
+    color: var(--color-warning);
     font-variant-numeric: tabular-nums;
+    font-weight: 500;
     flex-shrink: 0;
     min-width: 32px;
     text-align: right;
@@ -341,30 +461,45 @@
 
   /* 操作按钮 */
   .actions {
+    position: relative;
+    z-index: 1;
+    height: 48px;
     display: flex;
     align-items: center;
-    gap: var(--spacing-xs);
+    gap: 4px;
     flex-shrink: 0;
+    padding: 0 6px;
+    border-radius: var(--border-radius);
+    background: color-mix(in srgb, var(--color-bg-base) 50%, transparent);
+    border: 1px solid var(--color-border-secondary);
+    box-sizing: border-box;
   }
 
   .action-btn {
-    width: var(--control-height-xs);
-    height: var(--control-height-xs);
+    width: 34px;
+    height: 34px;
     display: flex;
     align-items: center;
     justify-content: center;
     background: transparent;
     border: none;
-    border-radius: var(--border-radius);
+    border-radius: var(--border-radius-sm);
     cursor: pointer;
     color: var(--color-text-tertiary);
-    transition: color var(--motion-duration-mid) var(--motion-ease-base),
-      background-color var(--motion-duration-mid) var(--motion-ease-base);
+    transition:
+      color var(--motion-duration-mid) var(--motion-ease-base),
+      background-color var(--motion-duration-mid) var(--motion-ease-base),
+      transform 0.15s var(--motion-ease-base);
   }
 
   .action-btn:hover:not(:disabled) {
-    background-color: var(--color-hover-bg);
-    color: var(--color-text);
+    background-color: color-mix(in srgb, var(--color-primary) 12%, transparent);
+    color: var(--color-primary);
+    transform: scale(1.08);
+  }
+
+  .action-btn:active:not(:disabled) {
+    transform: scale(0.94);
   }
 
   .action-btn:disabled {
@@ -375,6 +510,7 @@
   .action-btn:focus-visible,
   .transport-btn:focus-visible,
   .play-btn:focus-visible {
-    box-shadow: 0 0 0 2px var(--color-focus-ring);
+    outline: 2px solid var(--color-focus-ring);
+    outline-offset: 2px;
   }
 </style>

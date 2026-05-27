@@ -2,8 +2,10 @@
   import Icon from '$lib/icons/Icon.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import Switch from '$lib/components/ui/Switch.svelte';
+  import Modal from '$lib/components/ui/Modal.svelte';
   import { toast } from '$lib/stores/toast.svelte';
-  import { transcribe, type SubtitleFormat } from '$lib/api/tts';
+  import { appSettings } from '$lib/stores/settings.svelte';
+  import { transcribe, translateSubtitle, optimizeTiming, type SubtitleFormat } from '$lib/api/tts';
 
   interface SubtitleRow {
     index: number;
@@ -201,6 +203,128 @@
     }
   }
 
+  // ---- 翻译 ----
+  const TRANSLATE_LANGUAGES = [
+    { code: 'en', label: '英语' },
+    { code: 'zh', label: '简体中文' },
+    { code: 'ja', label: '日语' },
+    { code: 'ko', label: '韩语' },
+    { code: 'fr', label: '法语' },
+    { code: 'de', label: '德语' },
+    { code: 'es', label: '西班牙语' },
+    { code: 'ru', label: '俄语' },
+  ];
+  let showTranslateModal = $state(false);
+  let translateTargetLang = $state('en');
+  let isTranslating = $state(false);
+  let translatedText = $state('');
+
+  async function handleTranslate() {
+    if (subtitles.length === 0) {
+      toast.info('暂无字幕内容可翻译');
+      return;
+    }
+    showTranslateModal = true;
+    translatedText = '';
+  }
+
+  async function runTranslate() {
+    const { llm } = appSettings.settings;
+    if (!llm.apiBaseUrl || !llm.apiKey) {
+      toast.warning('请先在设置页面配置 LLM API 地址和密钥');
+      return;
+    }
+
+    const sourceText = subtitles.map((s) => `${s.index}\n${s.start} --> ${s.end}\n${s.text}`).join('\n\n');
+    isTranslating = true;
+
+    try {
+      const result = await translateSubtitle({
+        text: sourceText,
+        target_language: translateTargetLang,
+        api_base_url: llm.apiBaseUrl,
+        api_key: llm.apiKey,
+        model: llm.model || undefined,
+      });
+      translatedText = result.translated_text;
+      toast.success('翻译完成');
+    } catch (err) {
+      toast.warning(`翻译失败：${err instanceof Error ? err.message : err}`);
+    } finally {
+      isTranslating = false;
+    }
+  }
+
+  async function exportTranslation() {
+    if (!translatedText) return;
+    try {
+      const { save } = await import('@tauri-apps/plugin-dialog');
+      const { writeTextFile } = await import('@tauri-apps/plugin-fs');
+      const lang = TRANSLATE_LANGUAGES.find((l) => l.code === translateTargetLang);
+      const defaultName = `${currentMediaName.replace(/\.[^.]+$/, '')}_${lang?.code ?? 'translated'}.srt`;
+      const target = await save({ defaultPath: defaultName, filters: [{ name: 'SRT', extensions: ['srt'] }] });
+      if (!target) return;
+      await writeTextFile(target as string, translatedText);
+      toast.success(`已导出翻译字幕`);
+    } catch (err) {
+      toast.warning(`导出失败：${err instanceof Error ? err.message : err}`);
+    }
+  }
+
+  // ---- 时间轴优化 ----
+  let isOptimizing = $state(false);
+
+  function timeToMs(ts: string): number {
+    const m = ts.match(/(\d{2}):(\d{2}):(\d{2})[,.](\d{3})/);
+    if (!m) return 0;
+    return (+m[1] * 3600 + +m[2] * 60 + +m[3]) * 1000 + +m[4];
+  }
+
+  function msToTime(ms: number): string {
+    const h = Math.floor(ms / 3600000);
+    const m = Math.floor((ms % 3600000) / 60000);
+    const s = Math.floor((ms % 60000) / 1000);
+    const mil = ms % 1000;
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')},${String(mil).padStart(3, '0')}`;
+  }
+
+  async function handleOptimize() {
+    if (subtitles.length === 0) {
+      toast.info('暂无字幕可优化');
+      return;
+    }
+
+    isOptimizing = true;
+    try {
+      const segments = subtitles.map((s) => ({
+        start_ms: timeToMs(s.start),
+        end_ms: timeToMs(s.end),
+        text: s.text,
+      }));
+
+      const result = await optimizeTiming({ segments });
+
+      if (result.fixes === 0) {
+        toast.success('时间轴无需优化');
+      } else {
+        subtitles = result.segments.map((seg, i) => ({
+          index: i + 1,
+          start: msToTime(seg.start_ms),
+          end: msToTime(seg.end_ms),
+          text: seg.text,
+          confidence: subtitles[i]?.confidence ?? 95,
+          role: subtitles[i]?.role ?? '识别',
+        }));
+        activeSubtitle = subtitles[0];
+        toast.success(`已修复 ${result.fixes} 处时间轴问题`);
+      }
+    } catch (err) {
+      toast.warning(`优化失败：${err instanceof Error ? err.message : err}`);
+    } finally {
+      isOptimizing = false;
+    }
+  }
+
   function selectFormat(fmt: SubtitleFormat) {
     exportFormat = fmt;
   }
@@ -263,7 +387,8 @@
       </div>
       <div class="toolbar-actions">
         <Button variant="default" size="sm" prefixIcon="sync" onclick={handleRecognize} disabled={isTranscribing}>重新识别</Button>
-        <Button variant="default" size="sm" prefixIcon="translation" onclick={() => toast.info('翻译功能开发中')}>翻译</Button>
+        <Button variant="default" size="sm" prefixIcon="translation" onclick={handleTranslate}>翻译</Button>
+        <Button variant="default" size="sm" onclick={handleOptimize} loading={isOptimizing}>时间轴优化</Button>
         <Button variant="primary" size="sm" onclick={handleExport} disabled={!currentSubtitlePath}>导出字幕</Button>
       </div>
     </header>
@@ -335,6 +460,36 @@
     </section>
   </aside>
 </div>
+
+<Modal bind:open={showTranslateModal} title="字幕翻译" size="lg">
+  <div class="translate-body">
+    <div class="translate-options">
+      <label>
+        目标语言
+        <select bind:value={translateTargetLang}>
+          {#each TRANSLATE_LANGUAGES as lang (lang.code)}
+            <option value={lang.code}>{lang.label}</option>
+          {/each}
+        </select>
+      </label>
+      <Button variant="primary" size="sm" onclick={runTranslate} loading={isTranslating}>
+        {isTranslating ? '翻译中…' : '开始翻译'}
+      </Button>
+    </div>
+    {#if translatedText}
+      <div class="translate-result">
+        <header>
+          <span>翻译结果</span>
+          <Button variant="default" size="sm" onclick={exportTranslation}>导出翻译</Button>
+        </header>
+        <pre>{translatedText}</pre>
+      </div>
+    {/if}
+  </div>
+  {#snippet footer()}
+    <Button variant="default" onclick={() => (showTranslateModal = false)}>关闭</Button>
+  {/snippet}
+</Modal>
 
 <style>
   .subtitle-page {
@@ -778,5 +933,60 @@
     border-color: var(--color-primary);
     color: #fff;
     background: var(--color-primary);
+  }
+
+  .translate-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+  }
+
+  .translate-options {
+    display: flex;
+    align-items: flex-end;
+    gap: var(--spacing-md);
+  }
+
+  .translate-options label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+  }
+
+  .translate-options select {
+    height: 32px;
+    min-width: 140px;
+  }
+
+  .translate-result {
+    border: 1px solid var(--color-border-secondary);
+    border-radius: var(--border-radius);
+    overflow: hidden;
+  }
+
+  .translate-result header {
+    height: 36px;
+    padding: 0 var(--spacing-md);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--color-bg-base);
+    border-bottom: 1px solid var(--color-border-secondary);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+  }
+
+  .translate-result pre {
+    max-height: 320px;
+    padding: var(--spacing-md);
+    margin: 0;
+    overflow-y: auto;
+    font-size: var(--font-size-sm);
+    color: var(--color-text);
+    white-space: pre-wrap;
+    word-break: break-all;
+    line-height: 1.6;
   }
 </style>

@@ -230,7 +230,7 @@
   }
 
   function handleRecharge() {
-    toast.info('充值中心开发中');
+    toast.info('充值中心即将推出');
   }
 
   function handleClearCache() {
@@ -247,11 +247,11 @@
         <Icon name="search" size={14} color="var(--color-text-tertiary)" />
         <input type="text" placeholder="搜索设置项…" bind:value={search} />
       </div>
-      <button type="button" class="btn-secondary" onclick={() => toast.info('导入配置开发中')}>
+      <button type="button" class="btn-secondary" disabled title="即将推出">
         <Icon name="import" size={14} color="currentColor" />
         <span>导入</span>
       </button>
-      <button type="button" class="btn-secondary" onclick={() => toast.info('导出配置开发中')}>
+      <button type="button" class="btn-secondary" disabled title="即将推出">
         <Icon name="export" size={14} color="currentColor" />
         <span>导出</span>
       </button>
@@ -680,7 +680,7 @@
         <article class="card">
           <header class="card-head">
             <h2 class="card-title">键盘快捷键</h2>
-            <button type="button" class="link" onclick={() => toast.info('快捷键编辑开发中')}>
+            <button type="button" class="link" disabled title="即将推出">
               <Icon name="edit" size={12} color="var(--color-primary)" />
               <span>自定义</span>
             </button>
@@ -716,7 +716,7 @@
         <article class="card">
           <header class="card-head">
             <h2 class="card-title">存储与缓存</h2>
-            <button type="button" class="link" onclick={() => toast.info('打开数据目录功能开发中')}>
+            <button type="button" class="link" disabled title="即将推出">
               <Icon name="folder-open" size={12} color="var(--color-primary)" />
               <span>打开数据目录</span>
             </button>

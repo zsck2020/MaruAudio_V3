@@ -86,8 +86,8 @@
         <select><option>类型</option></select>
         <select><option>状态</option></select>
         <select><option>日期范围</option></select>
-        <Button variant="default" size="sm" onclick={() => toast.info('新建文件夹开发中')}>+ 新建文件夹</Button>
-        <Button variant="default" size="sm" onclick={() => toast.info('导入文件开发中')}>导入文件</Button>
+        <Button variant="default" size="sm" disabled>+ 新建文件夹</Button>
+        <Button variant="default" size="sm" disabled>导入文件</Button>
         <Button variant="primary" size="sm" onclick={() => toast.success('已加入批量导出队列')}>批量导出</Button>
         <Button variant="primary" size="sm" prefixIcon="bars" iconOnly ariaLabel="列表视图" />
         <Button variant="default" size="sm" prefixIcon="appstore" iconOnly ariaLabel="网格视图" />

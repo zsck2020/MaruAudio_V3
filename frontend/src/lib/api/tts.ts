@@ -414,6 +414,65 @@ async function transcribeViaInvoke(
   }
 }
 
+// ==================== 字幕翻译 ====================
+
+export interface TranslateSubtitleRequest {
+  text: string;
+  target_language: string;
+  api_base_url: string;
+  api_key: string;
+  model?: string;
+}
+
+export interface TranslateSubtitleResponse {
+  translated_text: string;
+  target_language: string;
+}
+
+export async function translateSubtitle(req: TranslateSubtitleRequest): Promise<TranslateSubtitleResponse> {
+  const resp = await fetch(`${TTS_SERVER_BASE}/subtitle/translate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(req),
+  });
+
+  if (!resp.ok) {
+    const detail = await resp.text().catch(() => '');
+    throw new Error(`翻译失败 (${resp.status}): ${detail.slice(0, 200)}`);
+  }
+
+  return resp.json();
+}
+
+// ==================== 字幕时间轴优化 ====================
+
+export interface OptimizeTimingRequest {
+  segments: Array<{ start_ms: number; end_ms: number; text: string }>;
+  min_gap_ms?: number;
+  min_duration_ms?: number;
+  max_duration_ms?: number;
+}
+
+export interface OptimizeTimingResponse {
+  segments: Array<{ start_ms: number; end_ms: number; text: string }>;
+  fixes: number;
+}
+
+export async function optimizeTiming(req: OptimizeTimingRequest): Promise<OptimizeTimingResponse> {
+  const resp = await fetch(`${TTS_SERVER_BASE}/subtitle/optimize-timing`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(req),
+  });
+
+  if (!resp.ok) {
+    const detail = await resp.text().catch(() => '');
+    throw new Error(`时间轴优化失败 (${resp.status}): ${detail.slice(0, 200)}`);
+  }
+
+  return resp.json();
+}
+
 // ==================== LLM 台词拆分 ====================
 
 // ==================== 预置样音 ====================

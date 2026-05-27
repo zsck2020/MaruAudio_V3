@@ -130,6 +130,9 @@ async function loadSettings(): Promise<void> {
 
   // 从加密 store 加载 apiKey 到内存 state
   settings.llm.apiKey = await loadLlmApiKey();
+
+  // 加载字符用量
+  await loadUsage();
 }
 
 function initSettings(): Promise<void> {
@@ -189,12 +192,85 @@ async function resetSettings(): Promise<void> {
   await persistLlmApiKey('');
 }
 
+// ==================== 字符用量跟踪 ====================
+
+export interface UsageData {
+  totalCharsGenerated: number;
+  totalDurationMs: number;
+  totalProjects: number;
+  monthlyCharsGenerated: number;
+  monthlyResetDate: string;
+  quota: number;
+}
+
+const defaultUsage: UsageData = {
+  totalCharsGenerated: 0,
+  totalDurationMs: 0,
+  totalProjects: 0,
+  monthlyCharsGenerated: 0,
+  monthlyResetDate: new Date().toISOString().slice(0, 7),
+  quota: 500_000,
+};
+
+let usage = $state<UsageData>({ ...defaultUsage });
+
+function currentMonth(): string {
+  return new Date().toISOString().slice(0, 7);
+}
+
+async function loadUsage(): Promise<void> {
+  const s = await getStore();
+  const saved = await s.get<UsageData>('usage');
+  if (saved) {
+    usage = { ...defaultUsage, ...saved };
+    if (usage.monthlyResetDate !== currentMonth()) {
+      usage.monthlyCharsGenerated = 0;
+      usage.monthlyResetDate = currentMonth();
+      await s.set('usage', usage);
+      await s.save();
+    }
+  }
+}
+
+async function saveUsage(): Promise<void> {
+  const s = await getStore();
+  await s.set('usage', usage);
+  await s.save();
+}
+
+async function trackCharUsage(chars: number): Promise<void> {
+  await initSettings();
+  if (usage.monthlyResetDate !== currentMonth()) {
+    usage.monthlyCharsGenerated = 0;
+    usage.monthlyResetDate = currentMonth();
+  }
+  usage.totalCharsGenerated += chars;
+  usage.monthlyCharsGenerated += chars;
+  await saveUsage();
+}
+
+async function trackDuration(durationMs: number): Promise<void> {
+  await initSettings();
+  usage.totalDurationMs += durationMs;
+  await saveUsage();
+}
+
+async function incrementProjects(): Promise<void> {
+  await initSettings();
+  usage.totalProjects += 1;
+  await saveUsage();
+}
+
 export const appSettings = {
   get settings() { return settings; },
   get defaults() { return defaultSettings; },
+  get usage() { return usage; },
   init: initSettings,
   saveDubbing: saveDubbingSettings,
   saveUi: saveUiSettings,
   saveLlm: saveLlmSettings,
   reset: resetSettings,
+  trackCharUsage,
+  trackDuration,
+  incrementProjects,
 };

@@ -6,6 +6,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import { invoke } from '@tauri-apps/api/core';
   import * as ttsApi from '$lib/api/tts';
+  import { appSettings } from '$lib/stores/settings.svelte';
   import type { BannerItem } from '$lib/types';
   import { MENU_ROUTES } from '$lib/utils/navigation';
   import type { MenuKey } from '$lib/types';
@@ -25,7 +26,14 @@
     { icon: 'sound', title: '音库管理', desc: '管理音色与音频资源', route: '/resource' },
   ];
 
-  const DEMO_DATA = true;
+  function fmtNum(n: number): string { return n.toLocaleString('zh-CN'); }
+  let todayChars = $derived(fmtNum(appSettings.usage.monthlyCharsGenerated));
+  let totalChars = $derived(fmtNum(appSettings.usage.totalCharsGenerated));
+  let quotaPct = $derived(
+    appSettings.usage.quota > 0
+      ? Math.min(100, Math.round((appSettings.usage.monthlyCharsGenerated / appSettings.usage.quota) * 100))
+      : 0,
+  );
 
   const recentProjects = [
     { name: '《风起云涌》第12集', time: '2026-05-13 14:32', engine: '轻量', words: '12,840', tone: 'blue' },
@@ -170,7 +178,7 @@
   <section class="dashboard-grid">
     <article class="panel recent-panel">
       <header class="panel-head">
-        <h2>最近项目{#if DEMO_DATA}<span class="demo-tag">示例</span>{/if}</h2>
+        <h2>最近项目<span class="demo-tag">示例</span></h2>
         <Button variant="link" size="sm" onclick={() => goto('/cover')}>全部项目</Button>
       </header>
       <div class="recent-table">
@@ -204,10 +212,9 @@
     <aside class="side-stack">
       <article class="panel stat-panel">
         <div class="stat-content">
-          {#if DEMO_DATA}<span class="demo-tag" style="align-self:flex-end">示例数据</span>{/if}
           <div class="stat-top">
             <div class="stat-value-group">
-              <span class="stat-value">12,840</span>
+              <span class="stat-value">{todayChars}</span>
               <span class="stat-unit">字符</span>
             </div>
             <div class="stat-badge-row">
@@ -220,12 +227,11 @@
           </div>
           <div class="stat-meter">
             <div class="stat-meter-track">
-              <div class="stat-meter-today" style="width:64%"></div>
+              <div class="stat-meter-today" style="width:{quotaPct}%"></div>
             </div>
             <div class="stat-meter-legend">
-              <span><i class="legend-dot today"></i>今日 12,840</span>
-              <span><i class="legend-dot yesterday"></i>昨日 10,880</span>
-              <span class="stat-total">累计 156,720</span>
+              <span><i class="legend-dot today"></i>本月 {todayChars}</span>
+              <span class="stat-total">累计 {totalChars}</span>
             </div>
           </div>
         </div>

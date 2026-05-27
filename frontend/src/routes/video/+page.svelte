@@ -126,7 +126,7 @@
       <div><span>字幕误差</span><strong class="ok">+120ms</strong></div>
       <div><span>响度差异</span><strong>-1.5dB</strong></div>
       <div><span>重叠片段</span><strong class="warn">2 处</strong></div>
-      <Button variant="primary" size="sm" block onclick={() => toast.info('自动修正开发中')}>一键修正</Button>
+      <Button variant="primary" size="sm" block disabled>一键修正（即将推出）</Button>
     </section>
   </aside>
 </div>

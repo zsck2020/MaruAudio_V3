@@ -1,31 +1,50 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
+  import { onMount } from 'svelte';
   import Icon from '$lib/icons/Icon.svelte';
   import { toast } from '$lib/stores/toast.svelte';
+  import { appSettings } from '$lib/stores/settings.svelte';
 
-  const stats = [
-    { label: '本月生成字符', value: '128,400' },
-    { label: '配音时长', value: '12h 28m' },
-    { label: '累计项目', value: '46' },
-  ];
+  onMount(() => { void appSettings.init(); });
+
+  function fmt(n: number): string {
+    return n.toLocaleString('zh-CN');
+  }
+
+  function durationLabel(ms: number): string {
+    const totalMin = Math.floor(ms / 60000);
+    const h = Math.floor(totalMin / 60);
+    const m = totalMin % 60;
+    if (h === 0) return `${m}m`;
+    return `${h}h ${m}m`;
+  }
+
+  let monthlyChars = $derived(fmt(appSettings.usage.monthlyCharsGenerated));
+  let totalDuration = $derived(durationLabel(appSettings.usage.totalDurationMs));
+  let totalProjects = $derived(fmt(appSettings.usage.totalProjects));
+  let remainingChars = $derived(fmt(Math.max(0, appSettings.usage.quota - appSettings.usage.monthlyCharsGenerated)));
+  let usedChars = $derived(fmt(appSettings.usage.monthlyCharsGenerated));
+  let quotaPercent = $derived(
+    appSettings.usage.quota > 0
+      ? Math.min(100, Math.round((appSettings.usage.monthlyCharsGenerated / appSettings.usage.quota) * 100))
+      : 0,
+  );
 
   const quickLinks = [
-    { icon: 'project-box', label: '我的项目', count: '46' },
-    { icon: 'sound', label: '我的样音', count: '12' },
-    { icon: 'subtitle', label: '我的字幕', count: '238' },
-    { icon: 'download', label: '我的下载', count: '584' },
-    { icon: 'star', label: '收藏夹', count: '24' },
-    { icon: 'delete', label: '回收站', count: '' },
-    { icon: 'message', label: '消息中心', count: '3' },
-    { icon: 'help', label: '帮助中心', count: '' },
+    { icon: 'project-box', label: '我的项目' },
+    { icon: 'sound', label: '我的样音' },
+    { icon: 'subtitle', label: '我的字幕' },
+    { icon: 'download', label: '我的下载' },
+    { icon: 'star', label: '收藏夹' },
+    { icon: 'delete', label: '回收站' },
+    { icon: 'message', label: '消息中心' },
+    { icon: 'help', label: '帮助中心' },
   ];
 
   const privileges = ['高速生成队列', '云端引擎不限量', '专属客服通道', '新功能尝鲜'];
 
   const devices = [
     { icon: 'windows', name: 'Windows · MaruPC', time: '2026-05-13 19:42', current: true },
-    { icon: 'apple', name: 'MacBook Pro · macOS', time: '2026-05-12 21:15', current: false },
-    { icon: 'tablet', name: 'iPad mini', time: '2026-05-10 18:47', current: false },
   ];
 
   function copyInvite() {
@@ -46,7 +65,7 @@
     <div class="user-block">
       <div class="avatar-shell">
         <Icon name="sound-fill" size={46} color="var(--color-primary)" />
-        <button type="button" class="camera-btn" aria-label="更换头像" onclick={() => toast.info('头像更换开发中')}>
+        <button type="button" class="camera-btn" aria-label="更换头像（即将推出）" disabled>
           <Icon name="image" size={12} color="var(--color-text)" />
         </button>
       </div>
@@ -62,12 +81,18 @@
     </div>
 
     <div class="hero-stats">
-      {#each stats as stat (stat.label)}
-        <div class="hero-stat">
-          <span>{stat.label}</span>
-          <strong>{stat.value}</strong>
-        </div>
-      {/each}
+      <div class="hero-stat">
+        <span>本月生成字符</span>
+        <strong>{monthlyChars}</strong>
+      </div>
+      <div class="hero-stat">
+        <span>配音时长</span>
+        <strong>{totalDuration}</strong>
+      </div>
+      <div class="hero-stat">
+        <span>累计项目</span>
+        <strong>{totalProjects}</strong>
+      </div>
     </div>
   </section>
 
@@ -76,31 +101,28 @@
       <article class="card balance-card">
         <header class="card-head">
           <h2>账户余额</h2>
-          <button type="button" class="link" onclick={() => toast.info('字符流水开发中')}>查看明细</button>
+          <button type="button" class="link" disabled title="即将推出">查看明细</button>
         </header>
         <div class="balance-body">
           <div>
-            <div class="big-number">128,420</div>
+            <div class="big-number">{remainingChars}</div>
             <div class="muted">剩余字符</div>
           </div>
-          <div class="line-chart" aria-label="近 30 日消耗趋势">
-            <span style="height: 30%"></span>
-            <span style="height: 44%"></span>
-            <span style="height: 38%"></span>
-            <span style="height: 58%"></span>
-            <span style="height: 51%"></span>
-            <span style="height: 68%"></span>
-            <span style="height: 76%"></span>
-            <span style="height: 64%"></span>
-            <span style="height: 82%"></span>
-            <span style="height: 91%"></span>
+          <div class="quota-visual" aria-label="本月配额使用情况">
+            <div class="quota-bar">
+              <div class="quota-fill" style="width:{quotaPercent}%"></div>
+            </div>
+            <div class="quota-labels">
+              <span>已用 {quotaPercent}%</span>
+              <span>配额 {fmt(appSettings.usage.quota)}</span>
+            </div>
           </div>
         </div>
         <footer class="card-actions">
-          <span class="muted">本月已使用 18,200 字符</span>
+          <span class="muted">本月已使用 {usedChars} 字符</span>
           <div>
-            <button type="button" class="btn-secondary" onclick={() => toast.info('字符流水开发中')}>字符流水</button>
-            <button type="button" class="btn-primary" onclick={() => toast.info('充值中心开发中')}>
+            <button type="button" class="btn-secondary" disabled title="即将推出">字符流水</button>
+            <button type="button" class="btn-primary" disabled title="即将推出">
               <Icon name="thunder-fill" size={14} color="#fff" />
               立即充值
             </button>
@@ -123,15 +145,15 @@
           {/each}
         </ul>
         <div class="member-actions">
-          <button type="button" class="btn-secondary" onclick={() => toast.info('会员续费开发中')}>续费</button>
-          <button type="button" class="btn-primary" onclick={() => toast.info('企业版咨询请联系客服')}>升级至企业版</button>
+          <button type="button" class="btn-secondary" disabled title="即将推出">续费</button>
+          <button type="button" class="btn-primary" disabled title="即将推出">升级至企业版</button>
         </div>
       </article>
 
       <article class="card invite-card">
         <header class="card-head">
           <h2>邀请有礼</h2>
-          <button type="button" class="link" onclick={() => toast.info('邀请记录开发中')}>邀请记录</button>
+          <button type="button" class="link" disabled title="即将推出">邀请记录</button>
         </header>
         <div class="invite-body">
           <div class="invite-code">
@@ -142,7 +164,7 @@
           </div>
           <div class="invite-stat"><span>已邀请</span><strong>8 人</strong></div>
           <div class="invite-stat"><span>累计奖励</span><strong>16,000 字符</strong></div>
-          <button type="button" class="btn-secondary" onclick={() => toast.info('分享海报开发中')}>分享海报</button>
+          <button type="button" class="btn-secondary" disabled title="即将推出">分享海报</button>
         </div>
       </article>
     </main>
@@ -152,10 +174,9 @@
         <header class="card-head"><h2>快捷入口</h2></header>
         <div class="quick-grid">
           {#each quickLinks as item (item.label)}
-            <button type="button" class="quick-item" onclick={() => toast.info(`${item.label} 即将开放`)}>
+            <button type="button" class="quick-item" disabled title="即将推出">
               <Icon name={item.icon} size={20} color="var(--color-primary)" />
               <span>{item.label}</span>
-              {#if item.count}<em>{item.count}</em>{/if}
             </button>
           {/each}
         </div>
@@ -188,14 +209,14 @@
               {#if item.current}
                 <em>当前</em>
               {:else}
-                <button type="button" onclick={() => toast.info('设备移除开发中')}>移除</button>
+                <button type="button" disabled title="即将推出">移除</button>
               {/if}
             </div>
           {/each}
         </div>
       </article>
 
-      <button type="button" class="logout-btn" onclick={() => toast.warning('退出登录功能即将开放')}>退出登录</button>
+      <button type="button" class="logout-btn" disabled title="即将推出">退出登录</button>
     </aside>
   </div>
 </div>
@@ -425,21 +446,33 @@
     line-height: 1;
   }
 
-  .line-chart {
-    height: 92px;
+  .quota-visual {
     display: flex;
-    align-items: flex-end;
-    gap: 8px;
-    padding: 0 var(--spacing-sm);
-    border-bottom: 1px solid var(--color-border-secondary);
+    flex-direction: column;
+    justify-content: flex-end;
+    gap: var(--spacing-sm);
+    padding-bottom: var(--spacing-sm);
   }
 
-  .line-chart span {
-    flex: 1;
-    min-width: 8px;
-    background: linear-gradient(to top, color-mix(in srgb, var(--color-primary) 25%, transparent), var(--color-primary));
-    border-radius: 999px 999px 0 0;
-    opacity: 0.8;
+  .quota-bar {
+    height: 10px;
+    border-radius: 5px;
+    background-color: color-mix(in srgb, var(--color-border) 60%, transparent);
+    overflow: hidden;
+  }
+
+  .quota-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--color-primary), color-mix(in srgb, var(--color-primary) 70%, white 30%));
+    border-radius: 5px;
+    transition: width var(--motion-duration-mid) var(--motion-ease-base);
+  }
+
+  .quota-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--color-text-tertiary);
   }
 
   .card-actions {
@@ -607,18 +640,6 @@
   .quick-item:hover {
     border-color: var(--color-primary);
     color: var(--color-text);
-  }
-
-  .quick-item em {
-    position: absolute;
-    right: 8px;
-    top: 6px;
-    font-style: normal;
-    font-size: 10px;
-    color: var(--color-primary);
-    background-color: color-mix(in srgb, var(--color-primary) 16%, transparent);
-    border-radius: 999px;
-    padding: 1px 6px;
   }
 
   .safe-list,

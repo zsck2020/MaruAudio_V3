@@ -454,7 +454,7 @@
       </span>
     </div>
     <Button variant="primary" size="lg" block onclick={handleApply}>应用到配音</Button>
-    <Button variant="link" size="sm" block onclick={() => toast.info('相似样音检索开发中')}>查看相似样音 →</Button>
+    <Button variant="link" size="sm" block disabled>查看相似样音（即将推出）</Button>
     <div class="detail-foot">
       <span>被使用 {selected.uses} 次</span>
       <span>最近一次 2 小时前</span>

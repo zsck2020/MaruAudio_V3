@@ -3,6 +3,8 @@
   import Button from '$lib/components/ui/Button.svelte';
   import Switch from '$lib/components/ui/Switch.svelte';
   import Modal from '$lib/components/ui/Modal.svelte';
+  import Select from '$lib/components/ui/Select.svelte';
+  import Segmented from '$lib/components/ui/Segmented.svelte';
   import { toast } from '$lib/stores/toast.svelte';
   import { appSettings } from '$lib/stores/settings.svelte';
   import { membership } from '$lib/stores/membership.svelte';
@@ -469,10 +471,18 @@
 
     <section class="export-card">
       <h3>导出格式</h3>
-      <button class:active={exportFormat === 'srt'} onclick={() => selectFormat('srt')}>SRT</button>
-      <button class:active={exportFormat === 'ass'} onclick={() => selectFormat('ass')}>ASS</button>
-      <button class:active={exportFormat === 'vtt'} onclick={() => selectFormat('vtt')}>VTT</button>
-      <button class:active={exportFormat === 'json'} onclick={() => selectFormat('json')}>JSON</button>
+      <Segmented
+        block
+        value={exportFormat}
+        ariaLabel="导出格式"
+        options={[
+          { value: 'srt', label: 'SRT' },
+          { value: 'ass', label: 'ASS' },
+          { value: 'vtt', label: 'VTT' },
+          { value: 'json', label: 'JSON' },
+        ]}
+        onchange={(v) => selectFormat(v as SubtitleFormat)}
+      />
     </section>
   </aside>
 </div>
@@ -482,11 +492,11 @@
     <div class="translate-options">
       <label>
         目标语言
-        <select bind:value={translateTargetLang}>
-          {#each TRANSLATE_LANGUAGES as lang (lang.code)}
-            <option value={lang.code}>{lang.label}</option>
-          {/each}
-        </select>
+        <Select
+          bind:value={translateTargetLang}
+          ariaLabel="目标语言"
+          options={TRANSLATE_LANGUAGES.map((lang) => ({ value: lang.code, label: lang.label }))}
+        />
       </label>
       <Button variant="primary" size="sm" onclick={runTranslate} loading={isTranslating}>
         {isTranslating ? '翻译中…' : '开始翻译'}
@@ -752,19 +762,6 @@
     gap: var(--spacing-sm);
   }
 
-  .export-card button {
-    height: 32px;
-    border: 1px solid var(--color-border-secondary);
-    border-radius: var(--border-radius);
-    background: var(--color-bg-base);
-    color: var(--color-text-secondary);
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    padding: 0 var(--spacing-sm);
-    cursor: pointer;
-  }
-
   .video-preview {
     padding: var(--spacing-md);
     border-bottom: 1px solid var(--color-border-secondary);
@@ -934,19 +931,13 @@
   }
 
   .export-card {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    display: flex;
+    flex-direction: column;
     gap: var(--spacing-sm);
   }
 
   .export-card h3 {
     grid-column: 1 / -1;
-  }
-
-  .export-card button.active {
-    border-color: var(--color-primary);
-    color: #fff;
-    background: var(--color-primary);
   }
 
   .translate-body {
@@ -967,11 +958,6 @@
     gap: 4px;
     color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
-  }
-
-  .translate-options select {
-    height: 32px;
-    min-width: 140px;
   }
 
   .translate-result {

@@ -12,6 +12,9 @@
   import { goto } from '$app/navigation';
   import { dubbing } from '$lib/stores/dubbing.svelte';
   import { toast } from '$lib/stores/toast.svelte';
+  import { membership } from '$lib/stores/membership.svelte';
+  import { requireGeneratePermission } from '$lib/utils/entitlements';
+  import PermissionBadge from '$lib/components/membership/PermissionBadge.svelte';
   import * as ttsApi from '$lib/api/tts';
 
   const PAUSE_MARKER = '…';
@@ -31,6 +34,13 @@
       toast.warning('请输入要配音的文案');
       return;
     }
+
+    if (dubbing.generationMode === 'batch' && !membership.canUseFeature('batch_generation')) {
+      membership.requestUpgrade('batch_generation');
+      return;
+    }
+
+    if (!requireGeneratePermission(dubbing.engineMode, dubbing.wordCount)) return;
 
     if (!dubbing.engineAvailable[dubbing.engineMode]?.available) {
       if (dubbing.engineMode === 'cloud') {
@@ -114,6 +124,7 @@
         dubbing.generatedAudioPath = outputPath;
       }
       toast.success('配音生成完成');
+      membership.trackDailyChars(dubbing.wordCount);
 
     } catch (err) {
       dubbing.isGenerating = false;
@@ -252,6 +263,10 @@
   function handleSubtitle() {
     goto('/copywriting');
   }
+
+  function openEmotionUpgrade() {
+    membership.requestUpgrade('emotion_engine');
+  }
 </script>
 
 <div class="dubbing-page">
@@ -364,7 +379,7 @@
     flex: 1;
     min-height: 0;
     overflow: hidden;
-    padding: clamp(8px, 1.2vw, 15px);
+    padding: 15px;
     gap: var(--spacing-sm);
   }
 
@@ -439,6 +454,7 @@
     background-color: var(--color-bg-spotlight);
   }
 
+
   .action-card-btn:active {
     transform: scale(0.98);
   }
@@ -456,6 +472,9 @@
   }
 
   .action-card-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
     font-size: var(--font-size-sm);
     font-weight: var(--font-weight-medium);
     color: var(--color-text);

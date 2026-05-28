@@ -13,6 +13,9 @@
   import TabEmotionControl from '$lib/components/dubbing/TabEmotionControl.svelte';
   import { dubbing } from '$lib/stores/dubbing.svelte';
   import { appSettings } from '$lib/stores/settings.svelte';
+  import { membership, type FeatureKey } from '$lib/stores/membership.svelte';
+  import PermissionBadge from '$lib/components/membership/PermissionBadge.svelte';
+  import { requireGeneratePermission } from '$lib/utils/entitlements';
 
   const engineLabels: Record<EngineMode, string> = { lightweight: '轻量', emotion: '情感', cloud: '云端' };
   const engineColors: Record<EngineMode, string> = { lightweight: 'var(--color-primary)', emotion: 'var(--color-accent)', cloud: 'var(--color-info)' };
@@ -33,6 +36,10 @@
   let dragOverIdx = $state<number | null>(null);
 
   function handleDragStart(e: DragEvent, idx: number) {
+    if (!requireFeature('line_editing')) {
+      e.preventDefault();
+      return;
+    }
     dragFromIdx = idx;
     if (e.dataTransfer) {
       e.dataTransfer.effectAllowed = 'move';
@@ -63,7 +70,14 @@
 
   let llmConfigured = $derived(!!appSettings.settings.llm.apiKey);
 
+  function requireFeature(feature: FeatureKey): boolean {
+    if (membership.canUseFeature(feature)) return true;
+    membership.requestUpgrade(feature);
+    return false;
+  }
+
   async function handleSplitLines() {
+    if (!requireFeature('smart_split')) return;
     if (!importText.trim()) { toast.warning('请输入文本'); return; }
     const { apiBaseUrl, apiKey, model } = appSettings.settings.llm;
     if (!apiKey) { toast.warning('请先在设置页配置 LLM API Key'); return; }
@@ -173,6 +187,9 @@
       toast.warning(`角色「${role?.name ?? '未知'}」未绑定参考音频`);
       return;
     }
+    if (role.engine === 'emotion' && !requireFeature('emotion_engine')) return;
+    if (role.engine === 'cloud' && !requireFeature('cloud_engine')) return;
+    if (!requireGeneratePermission(role.engine, line.text.replace(/\s/g, '').length)) return;
 
     rolesStore.updateLine(lineId, { status: '生成中' });
 
@@ -282,6 +299,7 @@
   }
 
   function openParamModal() {
+    if (!requireFeature('advanced_params')) return;
     syncRoleToDubbing();
     showParamModal = true;
   }
@@ -292,6 +310,7 @@
   }
 
   function openEmotionModal() {
+    if (!requireFeature('emotion_engine')) return;
     syncRoleToDubbing();
     showEmotionModal = true;
   }
@@ -306,6 +325,7 @@
   let newRoleEngine = $state<EngineMode>('emotion');
 
   function handleAddRole() {
+    if (rolesStore.roles.length >= 1 && !requireFeature('multi_role')) return;
     if (!newRoleName.trim()) { toast.warning('请输入角色名'); return; }
     const role = rolesStore.createRole(newRoleName.trim(), newRoleType);
     rolesStore.updateRole(role.id, { engine: newRoleEngine });
@@ -367,17 +387,20 @@
   }
 
   function handleDeleteRole(id: string) {
+    if (!requireFeature('multi_role')) return;
     rolesStore.deleteRole(id);
     void rolesStore.saveToStore();
     toast.success('角色已删除');
   }
 
   function handleDeleteLine(id: string) {
+    if (!requireFeature('line_editing')) return;
     rolesStore.deleteLine(id);
     void rolesStore.saveToStore();
   }
 
   function handleAddLine() {
+    if (!requireFeature('line_editing')) return;
     const roleId = rolesStore.activeRoleId || rolesStore.roles[0]?.id;
     if (!roleId) { toast.warning('请先创建角色'); return; }
     rolesStore.addLine(roleId, '', '平静', '中等');
@@ -387,10 +410,12 @@
   }
 
   async function handleBatchGenerate() {
+    if (!requireFeature('batch_generation')) return;
     const pending = rolesStore.lines.filter(l => l.status !== '已生成').length;
     if (pending === 0) { toast.info('所有台词已生成'); return; }
 
     const generated = await rolesStore.batchGenerate(async (line, role) => {
+      if (!requireGeneratePermission(role.engine, line.text.replace(/\s/g, '').length)) return null;
       const req = buildSynthRequest(role, line);
 
       return new Promise<string | null>((resolve) => {
@@ -417,6 +442,8 @@
   }
 
   function handleEngineChange(eng: EngineMode) {
+    if (eng === 'emotion' && !requireFeature('emotion_engine')) return;
+    if (eng === 'cloud' && !requireFeature('cloud_engine')) return;
     if (rolesStore.activeRole) {
       rolesStore.updateRole(rolesStore.activeRole.id, { engine: eng });
       void rolesStore.saveToStore();
@@ -459,6 +486,7 @@
   }
 
   async function handleExport() {
+    if (!requireFeature('watermark_free')) return;
     const generated = rolesStore.lines.filter(l => l.status === '已生成' && l.audioPath);
     if (generated.length === 0) {
       toast.warning('没有已生成的音频可导出');
@@ -497,13 +525,13 @@
 
   <div class="card role-panel">
     <div class="card-head">
-      <h2>角色管理</h2>
-      <button class="add-role-btn" onclick={() => showAddRoleModal = true}>+ 新增</button>
+      <h2>角色管理 <PermissionBadge feature="multi_role" locked={!membership.canUseFeature('multi_role')} compact /></h2>
+      <button class="add-role-btn" onclick={() => { if (requireFeature('multi_role')) showAddRoleModal = true; }}>+ 新增</button>
     </div>
     <div class="role-list">
       {#each rolesStore.roles as role (role.id)}
-        {@const lineCount = rolesStore.lines.filter(l => l.roleId === role.id).length}
-        {@const doneCount = rolesStore.lines.filter(l => l.roleId === role.id && l.status === '已生成').length}
+        {@const lineCount = rolesStore.roleLineStats(role.id).total}
+        {@const doneCount = rolesStore.roleLineStats(role.id).done}
         <button
           type="button"
           class="role-item"
@@ -533,12 +561,18 @@
     <div class="card-head">
       <div class="head-left">
         <h2>{rolesStore.currentProjectName}</h2>
-        <span class="head-sub">{rolesStore.roles.length} 角色 · {rolesStore.lines.length} 句</span>
+        <span class="head-sub">
+          {rolesStore.roles.length} 角色 · {rolesStore.lines.length} 句
+          {#if !membership.canUseFeature('line_editing')}
+            · <PermissionBadge feature="line_editing" locked compact />
+          {/if}
+        </span>
       </div>
       <div class="head-actions">
-        <button class="import-btn" onclick={() => showImportModal = true}>
+        <button class="import-btn" onclick={() => { if (requireFeature('smart_split')) showImportModal = true; }}>
           <Icon name="import" size={12} color="currentColor" />
           导入文本
+          <PermissionBadge feature="smart_split" locked={!membership.canUseFeature('smart_split')} compact />
         </button>
         <button class="import-btn" onclick={handleImportProject} title="导入工程">
           <Icon name="folder-open" size={12} color="currentColor" />
@@ -555,9 +589,10 @@
           class="line-card"
           class:playing={playingLineId === line.id}
           class:drag-over={dragOverIdx === idx && dragFromIdx !== idx}
+          class:locked={!membership.canUseFeature('line_editing')}
           style="--lc:{rolesStore.getRoleColor(line.roleId)}"
           role="listitem"
-          draggable="true"
+          draggable={membership.canUseFeature('line_editing')}
           ondragstart={(e) => handleDragStart(e, idx)}
           ondragover={(e) => handleDragOver(e, idx)}
           ondrop={(e) => handleDrop(e, idx)}
@@ -566,7 +601,7 @@
           <span class="lc-avatar" style="background:{rolesStore.getRoleColor(line.roleId)}">{rolesStore.getRoleName(line.roleId).slice(0, 1)}</span>
           <div class="lc-content">
             <div class="lc-header">
-              <select class="lc-role-sel" value={line.roleId} onchange={(e) => { rolesStore.updateLine(line.id, { roleId: (e.target as HTMLSelectElement).value }); void rolesStore.saveToStore(); }}>
+              <select class="lc-role-sel" value={line.roleId} disabled={!membership.canUseFeature('line_editing')} onchange={(e) => { rolesStore.updateLine(line.id, { roleId: (e.target as HTMLSelectElement).value }); void rolesStore.saveToStore(); }}>
                 {#each rolesStore.roles as r (r.id)}
                   <option value={r.id}>{r.name}</option>
                 {/each}
@@ -574,12 +609,12 @@
                   <option value="" disabled selected>未知</option>
                 {/if}
               </select>
-              <select class="lc-emo-sel" value={line.emotion} onchange={(e) => { rolesStore.updateLine(line.id, { emotion: (e.target as HTMLSelectElement).value, status: line.status === '已生成' ? '待生成' : line.status, audioPath: line.status === '已生成' ? null : line.audioPath }); void rolesStore.saveToStore(); }}>
+              <select class="lc-emo-sel" value={line.emotion} disabled={!membership.canUseFeature('line_editing')} onchange={(e) => { rolesStore.updateLine(line.id, { emotion: (e.target as HTMLSelectElement).value, status: line.status === '已生成' ? '待生成' : line.status, audioPath: line.status === '已生成' ? null : line.audioPath }); void rolesStore.saveToStore(); }}>
                 {#each emotions as emo}
                   <option value={emo}>{emo}</option>
                 {/each}
               </select>
-              <select class="lc-str-sel" value={line.strength} onchange={(e) => { rolesStore.updateLine(line.id, { strength: (e.target as HTMLSelectElement).value as EmotionStrength, status: line.status === '已生成' ? '待生成' : line.status, audioPath: line.status === '已生成' ? null : line.audioPath }); void rolesStore.saveToStore(); }}>
+              <select class="lc-str-sel" value={line.strength} disabled={!membership.canUseFeature('line_editing')} onchange={(e) => { rolesStore.updateLine(line.id, { strength: (e.target as HTMLSelectElement).value as EmotionStrength, status: line.status === '已生成' ? '待生成' : line.status, audioPath: line.status === '已生成' ? null : line.audioPath }); void rolesStore.saveToStore(); }}>
                 {#each strengths as str}
                   <option value={str}>{str}</option>
                 {/each}
@@ -587,11 +622,11 @@
               <span class="pill st {line.status}">{line.status}</span>
             </div>
             <div class="lc-text-row">
-              <input class="lc-text" value={line.text} onchange={(e) => { rolesStore.updateLine(line.id, { text: (e.target as HTMLInputElement).value }); void rolesStore.saveToStore(); }} />
+              <input class="lc-text" value={line.text} disabled={!membership.canUseFeature('line_editing')} onclick={() => !membership.canUseFeature('line_editing') && membership.requestUpgrade('line_editing')} onchange={(e) => { rolesStore.updateLine(line.id, { text: (e.target as HTMLInputElement).value }); void rolesStore.saveToStore(); }} />
               <button class="lc-play" onclick={() => handleTryPlay(line.id)} title="试听/生成">
                 <Icon name={playingLineId === line.id ? 'pause-fill' : 'play-fill'} size={14} color="currentColor" />
               </button>
-              <button class="ibtn del" onclick={() => { if (confirm('删除这句台词？')) handleDeleteLine(line.id); }} title="删除台词">
+              <button class="ibtn del" onclick={() => { if (!membership.canUseFeature('line_editing')) { membership.requestUpgrade('line_editing'); return; } if (confirm('删除这句台词？')) handleDeleteLine(line.id); }} title="删除台词">
                 <Icon name="close" size={10} color="currentColor" />
               </button>
             </div>
@@ -627,10 +662,11 @@
           <Icon name="close" size={11} color="currentColor" />
         </button>
       {:else}
-        {@const failedCount = rolesStore.lines.filter(l => l.status === '失败').length}
+        {@const failedCount = rolesStore.failedCount}
         <button class="batch-btn" onclick={handleBatchGenerate} disabled={rolesStore.lines.length === 0}>
           <Icon name="play-fill" size={12} color="currentColor" />
           批量生成
+          <PermissionBadge feature="batch_generation" locked={!membership.canUseFeature('batch_generation')} compact />
         </button>
         {#if failedCount > 0}
           <button class="retry-btn" onclick={handleRetryFailed} title="重试失败项">
@@ -638,9 +674,10 @@
             重试 {failedCount} 项
           </button>
         {/if}
-        <button class="export-btn" onclick={handleExport} disabled={rolesStore.lines.filter(l => l.status === '已生成').length === 0}>
+        <button class="export-btn" onclick={handleExport} disabled={rolesStore.generatedCount === 0}>
           <Icon name="download" size={12} color="currentColor" />
           导出拼接
+          <PermissionBadge feature="watermark_free" locked={!membership.canUseFeature('watermark_free')} compact />
         </button>
       {/if}
     </div>
@@ -703,6 +740,11 @@
               >
                 <Icon name={eng === 'lightweight' ? 'zap' : eng === 'emotion' ? 'heart' : 'cloud'} size={12} color="currentColor" />
                 {engineLabels[eng]}
+                {#if eng === 'emotion'}
+                  <PermissionBadge feature="emotion_engine" locked={!membership.canUseFeature('emotion_engine')} compact />
+                {:else if eng === 'cloud'}
+                  <PermissionBadge feature="cloud_engine" locked={!membership.canUseFeature('cloud_engine')} compact />
+                {/if}
               </button>
             {/each}
           </div>
@@ -722,11 +764,11 @@
 
         <div class="psec-stats">
           <div class="stat-item">
-            <span class="stat-num">{rolesStore.lines.filter(l => l.roleId === rolesStore.activeRole?.id).length}</span>
+            <span class="stat-num">{rolesStore.activeRole ? rolesStore.roleLineStats(rolesStore.activeRole.id).total : 0}</span>
             <span class="stat-label">台词</span>
           </div>
           <div class="stat-item done">
-            <span class="stat-num">{rolesStore.lines.filter(l => l.roleId === rolesStore.activeRole?.id && l.status === '已生成').length}</span>
+            <span class="stat-num">{rolesStore.activeRole ? rolesStore.roleLineStats(rolesStore.activeRole.id).done : 0}</span>
             <span class="stat-label">已生成</span>
           </div>
         </div>
@@ -831,22 +873,22 @@
 </div>
 
 <style>
-  .roles-page { flex:1; min-height:0; display:grid; grid-template-columns:clamp(180px, 20vw, 240px) minmax(0,1fr) clamp(220px, 24vw, 300px); gap:var(--spacing-sm); padding:clamp(8px, 1.2vw, 15px); background:var(--color-bg-container); overflow:hidden; }
+  .roles-page { flex:1; min-height:0; display:grid; grid-template-columns:clamp(180px, 20vw, 240px) minmax(0,1fr) clamp(220px, 24vw, 300px); gap:var(--spacing-sm); padding:15px; background:var(--color-bg-container); overflow:hidden; }
   @media (max-width: 900px) {
-    .roles-page { grid-template-columns:1fr; grid-template-rows:auto 1fr auto; overflow-y:auto; }
+    .roles-page { grid-template-columns:1fr; grid-template-rows:auto 1fr auto; overflow:hidden; }
     .roles-page .role-panel { max-height:180px; }
-    .roles-page .param-panel { max-height:260px; overflow-y:auto; }
+    .roles-page .param-panel { max-height:260px; overflow:hidden; }
   }
   .card { background:var(--color-bg-elevated); border:1px solid var(--color-border-secondary); border-radius:var(--border-radius-lg); display:flex; flex-direction:column; overflow:hidden; }
   .card-head { height:44px; padding:0 var(--spacing-md); border-bottom:1px solid var(--color-border-secondary); display:flex; align-items:center; justify-content:space-between; flex-shrink:0; }
-  .card-head h2 { margin:0; font-size:var(--font-size); font-weight:600; color:var(--color-text); }
+  .card-head h2 { margin:0; font-size:var(--font-size); font-weight:600; color:var(--color-text); display:flex; align-items:center; gap:6px; }
   .head-left { display:flex; flex-direction:column; gap:2px; }
-  .head-sub { font-size:11px; color:var(--color-text-disabled); }
+  .head-sub { font-size:11px; color:var(--color-text-disabled); display:flex; align-items:center; gap:4px; }
   .count-badge { font-size:11px; color:var(--color-text-disabled); background:var(--color-bg-base); padding:2px 8px; border-radius:var(--border-radius-pill); }
   .hidden { display:none; }
   button { cursor:pointer; font-family:inherit; }
 
-  .role-list { flex:1; padding:var(--spacing-sm); display:flex; flex-direction:column; gap:6px; min-height:0; overflow-y:auto; }
+  .role-list { flex:1; padding:var(--spacing-sm); display:flex; flex-direction:column; gap:6px; min-height:0; overflow:hidden; }
   .role-item { display:flex; align-items:center; gap:var(--spacing-sm); padding:var(--spacing-sm) var(--spacing-md); border:1px solid var(--color-border-secondary); border-radius:var(--border-radius); background:var(--color-bg-base); color:var(--color-text); text-align:left; transition:border-color .2s,background .2s,box-shadow .2s; min-height:56px; min-width:0; }
   @media (max-width: 900px) {
     .role-list { flex-direction:row; flex-wrap:wrap; overflow-x:auto; overflow-y:hidden; }
@@ -867,11 +909,12 @@
 
   .script-panel { min-width:0; }
 
-  .line-list { flex:1; display:flex; flex-direction:column; gap:6px; padding:var(--spacing-sm); min-height:0; overflow-y:auto; }
+  .line-list { flex:1; display:flex; flex-direction:column; gap:6px; padding:var(--spacing-sm); min-height:0; overflow:hidden; }
 
   .line-card { display:flex; align-items:stretch; gap:var(--spacing-sm); padding:var(--spacing-sm) var(--spacing-md); border:1px solid var(--color-border-secondary); border-radius:var(--border-radius); background:var(--color-bg-base); border-left:4px solid var(--lc); transition:border-color .15s,background .15s,box-shadow .15s; }
   .line-card:hover { background:var(--color-bg-elevated); box-shadow:var(--shadow-1); }
   .line-card.playing { border-color:var(--color-primary); border-left-color:var(--color-primary); background:color-mix(in srgb, var(--color-primary) 6%, transparent); }
+  .line-card.locked { background:linear-gradient(135deg, color-mix(in srgb, var(--color-warning) 5%, transparent), transparent 45%), var(--color-bg-base); }
   .line-card[draggable="true"] { cursor:grab; }
   .line-card[draggable="true"]:active { cursor:grabbing; opacity:.85; }
   .line-card.drag-over { border-top:2px solid var(--color-primary); margin-top:-2px; }
@@ -941,7 +984,7 @@
   .param-hero-meta { flex:1; min-width:0; display:flex; align-items:center; gap:var(--spacing-xs); }
   .param-hero-meta strong { font-size:var(--font-size); color:var(--color-text); }
 
-  .pbody { flex:1; padding:var(--spacing-sm); display:flex; flex-direction:column; gap:var(--spacing-sm); min-height:0; overflow-y:auto; }
+  .pbody { flex:1; padding:var(--spacing-sm); display:flex; flex-direction:column; gap:var(--spacing-sm); min-height:0; overflow:hidden; }
 
   .psec-card { padding:var(--spacing-sm); background:var(--color-bg-base); border:1px solid var(--color-border-secondary); border-radius:var(--border-radius); display:flex; flex-direction:column; gap:var(--spacing-sm); }
   .psec-title { display:flex; align-items:center; gap:var(--spacing-xs); font-size:12px; color:var(--color-text-secondary); font-weight:500; }
@@ -950,7 +993,7 @@
   .voice-card-btn:hover { border-color:var(--color-primary); color:var(--color-primary); }
 
   .echips { display:flex; gap:4px; }
-  .echip-btn { flex:1; height:30px; display:flex; align-items:center; justify-content:center; gap:4px; padding:0; border:1px solid var(--color-border-secondary); border-radius:var(--border-radius-sm); background:transparent; color:var(--color-text-tertiary); font-size:11px; transition:border-color .15s,color .15s,background .15s; }
+  .echip-btn { flex:1; min-height:30px; display:flex; align-items:center; justify-content:center; gap:4px; padding:0 4px; border:1px solid var(--color-border-secondary); border-radius:var(--border-radius-sm); background:transparent; color:var(--color-text-tertiary); font-size:11px; transition:border-color .15s,color .15s,background .15s; }
   .echip-btn.active { color:var(--ec); border-color:var(--ec); background:color-mix(in srgb, var(--ec) 14%, transparent); }
   .echip-btn:hover:not(.active) { border-color:var(--ec); color:var(--ec); }
 
@@ -1013,7 +1056,7 @@
   .add-role-form input, .add-role-form select { height:36px; border:1px solid var(--color-border-secondary); border-radius:var(--border-radius-sm); background:var(--color-bg-base); color:var(--color-text); padding:0 var(--spacing-sm); font-family:inherit; font-size:var(--font-size-sm); }
   .add-role-form input:focus, .add-role-form select:focus { border-color:var(--color-primary); outline:none; }
 
-  .preset-grid { display:flex; flex-direction:column; gap:4px; max-height:360px; overflow-y:auto; }
+  .preset-grid { display:flex; flex-direction:column; gap:4px; max-height:360px; overflow:hidden; }
   .preset-item { display:flex; align-items:center; gap:var(--spacing-sm); padding:var(--spacing-sm) var(--spacing-md); border:1px solid var(--color-border-secondary); border-radius:var(--border-radius-sm); background:var(--color-bg-base); cursor:pointer; transition:border-color .15s,background .15s; text-align:left; }
   .preset-item:hover { border-color:var(--color-primary); background:var(--color-primary-bg); }
   .preset-name { font-size:var(--font-size-sm); font-weight:500; color:var(--color-text); flex:1; }

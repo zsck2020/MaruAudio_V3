@@ -141,6 +141,7 @@
   .dot {
     width: 6px;
     height: 6px;
+    min-height: unset !important;
     border-radius: 50%;
     border: none;
     background-color: rgba(255, 255, 255, 0.4);

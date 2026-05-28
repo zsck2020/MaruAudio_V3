@@ -172,6 +172,16 @@ export async function getOutputDir(): Promise<OutputDirResponse> {
 
 const TTS_SERVER_BASE = 'http://127.0.0.1:9880';
 
+async function fetchWithTimeout(url: string, init: RequestInit = {}, timeoutMs = 1200): Promise<Response> {
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    window.clearTimeout(timer);
+  }
+}
+
 export interface VocalSeparateInfo {
   available: boolean;
   /** 'demucs' | 'librosa' | 'none' */
@@ -181,7 +191,7 @@ export interface VocalSeparateInfo {
 }
 
 export async function vocalSeparateInfo(): Promise<VocalSeparateInfo> {
-  const resp = await fetch(`${TTS_SERVER_BASE}/vocal-separate/info`);
+  const resp = await fetchWithTimeout(`${TTS_SERVER_BASE}/vocal-separate/info`, {}, 900);
   if (!resp.ok) throw new Error('查询人声分离能力失败');
   return resp.json();
 }
@@ -498,7 +508,7 @@ export interface PresetsResponse {
 }
 
 export async function listPresets(): Promise<PresetsResponse> {
-  const resp = await fetch(`${TTS_SERVER_BASE}/presets`);
+  const resp = await fetchWithTimeout(`${TTS_SERVER_BASE}/presets`, {}, 900);
   if (!resp.ok) throw new Error('获取预置样音失败');
   return resp.json();
 }

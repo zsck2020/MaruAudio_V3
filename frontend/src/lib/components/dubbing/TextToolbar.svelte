@@ -2,6 +2,9 @@
   import Icon from '$lib/icons/Icon.svelte';
   import Tooltip from '../Tooltip.svelte';
   import { dubbing, type EngineMode } from '$lib/stores/dubbing.svelte';
+  import PermissionBadge from '$lib/components/membership/PermissionBadge.svelte';
+  import { membership, type FeatureKey } from '$lib/stores/membership.svelte';
+  import { requestEngineChange } from '$lib/utils/entitlements';
   import { toast } from '$lib/stores/toast.svelte';
 
   let {
@@ -28,6 +31,11 @@
     cloud: 'cloud',
   };
 
+  const ENGINE_FEATURES: Partial<Record<EngineMode, FeatureKey>> = {
+    emotion: 'emotion_engine',
+    cloud: 'cloud_engine',
+  };
+
   let showEngineMenu = $state(false);
   const engines: EngineMode[] = ['lightweight', 'emotion', 'cloud'];
   const engineMenuId = 'toolbar-engine-menu';
@@ -50,6 +58,12 @@
   }
 
   function selectEngine(mode: EngineMode) {
+    const feature = ENGINE_FEATURES[mode];
+    if (feature && !membership.canUseFeature(feature)) {
+      membership.requestUpgrade(feature);
+      showEngineMenu = false;
+      return;
+    }
     if (mode === 'cloud' && !dubbing.engineAvailable.cloud) {
       toast.warning('云端模式需登录且余额充足，生成前请完成登录/充值');
     } else if (mode === 'lightweight' && !dubbing.engineAvailable.lightweight) {
@@ -57,8 +71,7 @@
     } else if (mode === 'emotion' && !dubbing.engineAvailable.emotion) {
       toast.warning('情感引擎不可用或显存不足，可尝试轻量引擎或云端引擎');
     }
-    dubbing.setEngine(mode);
-    showEngineMenu = false;
+    if (requestEngineChange(mode)) showEngineMenu = false;
   }
 </script>
 
@@ -109,6 +122,9 @@
         ></span>
         <Icon name={ENGINE_ICONS[dubbing.engineMode]} size={14} color="var(--color-primary)" />
         <span class="engine-label">{ENGINE_LABELS[dubbing.engineMode]}</span>
+        {#if ENGINE_FEATURES[dubbing.engineMode] && !membership.canUseFeature(ENGINE_FEATURES[dubbing.engineMode]!)}
+          <PermissionBadge feature={ENGINE_FEATURES[dubbing.engineMode]} locked compact />
+        {/if}
         <Icon name="ant-design:down-outlined" size={10} color="var(--color-text-tertiary)" />
       </button>
       {#if showEngineMenu}
@@ -129,6 +145,11 @@
                 color={dubbing.engineMode === eng ? 'var(--color-primary)' : 'var(--color-text-tertiary)'}
               />
               <span>{ENGINE_LABELS[eng]}</span>
+              {#if ENGINE_FEATURES[eng]}
+                <PermissionBadge feature={ENGINE_FEATURES[eng]} locked={!membership.canUseFeature(ENGINE_FEATURES[eng]!)} compact />
+              {:else}
+                <PermissionBadge label="免费" tone="free" compact />
+              {/if}
             </button>
           {/each}
         </div>
@@ -240,7 +261,7 @@
     box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
     overflow: hidden;
     z-index: 100;
-    min-width: 140px;
+    min-width: 200px;
   }
 
   .engine-option {
@@ -255,7 +276,12 @@
     cursor: pointer;
     font-size: var(--font-size-sm);
     color: var(--color-text-secondary);
+    white-space: nowrap;
     transition: background-color var(--transition-duration) var(--transition-timing);
+  }
+
+  .engine-option :global(.permission-badge) {
+    margin-left: auto;
   }
 
   .engine-option:hover {

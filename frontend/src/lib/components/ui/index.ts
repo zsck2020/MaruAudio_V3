@@ -32,3 +32,9 @@ export type { EmptySize } from './Empty.svelte';
 
 export { default as Spin } from './Spin.svelte';
 export type { SpinSize } from './Spin.svelte';
+
+export { default as Select } from './Select.svelte';
+export type { SelectOption } from './Select.svelte';
+
+export { default as Segmented } from './Segmented.svelte';
+export type { SegmentOption } from './Segmented.svelte';

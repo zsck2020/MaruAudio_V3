@@ -1,998 +1,741 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import Icon from '$lib/icons/Icon.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import Switch from '$lib/components/ui/Switch.svelte';
-  import WaveformView from '$lib/components/ui/WaveformView.svelte';
+  import MiniPlayer from '$lib/components/ui/MiniPlayer.svelte';
   import { toast } from '$lib/stores/toast.svelte';
   import { dubbing } from '$lib/stores/dubbing.svelte';
   import { vocalSeparate, vocalSeparateInfo, listPresets, type PresetVoice } from '$lib/api/tts';
   import { convertFileSrc } from '@tauri-apps/api/core';
 
   interface Voice {
+    id: string;
     name: string;
-    meta: string;
+    description: string;
+    gender: string;
+    genderLabel: string;
+    language: string;
+    tag: string;
     tags: string[];
-    pro: boolean;
-    uses: number;
-    tone: string;
+    premium: boolean;
     filePath?: string;
-    description?: string;
-    gender?: string;
-    language?: string;
+    cover?: string;
     duration?: number;
+    source?: string;
+    searchText: string;
+    coverBroken?: boolean;
   }
 
-  const categories = [
-    ['全部样音', '', 'appstore'],
-    ['我的收藏', '0', 'star'],
-    ['最近使用', '0', 'history'],
-  ];
+  const PAGE_SIZE = 15;
+  const TONE_MAP: Record<string, string> = { '男': 'male', 'Male': 'male', '女': 'female', 'Female': 'female' };
 
-  const voiceTypes = [
-    ['男声', '345', 'avatar'],
-    ['女声', '412', 'avatar'],
-    ['童声', '56', 'smile'],
-    ['影视', '218', 'video-camera'],
-    ['情感', '186', 'heart'],
-    ['旁白', '124', 'message'],
-    ['童趣', '48', 'gift'],
-    ['方言', '28', 'global'],
-  ];
-
-  const tags = ['温暖', '磁性', '活泼', '沉稳', '清亮', '低沉'];
-
-  const TONE_MAP: Record<string, string> = { '男': 'blue', 'Male': 'blue', '女': 'purple', 'Female': 'purple' };
-  const IMPORT_TONES = ['blue', 'purple', 'pink', 'orange', 'green', 'cyan'];
+  function normalizeGender(g = '') { return g === '男' || g === 'Male' ? '男' : g === '女' || g === 'Female' ? '女' : g || '未知'; }
+  function voiceTone(g = '') { return TONE_MAP[g] ?? 'neutral'; }
+  function fmtDur(s: number | undefined) { if (!s) return '--'; const m = Math.floor(s / 60); return `${m}:${Math.round(s % 60).toString().padStart(2, '0')}`; }
 
   function presetToVoice(p: PresetVoice): Voice {
-    return {
-      name: p.name,
-      meta: `${p.language} · ${p.display_tag}`,
-      tags: p.tags,
-      pro: p.is_premium,
-      uses: 0,
-      tone: TONE_MAP[p.gender] ?? 'blue',
-      filePath: p.file_path,
-      description: p.description,
-      gender: p.gender,
-      language: p.language,
-      duration: p.duration,
-    };
+    const tag = p.display_tag || p.tags?.[0] || '样音';
+    const tags = p.tags ?? [];
+    const cover = p.cover ? (/^[a-zA-Z]:[\\/]/.test(p.cover) || p.cover.startsWith('http') || p.cover.startsWith('blob:') ? p.cover : `E:\\Exploitation\\MaruAudio\\MaruAudio_V3\\backend\\outputs\\preset\\${p.cover}`) : undefined;
+    return { id: p.id || p.name, name: p.name, description: p.description || `${p.language} · ${p.display_tag}`, gender: p.gender, genderLabel: normalizeGender(p.gender), language: p.language || '中文', tag, tags, premium: p.is_premium, filePath: p.file_path, cover, duration: p.duration, source: p.source, searchText: `${p.name} ${p.description || ''} ${tag} ${tags.join(' ')}`.toLowerCase() };
   }
 
-  const emptyVoice: Voice = { name: '加载中…', meta: '', tags: [], pro: false, uses: 0, tone: 'blue' };
-
-  const FALLBACK_VOICES: Voice[] = [
-    { name: '磁性男声', meta: '中文 · 叙事', tags: ['磁性', '沉稳'], pro: true, uses: 156, tone: 'blue', gender: '男', language: '中文' },
-    { name: '温暖女声', meta: '中文 · 抒情', tags: ['温暖', '治愈'], pro: false, uses: 98, tone: 'purple', gender: '女', language: '中文' },
-    { name: '活力少年', meta: '中文 · 活泼', tags: ['活泼', '青春'], pro: false, uses: 73, tone: 'blue', gender: '男', language: '中文' },
-    { name: '沉稳男声', meta: '中文 · 旁白', tags: ['沉稳', '旁白'], pro: true, uses: 210, tone: 'blue', gender: '男', language: '中文' },
-    { name: '治愈女声', meta: '中文 · 治愈', tags: ['治愈', '温柔'], pro: false, uses: 134, tone: 'purple', gender: '女', language: '中文' },
-    { name: '粤语男声', meta: '粤语 · 叙事', tags: ['粤语', '磁性'], pro: true, uses: 89, tone: 'blue', gender: '男', language: '粤语' },
+  const FALLBACK: Voice[] = [
+    { id: 'male-narration', name: '磁性男声', description: '沉稳叙事，适合纪录片', gender: '男', genderLabel: '男', language: '中文', tag: '叙事', tags: ['磁性', '沉稳'], premium: true, searchText: '磁性男声 沉稳叙事 纪录片 叙事 磁性 沉稳' },
+    { id: 'female-warm', name: '温暖女声', description: '温柔亲和，适合情感文案', gender: '女', genderLabel: '女', language: '中文', tag: '抒情', tags: ['温暖', '治愈'], premium: false, searchText: '温暖女声 温柔亲和 情感文案 抒情 温暖 治愈' },
+    { id: 'boy-energy', name: '活力少年', description: '清亮活泼，适合短视频', gender: '男', genderLabel: '男', language: '中文', tag: '活泼', tags: ['青春', '明亮'], premium: false, searchText: '活力少年 清亮活泼 短视频 活泼 青春 明亮' },
+    { id: 'male-calm', name: '沉稳男声', description: '低沉稳定，适合有声书', gender: '男', genderLabel: '男', language: '中文', tag: '旁白', tags: ['沉稳', '旁白'], premium: true, searchText: '沉稳男声 低沉稳定 有声书 沉稳 旁白' },
+    { id: 'female-heal', name: '治愈女声', description: '柔和舒缓，适合助眠', gender: '女', genderLabel: '女', language: '中文', tag: '治愈', tags: ['温柔', '舒缓'], premium: false, searchText: '治愈女声 柔和舒缓 助眠 治愈 温柔 舒缓' },
+    { id: 'cantonese-m', name: '粤语男声', description: '粤语叙事，适合方言内容', gender: '男', genderLabel: '男', language: '粤语', tag: '粤语', tags: ['粤语', '磁性'], premium: true, searchText: '粤语男声 粤语叙事 方言 粤语 磁性' },
   ];
+
+  /* ── state ── */
   let voices = $state<Voice[]>([]);
-  let selected = $state<Voice>(emptyVoice);
-  let loadingPresets = $state(true);
+  let loading = $state(true);
+  let search = $state('');
+  let genderFilter = $state('全部');
+  let languageFilter = $state('全部');
+  let sortBy = $state('name');
+  let currentPage = $state(1);
+  let selectedVoiceId = $state('');
+  let playingVoiceId = $state('');
 
-  let previewAudioEl: HTMLAudioElement | undefined = $state();
-  let previewPlaying = $state(false);
-  let previewTime = $state(0);
-  let previewDuration = $state(0);
-
-  let previewSrc = $derived(
-    selected.filePath
-      ? (selected.filePath.startsWith('http') || selected.filePath.startsWith('blob:')
-          ? selected.filePath : convertFileSrc(selected.filePath))
-      : ''
-  );
-
-  function togglePreviewPlay() {
-    if (!previewAudioEl || !previewSrc) return;
-    if (previewPlaying) { previewAudioEl.pause(); previewPlaying = false; }
-    else { void previewAudioEl.play(); previewPlaying = true; }
-  }
-
-  function handlePreviewSeek(time: number) {
-    if (previewAudioEl) { previewAudioEl.currentTime = time; previewTime = time; }
-  }
+  let audioEl: HTMLAudioElement | undefined = $state();
+  let audioSrc = $state('');
+  let audioPlaying = $state(false);
 
   let autoVocalSeparate = $state(true);
   let vocalAvailable = $state<boolean | null>(null);
-  let vocalMethod = $state<string>('unknown');
+  let vocalMethod = $state('检测中');
   let isImporting = $state(false);
   let importProgress = $state(0);
   let importMessage = $state('');
 
-  $effect(() => {
-    void (async () => {
-      try {
-        const presetsResult = await listPresets();
-        if (presetsResult.presets.length > 0) {
-          voices = presetsResult.presets.map(presetToVoice);
-        }
-      } catch {
-        // TTS Server 未运行，尝试前端直接读 metadata
-        try {
-          const { readTextFile, exists } = await import('@tauri-apps/plugin-fs');
-          const { join } = await import('@tauri-apps/api/path');
-          const { getOutputDir } = await import('$lib/api/tts');
+  /* ── derived ── */
+  let genderTabs = $derived(['全部', ...new Set(voices.map(v => v.genderLabel).filter(Boolean))]);
+  let langOptions = $derived(['全部', ...new Set(voices.map(v => v.language).filter(Boolean))]);
 
-          let presetDir: string;
-          try {
-            const dirs = await getOutputDir();
-            presetDir = dirs.preset;
-          } catch {
-            const { appDataDir } = await import('@tauri-apps/api/path');
-            presetDir = await join(await appDataDir(), 'preset');
-          }
-          const metaPath = await join(presetDir, 'metadata.json');
-
-          if (await exists(metaPath)) {
-            const raw = await readTextFile(metaPath);
-            const data = JSON.parse(raw) as Array<{ name: string; gender: string; language: string; display_tag: string; tags: string[]; is_premium: boolean; file_path: string; description: string; duration?: number }>;
-            voices = await Promise.all(data.map(async (p) => ({
-              name: p.name,
-              meta: `${p.language} · ${p.display_tag}`,
-              tags: p.tags,
-              pro: p.is_premium,
-              uses: 0,
-              tone: TONE_MAP[p.gender] ?? 'blue',
-              filePath: await join(presetDir, p.file_path.includes('\\') || p.file_path.includes('/') ? p.file_path.split(/[/\\]/).pop()! : p.file_path),
-              description: p.description,
-              gender: p.gender,
-              language: p.language,
-              duration: p.duration,
-            })));
-          }
-        } catch {
-          // 读文件也失败
-        }
-      }
-      if (voices.length === 0) {
-        voices = FALLBACK_VOICES;
-      }
-      selected = voices[0];
-      loadingPresets = false;
-      try {
-        const info = await vocalSeparateInfo();
-        vocalAvailable = info.available;
-        vocalMethod = info.method;
-      } catch {
-        vocalAvailable = false;
-        vocalMethod = 'unreachable';
-      }
-    })();
+  let filtered = $derived.by(() => {
+    const q = search.trim().toLowerCase();
+    let list = voices.filter(v => {
+      if (q && !v.searchText.includes(q)) return false;
+      if (genderFilter !== '全部' && v.genderLabel !== genderFilter) return false;
+      if (languageFilter !== '全部' && v.language !== languageFilter) return false;
+      return true;
+    });
+    list = [...list].sort((a, b) => {
+      if (sortBy === 'premium') return Number(b.premium) - Number(a.premium) || a.name.localeCompare(b.name, 'zh-CN');
+      if (sortBy === 'duration') return (b.duration ?? 0) - (a.duration ?? 0);
+      return a.name.localeCompare(b.name, 'zh-CN');
+    });
+    return list;
   });
 
-  function handleApply() {
-    if (selected.filePath) {
-      dubbing.setVoice('preset', selected.name, selected.filePath);
-      toast.success(`已将「${selected.name}」应用到配音页`);
-    } else {
-      toast.info(`「${selected.name}」是预置样音占位，导入实际样音后可应用到配音页`);
+  let totalPages = $derived(Math.max(1, Math.ceil(filtered.length / PAGE_SIZE)));
+  let pageItems = $derived(filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE));
+  let sel = $derived(voices.find(v => v.id === selectedVoiceId) ?? pageItems[0] ?? voices[0]);
+  let premiumN = $derived(voices.filter(v => v.premium).length);
+  let userN = $derived(voices.filter(v => v.source === 'user').length);
+
+  let pages = $derived.by(() => {
+    const r: (number | '...')[] = [];
+    if (totalPages <= 7) { for (let i = 1; i <= totalPages; i++) r.push(i); }
+    else {
+      r.push(1);
+      if (currentPage > 3) r.push('...');
+      for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) r.push(i);
+      if (currentPage < totalPages - 2) r.push('...');
+      r.push(totalPages);
     }
+    return r;
+  });
+
+  $effect(() => { if (currentPage > totalPages) currentPage = totalPages; if (currentPage < 1) currentPage = 1; });
+
+  onMount(() => { void loadVoices(); setTimeout(() => void loadVocalInfo(), 0); });
+
+  async function loadVoices() {
+    loading = true;
+    try {
+      const local = await loadLocal();
+      voices = local.length > 0 ? local : FALLBACK;
+      selectedVoiceId = voices[0]?.id ?? '';
+      currentPage = 1;
+    } finally { loading = false; }
+    void refreshFromBackend();
   }
 
-  async function selectAudioFile(): Promise<{ path: string; baseName: string } | null> {
+  async function refreshFromBackend() {
     try {
-      const { open } = await import('@tauri-apps/plugin-dialog');
-      const selected = await open({
-        multiple: false,
-        directory: false,
-        filters: [
-          { name: '音视频', extensions: ['mp4', 'mov', 'mkv', 'avi', 'webm', 'mp3', 'wav', 'flac', 'm4a', 'aac', 'ogg'] },
-        ],
-      });
-      if (!selected || Array.isArray(selected)) return null;
-      const fullPath = selected as string;
-      const baseName = fullPath.split(/[\\/]/).pop() || '未命名样音';
-      return { path: fullPath, baseName };
-    } catch (err) {
-      toast.warning(`选择文件失败：${err instanceof Error ? err.message : err}`);
-      return null;
-    }
+      const r = await listPresets();
+      if (!r.presets.length) return;
+      const nv = r.presets.map(presetToVoice);
+      voices = nv;
+      if (!nv.some(v => v.id === selectedVoiceId)) selectedVoiceId = nv[0]?.id ?? '';
+    } catch {}
   }
 
-  async function copyToRefAudio(srcPath: string, displayName: string): Promise<string> {
-    const { readFile, writeFile, mkdir, exists } = await import('@tauri-apps/plugin-fs');
-    const { join, appDataDir } = await import('@tauri-apps/api/path');
-    const { getOutputDir } = await import('$lib/api/tts');
-
-    const ext = (displayName.split('.').pop() || 'wav').toLowerCase();
-    const uniqueName = `lib_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
-
-    let refDir: string;
+  async function loadLocal(): Promise<Voice[]> {
     try {
-      const outputDir = await getOutputDir();
-      refDir = outputDir.ref_audio;
-    } catch {
-      const dataDir = await appDataDir();
-      refDir = await join(dataDir, 'ref_audio');
-    }
+      const { readTextFile, exists } = await import('@tauri-apps/plugin-fs');
+      const { join, appDataDir } = await import('@tauri-apps/api/path');
+      const dirs = ['E:\\Exploitation\\MaruAudio\\MaruAudio_V3\\backend\\outputs\\preset', await join(await appDataDir(), 'preset'), await join(await appDataDir(), 'outputs', 'preset')];
+      let pd = '', mp = '';
+      for (const d of dirs) { const c = await join(d, 'metadata.json'); if (await exists(c)) { pd = d; mp = c; break; } }
+      if (!pd) return [];
+      const data = JSON.parse(await readTextFile(mp)) as Array<{ name: string; gender: string; language: string; display_tag: string; tags: string[]; is_premium: boolean; file_path: string; description: string; duration?: number; cover?: string }>;
+      return Promise.all(data.map(async p => {
+        const fn = p.file_path.split(/[/\\]/).pop()!;
+        const tag = p.display_tag || p.tags?.[0] || '样音';
+        const tags = p.tags ?? [];
+        return { id: p.name, name: p.name, description: p.description || `${p.language} · ${p.display_tag}`, gender: p.gender, genderLabel: normalizeGender(p.gender), language: p.language || '中文', tag, tags, premium: p.is_premium, filePath: await join(pd, fn), cover: p.cover ? await join(pd, 'covers', p.cover.split(/[/\\]/).pop()!) : undefined, duration: p.duration, searchText: `${p.name} ${p.description || ''} ${tag} ${tags.join(' ')}`.toLowerCase() };
+      }));
+    } catch { return []; }
+  }
 
-    if (!await exists(refDir)) await mkdir(refDir, { recursive: true });
-    const dstPath = await join(refDir, uniqueName);
-    const data = await readFile(srcPath);
-    await writeFile(dstPath, data);
-    return dstPath;
+  async function loadVocalInfo() {
+    try { const i = await vocalSeparateInfo(); vocalAvailable = i.available; vocalMethod = i.available ? `${i.method}` : '不可用'; }
+    catch { vocalAvailable = false; vocalMethod = '不可达'; }
+  }
+
+  function resetPage() { currentPage = 1; }
+  function goPage(p: number) { currentPage = Math.max(1, Math.min(totalPages, p)); }
+
+  function fileSrc(v: Voice | undefined) { if (!v?.filePath) return ''; return v.filePath.startsWith('http') || v.filePath.startsWith('blob:') ? v.filePath : convertFileSrc(v.filePath); }
+  function imgSrc(p: string | undefined) { if (!p) return ''; if (/^[a-zA-Z]:/.test(p.replace(/\\/g, '/'))) return convertFileSrc(p); return p.startsWith('http') || p.startsWith('blob:') ? p : convertFileSrc(p); }
+  function markBroken(id: string) { voices = voices.map(v => v.id === id ? { ...v, coverBroken: true } : v); }
+
+  function togglePlay(v: Voice) {
+    const src = fileSrc(v); if (!src) { toast.info('暂无音频'); return; }
+    selectedVoiceId = v.id;
+    if (playingVoiceId === v.id && audioPlaying) { audioEl?.pause(); audioPlaying = false; return; }
+    playingVoiceId = v.id; audioSrc = src;
+    requestAnimationFrame(() => { void audioEl?.play(); audioPlaying = true; });
+  }
+
+  function handleApply(v = sel) {
+    if (!v?.filePath) { toast.info('暂无音频'); return; }
+    dubbing.setVoice(v.id, v.name, v.filePath);
+    toast.success(`已将「${v.name}」应用到配音页`);
   }
 
   async function handleImport() {
-    if (isImporting) {
-      toast.info('已有导入任务在进行');
-      return;
-    }
-    const file = await selectAudioFile();
-    if (!file) return;
-
-    isImporting = true;
-    importProgress = 0;
-    importMessage = '正在拷贝文件…';
-
+    if (isImporting) return;
     try {
-      const localPath = await copyToRefAudio(file.path, file.baseName);
+      const { open } = await import('@tauri-apps/plugin-dialog');
+      const s = await open({ multiple: false, directory: false, filters: [{ name: '音视频', extensions: ['mp4', 'mov', 'mkv', 'avi', 'webm', 'mp3', 'wav', 'flac', 'm4a', 'aac', 'ogg'] }] });
+      if (!s || Array.isArray(s)) return;
+      const path = s as string, baseName = path.split(/[\\/]/).pop() || '未命名';
+      isImporting = true; importProgress = 0; importMessage = '拷贝中…';
+      const { readFile, writeFile, mkdir, exists } = await import('@tauri-apps/plugin-fs');
+      const { join, appDataDir } = await import('@tauri-apps/api/path');
+      const { getOutputDir } = await import('$lib/api/tts');
+      const ext = (baseName.split('.').pop() || 'wav').toLowerCase();
+      const uname = `lib_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      let refDir: string;
+      try { refDir = (await getOutputDir()).ref_audio; } catch { refDir = await join(await appDataDir(), 'ref_audio'); }
+      if (!await exists(refDir)) await mkdir(refDir, { recursive: true });
+      const dst = await join(refDir, uname);
+      await writeFile(dst, await readFile(path));
       importProgress = 20;
-
-      let finalPath = localPath;
+      let finalPath = dst;
       if (autoVocalSeparate && vocalAvailable !== false) {
         try {
-          const evt = await vocalSeparate(
-            { input_path: localPath },
-            {
-              onProgress: (e) => {
-                // 20-95 映射给人声分离
-                importProgress = 20 + Math.round(e.progress * 75);
-                importMessage = e.message;
-              },
-            }
-          );
+          const evt = await vocalSeparate({ input_path: dst }, { onProgress: e => { importProgress = 20 + Math.round(e.progress * 75); importMessage = e.message; } });
           finalPath = evt.output_path;
-          importMessage = `人声分离完成 (${evt.method})`;
-        } catch (err) {
-          toast.warning(`人声分离失败，保留原音频：${err instanceof Error ? err.message : err}`);
-        }
+        } catch (err) { toast.warning(`人声分离失败：${err instanceof Error ? err.message : err}`); }
       }
-
-      importProgress = 100;
-      const tone = IMPORT_TONES[voices.length % IMPORT_TONES.length];
-      const newVoice: Voice = {
-        name: file.baseName.replace(/\.[^.]+$/, ''),
-        meta: `导入 · ${new Date().toLocaleDateString()}`,
-        tags: ['导入'],
-        pro: false,
-        uses: 0,
-        tone,
-        filePath: finalPath,
-      };
-      voices = [newVoice, ...voices];
-      selected = newVoice;
-      toast.success(`已导入「${newVoice.name}」`);
-    } catch (err) {
-      toast.warning(`导入失败：${err instanceof Error ? err.message : err}`);
-    } finally {
-      setTimeout(() => {
-        isImporting = false;
-        importProgress = 0;
-        importMessage = '';
-      }, 1200);
-    }
+      const nv: Voice = { id: `imp-${Date.now()}`, name: baseName.replace(/\.[^.]+$/, ''), description: `导入 · ${new Date().toLocaleDateString()}`, gender: '', genderLabel: '未知', language: '中文', tag: '导入', tags: ['导入'], premium: false, filePath: finalPath, source: 'user', searchText: `${baseName} 导入`.toLowerCase() };
+      voices = [nv, ...voices]; selectedVoiceId = nv.id; currentPage = 1; importProgress = 100;
+      toast.success(`已导入「${nv.name}」`);
+    } catch (e) { toast.warning(`导入失败：${e instanceof Error ? e.message : e}`); }
+    finally { setTimeout(() => { isImporting = false; importProgress = 0; importMessage = ''; }, 600); }
   }
 </script>
 
-<div class="library-page">
-  <aside class="library-sidebar">
-    <button type="button" class="import-btn" onclick={handleImport} disabled={isImporting}>
-      <Icon name="plus" size={16} color="var(--color-primary)" />
-      <span>{isImporting ? '导入中…' : '导入样音'}</span>
-    </button>
+{#if audioSrc}
+  <audio bind:this={audioEl} src={audioSrc} preload="metadata" onended={() => { audioPlaying = false; playingVoiceId = ''; }} style="display:none"></audio>
+{/if}
 
-    <div class="vocal-toggle" class:disabled={vocalAvailable === false}>
-      <Switch
-        bind:checked={autoVocalSeparate}
-        disabled={vocalAvailable === false || isImporting}
-        size="sm"
-      />
-      <span class="toggle-text">
-        <span class="toggle-label">自动人声分离</span>
-        <span class="toggle-hint">
-          {#if vocalAvailable === null}检测能力中…
-          {:else if vocalAvailable === false}后端不可用
-          {:else}{vocalMethod} 算法可用{/if}
-        </span>
-      </span>
+<div class="res-page">
+  <!-- ─── 左侧主列表 ─── -->
+  <div class="list-col">
+    <!-- 顶栏 -->
+    <div class="list-toolbar">
+      <div class="tb-search">
+        <Icon name="search" size={14} color="var(--color-text-tertiary)" />
+        <input bind:value={search} oninput={resetPage} placeholder="搜索音色…" />
+        {#if search}<button class="tb-clear" onclick={() => { search = ''; resetPage(); }}><Icon name="close" size={10} color="var(--color-text-tertiary)" /></button>{/if}
+      </div>
+      <div class="tb-tabs">
+        {#each genderTabs as t (t)}
+          <button class:on={genderFilter === t} onclick={() => { genderFilter = t; resetPage(); }}>{t}</button>
+        {/each}
+      </div>
+      <select class="tb-select" bind:value={languageFilter} onchange={resetPage}>
+        {#each langOptions as o (o)}<option value={o}>{o === '全部' ? '全部语言' : o}</option>{/each}
+      </select>
+      <select class="tb-select" bind:value={sortBy}>
+        <option value="name">按名称</option>
+        <option value="premium">按精品</option>
+        <option value="duration">按时长</option>
+      </select>
+      <span class="tb-count">{filtered.length}</span>
     </div>
 
-    {#if isImporting}
-      <div class="import-progress" role="status">
-        <div class="import-progress-bar">
-          <div class="import-progress-fill" style="width:{importProgress}%"></div>
+    <!-- 表头 -->
+    <div class="list-head">
+      <span class="col-idx">#</span>
+      <span class="col-name">音色</span>
+      <span class="col-gender">性别</span>
+      <span class="col-tag">标签</span>
+      <span class="col-lang">语言</span>
+      <span class="col-dur">时长</span>
+      <span class="col-act"></span>
+    </div>
+
+    <!-- 列表体 -->
+    <div class="list-body">
+      {#if loading}
+        {#each Array(8) as _, i (i)}
+          <div class="row skel"><span class="col-idx"></span><span class="col-name"><span class="skel-bar w80"></span><span class="skel-bar w120"></span></span></div>
+        {/each}
+      {:else if pageItems.length === 0}
+        <div class="list-empty">
+          <Icon name="sound" size={36} color="var(--color-text-quaternary)" />
+          <strong>暂无匹配音色</strong>
+          <span>换个关键词或上传新样音</span>
         </div>
-        <span>{importMessage || '处理中…'} · {importProgress}%</span>
+      {:else}
+        {#each pageItems as v, i (v.id)}
+          <div
+            class="row"
+            class:active={sel?.id === v.id}
+            class:playing={playingVoiceId === v.id && audioPlaying}
+            role="button" tabindex="0"
+            onclick={() => { selectedVoiceId = v.id; }}
+            onkeydown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectedVoiceId = v.id; } }}
+            ondblclick={() => togglePlay(v)}
+          >
+            <span class="col-idx">{(currentPage - 1) * PAGE_SIZE + i + 1}</span>
+
+            <span class="col-name">
+              <span class="av {voiceTone(v.gender)}">
+                {#if v.cover && !v.coverBroken}
+                  <img src={imgSrc(v.cover)} alt="" loading="lazy" onerror={() => markBroken(v.id)} />
+                {:else}
+                  {v.name.slice(0, 1)}
+                {/if}
+              </span>
+              <span class="name-text">
+                <span class="name-primary">
+                  {v.name}
+                  {#if v.premium}<em class="badge-gold">精品</em>{/if}
+                </span>
+                <span class="name-desc">{v.description}</span>
+              </span>
+            </span>
+
+            <span class="col-gender"><em class="pill {voiceTone(v.gender)}">{v.genderLabel}</em></span>
+            <span class="col-tag">{v.tag}</span>
+            <span class="col-lang">{v.language}</span>
+            <span class="col-dur">{fmtDur(v.duration)}</span>
+
+            <span class="col-act">
+              <button class="act-play" onclick={e => { e.stopPropagation(); togglePlay(v); }} aria-label="播放">
+                <Icon name={playingVoiceId === v.id && audioPlaying ? 'pause-fill' : 'play-fill'} size={14} color="currentColor" />
+              </button>
+              <button class="act-apply" onclick={e => { e.stopPropagation(); handleApply(v); }} aria-label="应用">
+                <Icon name="check" size={12} color="currentColor" />
+              </button>
+            </span>
+          </div>
+        {/each}
+      {/if}
+    </div>
+
+    <!-- 底栏 -->
+    <div class="list-footer">
+      <span>{filtered.length} 个音色</span>
+      <div class="flex-1"></div>
+      <div class="pager">
+        <button disabled={currentPage <= 1} onclick={() => goPage(currentPage - 1)}>‹</button>
+        {#each pages as p (typeof p === 'number' ? p : `e${Math.random()}`)}
+          {#if p === '...'}<span class="pg-dot">…</span>
+          {:else}<button class:on={currentPage === p} onclick={() => goPage(p as number)}>{p}</button>{/if}
+        {/each}
+        <button disabled={currentPage >= totalPages} onclick={() => goPage(currentPage + 1)}>›</button>
       </div>
+    </div>
+  </div>
+
+  <!-- ─── 右侧详情 ─── -->
+  <aside class="detail-col">
+    {#if sel}
+      <div class="d-cover {voiceTone(sel.gender)}">
+        {#if sel.cover && !sel.coverBroken}
+          <img src={imgSrc(sel.cover)} alt="" loading="lazy" onerror={() => markBroken(sel.id)} />
+        {:else}
+          <span class="d-letter">{sel.name.slice(0, 1)}</span>
+        {/if}
+        {#if sel.premium}<em class="d-premium"><Icon name="crown" size={10} color="#1a1a1a" /> 精品</em>{/if}
+      </div>
+
+      <div class="d-head">
+        <h2>{sel.name}</h2>
+        <p>{sel.description}</p>
+      </div>
+
+      <div class="d-tags">
+        <em class="pill {voiceTone(sel.gender)}">{sel.genderLabel}</em>
+        <em class="pill">{sel.language}</em>
+        <em class="pill">{sel.tag}</em>
+        {#each sel.tags as t (t)}<em class="pill">{t}</em>{/each}
+      </div>
+
+      {#if sel.filePath}
+        <div class="d-player"><MiniPlayer src={fileSrc(sel)} label={sel.name} height={36} /></div>
+      {/if}
+
+      <div class="d-meta">
+        {#if sel.duration}<div class="dm"><span>时长</span><span>{fmtDur(sel.duration)}</span></div>{/if}
+        <div class="dm"><span>来源</span><span>{sel.source === 'user' ? '用户导入' : '预置音色'}</span></div>
+      </div>
+
+      <Button variant="primary" size="md" block onclick={() => handleApply(sel)}>应用到配音</Button>
+    {:else}
+      <div class="d-empty"><Icon name="sound" size={40} color="var(--color-text-quaternary)" /><span>选择音色查看详情</span></div>
     {/if}
 
-    <nav class="library-nav">
-      {#each categories as [label, count, icon], i (label)}
-        <button type="button" class:active={i === 0}>
-          <Icon name={icon} size={15} color="currentColor" />
-          <span>{label}</span>
-          <em>{count}</em>
-        </button>
-      {/each}
-    </nav>
-
-    <div class="group-title">分类</div>
-    <nav class="library-nav compact">
-      {#each voiceTypes as [label, count, icon] (label)}
-        <button type="button">
-          <Icon name={icon} size={14} color="currentColor" />
-          <span>{label}</span>
-          <em>{count}</em>
-        </button>
-      {/each}
-    </nav>
-
-    <div class="group-title">我的标签</div>
-    <div class="tag-cloud">
-      {#each tags as tag, i (tag)}
-        <button type="button" style="--tag-i:{i}">{tag}</button>
-      {/each}
-    </div>
-  </aside>
-
-  <main class="library-main">
-    <header class="toolbar">
-      <div class="search-box">
-        <Icon name="search" size={16} color="var(--color-text-tertiary)" />
-        <input placeholder="搜索声音、风格、标签…" />
+    <!-- 底部固定 -->
+    <div class="d-bottom">
+      <div class="d-stats">
+        <div class="ds"><strong>{voices.length}</strong><span>全部</span></div>
+        <div class="ds gold"><strong>{premiumN}</strong><span>精品</span></div>
+        <div class="ds"><strong>{userN}</strong><span>导入</span></div>
       </div>
-      <select><option>按热度</option><option>按最近使用</option></select>
-      <div class="view-toggle">
-        <button class="active"><Icon name="appstore" size={15} color="currentColor" /></button>
-        <button><Icon name="bars" size={15} color="currentColor" /></button>
-      </div>
-      <select><option>语言</option></select>
-      <select><option>性别</option></select>
-      <select><option>时长</option></select>
-      <Button variant="default" size="md" onclick={handleImport} disabled={isImporting}>{isImporting ? '导入中…' : '导入'}</Button>
-    </header>
-
-    <section class="voice-grid">
-      {#each voices as voice (voice.name)}
-        <button
-          type="button"
-          class="voice-card"
-          class:selected={selected.name === voice.name}
-          onclick={() => (selected = voice)}
-        >
-          <div class="cover {voice.tone}">
-            <div class="wave">
-              {#each Array(22) as _, i (i)}
-                <span style="height:{20 + ((i * 17) % 52)}%"></span>
-              {/each}
-            </div>
-            <em>{voice.pro ? 'PRO' : 'NEW'}</em>
-          </div>
-          <div class="voice-body">
-            <h3>{voice.name}</h3>
-            <p>{voice.meta}</p>
-            <div class="voice-tags">
-              {#each voice.tags as tag (tag)}
-                <span>{tag}</span>
-              {/each}
-            </div>
-            <footer>
-              <span class="play-dot"><Icon name="play-fill" size={14} color="#fff" /></span>
-              <span>00:00:12</span>
-              <span class="uses">已用 {voice.uses} 次</span>
-              <Icon name="heart" size={15} color="var(--color-text-tertiary)" />
-            </footer>
-          </div>
-        </button>
-      {/each}
-    </section>
-
-    <footer class="library-status">
-      <div>当前筛选：<span>语言：全部</span><span>性别：全部</span><span>时长：全部</span></div>
-      <strong>共 1,258 个样音</strong>
-      <div class="pager"><button>‹</button><button class="active">1</button><button>2</button><button>3</button><button>…</button><button>63</button><button>›</button></div>
-    </footer>
-  </main>
-
-  <aside class="detail-panel">
-    <div class="detail-head">
-      <div class="detail-cover {selected.tone}">
-        <Icon name="sound-fill" size={38} color="#fff" />
-      </div>
-      <div>
-        <h2>{selected.name}<span>{selected.pro ? 'PRO' : 'NEW'}</span></h2>
-        <p>{selected.meta}</p>
-      </div>
-    </div>
-    <p class="detail-desc">温暖磁性的声音质感，适合纪录片、广告、影视旁白与有声书，情感表达细腻，层次稳定。</p>
-    <div class="detail-meta">
-      <span>采样率 24kHz</span>
-      <span>时长 12s</span>
-      <span>格式 WAV</span>
-    </div>
-    <div class="preview-player">
-      {#if previewSrc}
-        <audio
-          bind:this={previewAudioEl}
-          src={previewSrc}
-          preload="metadata"
-          ontimeupdate={() => { if (previewAudioEl) previewTime = previewAudioEl.currentTime; }}
-          onloadedmetadata={() => { if (previewAudioEl) previewDuration = previewAudioEl.duration; }}
-          onended={() => { previewPlaying = false; previewTime = 0; }}
-          class="hidden-audio"
-        ></audio>
+      <Button variant="primary" size="md" block prefixIcon="upload" onclick={handleImport} loading={isImporting}>上传样音</Button>
+      {#if isImporting}
+        <div class="imp"><span>{importMessage} {importProgress}%</span><div class="imp-track"><i style="width:{importProgress}%"></i></div></div>
       {/if}
-      <button type="button" class="preview-play-btn" onclick={togglePreviewPlay} aria-label={previewPlaying ? '暂停' : '播放'}>
-        <Icon name={previewPlaying ? 'pause-fill' : 'play-fill'} size={18} color="#fff" />
-      </button>
-      <div class="preview-waveform">
-        {#if previewSrc}
-          <WaveformView
-            audioSrc={previewSrc}
-            currentTime={previewTime}
-            duration={previewDuration}
-            onSeek={handlePreviewSeek}
-            height={36}
-            barWidth={2}
-            barGap={1}
-          />
-        {:else}
-          <div class="preview-wave-empty">
-            {#each Array(28) as _, i (i)}
-              <span style="height:{18 + ((i * 13) % 50)}%"></span>
-            {/each}
-          </div>
-        {/if}
+      <div class="d-vocal" class:off={vocalAvailable === false}>
+        <Switch bind:checked={autoVocalSeparate} size="sm" disabled={vocalAvailable === false || isImporting} />
+        <div><strong>人声分离</strong><span>{vocalAvailable === null ? '检测中…' : vocalMethod}</span></div>
       </div>
-      <span class="preview-time">
-        {Math.floor(previewTime / 60).toString().padStart(2, '0')}:{Math.floor(previewTime % 60).toString().padStart(2, '0')} / {Math.floor(previewDuration / 60).toString().padStart(2, '0')}:{Math.floor(previewDuration % 60).toString().padStart(2, '0')}
-      </span>
-    </div>
-    <Button variant="primary" size="lg" block onclick={handleApply}>应用到配音</Button>
-    <Button variant="link" size="sm" block disabled>查看相似样音（即将推出）</Button>
-    <div class="detail-foot">
-      <span>被使用 {selected.uses} 次</span>
-      <span>最近一次 2 小时前</span>
     </div>
   </aside>
 </div>
 
 <style>
-  .library-page {
-    flex: 1;
-    min-height: 0;
+  /* ===== Page ===== */
+  .res-page {
+    flex: 1; min-height: 0; padding: 15px;
     display: grid;
-    grid-template-columns: clamp(180px, 20vw, 240px) minmax(0, 1fr) clamp(220px, 24vw, 300px);
+    grid-template-columns: minmax(0, 1fr) clamp(240px, 24vw, 300px);
     gap: var(--spacing-sm);
-    padding: clamp(8px, 1.2vw, 15px);
-    background-color: var(--color-bg-container);
+    background: var(--color-bg-container);
     overflow: hidden;
   }
 
-  @media (max-width: 1000px) {
-    .library-page {
-      grid-template-columns: minmax(0, 1fr) clamp(200px, 24vw, 280px);
-    }
-    .library-sidebar {
-      display: none;
-    }
-  }
+  .flex-1 { flex: 1; }
 
-  @media (max-width: 800px) {
-    .library-page {
-      grid-template-columns: 1fr;
-      overflow-y: auto;
-    }
-    .detail-panel {
-      max-height: 320px;
-      overflow-y: auto;
-    }
-  }
-
-  .library-sidebar,
-  .detail-panel {
+  /* ===== Left list column ===== */
+  .list-col {
+    min-height: 0;
+    display: flex; flex-direction: column;
     background: var(--color-bg-elevated);
     border: 1px solid var(--color-border-secondary);
     border-radius: var(--border-radius-lg);
-    padding: var(--spacing-md);
     overflow: hidden;
   }
 
-  .import-btn {
-    width: 100%;
-    height: 44px;
-    border: 1px dashed var(--color-primary);
-    border-radius: var(--border-radius);
-    background: color-mix(in srgb, var(--color-primary) 8%, transparent);
-    color: var(--color-primary);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: var(--spacing-sm);
-    cursor: pointer;
-    margin-bottom: var(--spacing-sm);
+  /* -- Toolbar -- */
+  .list-toolbar {
+    display: flex; align-items: center; gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-bottom: 1px solid var(--color-border-secondary);
+    flex-shrink: 0;
+    flex-wrap: wrap;
   }
 
-  .import-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  .vocal-toggle {
-    display: flex;
-    align-items: flex-start;
-    gap: var(--spacing-sm);
-    padding: var(--spacing-sm);
-    background-color: var(--color-bg-base);
+  .tb-search {
+    width: clamp(160px, 20vw, 240px);
+    height: 32px;
+    display: flex; align-items: center; gap: 6px;
+    padding: 0 var(--spacing-sm);
+    background: var(--color-bg-base);
     border: 1px solid var(--color-border-secondary);
     border-radius: var(--border-radius);
-    cursor: pointer;
-    margin-bottom: var(--spacing-md);
     transition: border-color var(--transition-duration) var(--transition-timing);
   }
+  .tb-search:focus-within { border-color: var(--color-primary); }
+  .tb-search input { flex: 1; min-width: 0; border: none; outline: none; background: transparent; color: var(--color-text); font-size: var(--font-size-sm); }
+  .tb-clear { width: 16px; height: 16px; border: none; background: transparent; display: flex; align-items: center; justify-content: center; border-radius: 50%; cursor: pointer; }
+  .tb-clear:hover { background: var(--color-hover-bg); }
 
-  .vocal-toggle:hover {
-    border-color: color-mix(in srgb, var(--color-primary) 35%, var(--color-border-secondary));
-  }
-
-  .vocal-toggle.disabled {
-    opacity: 0.55;
-    cursor: not-allowed;
-  }
-
-  .toggle-text {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    min-width: 0;
-  }
-
-  .toggle-label {
-    font-size: var(--font-size-sm);
-    color: var(--color-text);
-  }
-
-  .toggle-hint {
-    font-size: 11px;
-    color: var(--color-text-tertiary);
-  }
-
-  .import-progress {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    padding: var(--spacing-sm);
-    margin-bottom: var(--spacing-md);
+  .tb-tabs {
+    display: flex; gap: 1px;
+    background: var(--color-bg-base);
     border-radius: var(--border-radius-sm);
-    background-color: color-mix(in srgb, var(--color-primary) 8%, transparent);
-    border: 1px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
-    font-size: 11px;
+    padding: 2px;
+  }
+  .tb-tabs button {
+    height: 26px; padding: 0 10px;
+    border: none; border-radius: 4px;
+    background: transparent; color: var(--color-text-tertiary);
+    font-size: 12px; cursor: pointer;
+    transition: all var(--transition-duration) var(--transition-timing);
+  }
+  .tb-tabs button:hover { color: var(--color-text-secondary); }
+  .tb-tabs button.on { background: var(--color-primary); color: #fff; }
+
+  .tb-select {
+    height: 32px; padding: 0 8px;
+    border: 1px solid var(--color-border-secondary);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-bg-base);
     color: var(--color-text-secondary);
+    font-size: 12px; cursor: pointer;
   }
+  .tb-select:focus { border-color: var(--color-primary); outline: none; }
 
-  .import-progress-bar {
-    height: 4px;
-    border-radius: 2px;
-    background-color: color-mix(in srgb, var(--color-border) 70%, transparent);
-    overflow: hidden;
-  }
-
-  .import-progress-fill {
-    height: 100%;
-    background: linear-gradient(90deg, var(--color-primary), color-mix(in srgb, var(--color-primary) 70%, white 30%));
-    border-radius: 2px;
-    transition: width 0.15s ease;
-  }
-
-  .library-nav {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-
-  .library-nav button {
-    height: 34px;
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-sm);
-    padding: 0 var(--spacing-sm);
-    border: none;
-    border-radius: var(--border-radius);
-    background: transparent;
-    color: var(--color-text-secondary);
-    cursor: pointer;
-    font-size: var(--font-size-sm);
-  }
-
-  .library-nav button:hover,
-  .library-nav button.active {
-    background-color: var(--color-bg-spotlight);
-    color: var(--color-primary);
-  }
-
-  .library-nav span { flex: 1; text-align: left; }
-  .library-nav em {
-    font-style: normal;
-    color: var(--color-primary);
+  .tb-count {
+    margin-left: auto;
+    min-width: 24px; height: 20px;
+    display: inline-flex; align-items: center; justify-content: center;
+    padding: 0 6px;
+    border-radius: var(--border-radius-pill);
     background: color-mix(in srgb, var(--color-primary) 12%, transparent);
-    border-radius: 999px;
-    padding: 1px 6px;
-    font-size: 11px;
+    color: var(--color-primary);
+    font-size: 11px; font-weight: 600;
   }
 
-  .group-title {
-    margin: var(--spacing-md) 0 var(--spacing-xs);
-    color: var(--color-text-tertiary);
+  /* -- List head -- */
+  .list-head {
+    display: grid;
+    grid-template-columns: 36px minmax(0, 1fr) 56px 72px 56px 48px 64px;
+    align-items: center;
+    height: 34px;
+    padding: 0 var(--spacing-md);
+    color: var(--color-text-quaternary);
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    border-bottom: 1px solid var(--color-border-secondary);
+    flex-shrink: 0;
   }
 
-  .tag-cloud {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--spacing-xs);
+  /* -- List body -- */
+  .list-body {
+    flex: 1; min-height: 0;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-border) transparent;
   }
 
-  .tag-cloud button {
-    border: none;
-    border-radius: var(--border-radius-sm);
-    padding: 4px 8px;
-    color: #fff;
-    background: color-mix(in srgb, var(--color-primary) calc(42% + var(--tag-i) * 7%), var(--color-bg-spotlight));
+  .list-empty {
+    height: 100%;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: var(--spacing-sm);
+    color: var(--color-text-tertiary);
+  }
+  .list-empty strong { color: var(--color-text-secondary); }
+
+  /* -- Row -- */
+  .row {
+    display: grid;
+    grid-template-columns: 36px minmax(0, 1fr) 56px 72px 56px 48px 64px;
+    align-items: center;
+    height: 52px;
+    padding: 0 var(--spacing-md);
     cursor: pointer;
-    font-size: 11px;
+    transition: background var(--transition-duration) var(--transition-timing);
   }
 
-  .library-main {
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
+  .row:hover { background: var(--color-hover-bg); }
+  .row.active { background: var(--color-selected-bg); }
+  .row.playing { background: color-mix(in srgb, var(--color-primary) 8%, transparent); }
+
+  .col-idx { color: var(--color-text-quaternary); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .row.playing .col-idx { color: var(--color-primary); }
+
+  .col-name { display: flex; align-items: center; gap: var(--spacing-sm); min-width: 0; }
+
+  .av {
+    width: 36px; height: 36px; flex-shrink: 0;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    color: rgba(255, 255, 255, 0.9);
+    font-weight: 800; font-size: 15px;
+    letter-spacing: -0.5px;
+    background: linear-gradient(140deg, #1e4878 0%, #3b6eaf 50%, #5e8ace 100%);
     overflow: hidden;
-    padding: var(--spacing-md);
-    gap: var(--spacing-md);
+    box-shadow:
+      0 2px 8px color-mix(in srgb, var(--color-primary) 20%, transparent),
+      inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    position: relative;
+    transition: transform var(--transition-duration) var(--transition-timing),
+                box-shadow var(--transition-duration) var(--transition-timing);
+  }
+  .row:hover .av {
+    transform: scale(1.06);
+    box-shadow:
+      0 4px 12px color-mix(in srgb, var(--color-primary) 28%, transparent),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  }
+  .av::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(circle at 30% 25%, rgba(255, 255, 255, 0.12), transparent 60%);
+    pointer-events: none;
+  }
+  .av img { width: 100%; height: 100%; object-fit: cover; position: relative; z-index: 1; }
+  .av.female {
+    background: linear-gradient(140deg, #4a1f7a 0%, #8B5CF6 50%, #b794f4 100%);
+    box-shadow:
+      0 2px 8px color-mix(in srgb, var(--color-accent) 20%, transparent),
+      inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  }
+  .row:hover .av.female {
+    box-shadow:
+      0 4px 12px color-mix(in srgb, var(--color-accent) 28%, transparent),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  }
+  .av.neutral {
+    background: linear-gradient(140deg, #2a2a3a 0%, #4a5568 50%, #718096 100%);
+    box-shadow:
+      0 2px 8px rgba(100, 116, 139, 0.2),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+
+  .name-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+  .name-primary {
+    display: flex; align-items: center; gap: 5px;
+    font-size: var(--font-size-sm); color: var(--color-text);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .row.playing .name-primary { color: var(--color-primary); }
+  .name-desc {
+    font-size: 11px; color: var(--color-text-tertiary);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+
+  .badge-gold {
+    display: inline-flex; align-items: center;
+    padding: 1px 5px; border-radius: var(--border-radius-pill);
+    background: linear-gradient(135deg, #f0d060, #d4a44a);
+    color: #1a1a1a; font-size: 9px; font-weight: 700; font-style: normal;
+    flex-shrink: 0;
+  }
+
+  .col-gender { display: flex; justify-content: center; }
+  .col-tag, .col-lang { color: var(--color-text-tertiary); font-size: 12px; text-align: center; }
+  .col-dur { color: var(--color-text-quaternary); font-size: 12px; font-family: ui-monospace, Menlo, Consolas, monospace; text-align: center; }
+
+  .pill {
+    height: 20px; display: inline-flex; align-items: center;
+    padding: 0 7px; border-radius: var(--border-radius-pill);
+    font-size: 10px; font-style: normal; font-weight: 500;
+    color: var(--color-text-tertiary); background: var(--color-bg-spotlight);
+  }
+  .pill.male { color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 12%, transparent); }
+  .pill.female { color: var(--color-accent); background: color-mix(in srgb, var(--color-accent) 12%, transparent); }
+
+  .col-act {
+    display: flex; align-items: center; justify-content: flex-end; gap: 4px;
+    opacity: 0;
+    transition: opacity var(--transition-duration) var(--transition-timing);
+  }
+  .row:hover .col-act, .row.active .col-act, .row.playing .col-act { opacity: 1; }
+
+  .act-play, .act-apply {
+    width: 26px; height: 26px;
+    border: 1px solid var(--color-border-secondary);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-bg-base);
+    color: var(--color-text-tertiary);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    transition: all var(--transition-duration) var(--transition-timing);
+  }
+  .act-play:hover { border-color: var(--color-primary); color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 8%, transparent); }
+  .act-apply:hover { border-color: var(--color-success); color: var(--color-success); background: color-mix(in srgb, var(--color-success) 8%, transparent); }
+
+  .row.playing .act-play { border-color: var(--color-primary); color: var(--color-primary); }
+
+  /* -- Skeleton -- */
+  .skel { pointer-events: none; }
+  .skel-bar { display: block; height: 10px; border-radius: 4px; background: linear-gradient(90deg, var(--color-bg-spotlight), color-mix(in srgb, var(--color-bg-spotlight) 60%, white 10%), var(--color-bg-spotlight)); background-size: 200% 100%; animation: shimmer 1.2s ease-in-out infinite; }
+  .w80 { width: 80px; }
+  .w120 { width: 120px; margin-top: 4px; }
+  @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+  /* -- Footer -- */
+  .list-footer {
+    display: flex; align-items: center;
+    height: 38px;
+    padding: 0 var(--spacing-md);
+    border-top: 1px solid var(--color-border-secondary);
+    color: var(--color-text-quaternary);
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+
+  .pager { display: flex; gap: 2px; }
+  .pager button {
+    min-width: 26px; height: 26px;
+    border: 1px solid var(--color-border-secondary);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-bg-base);
+    color: var(--color-text-tertiary);
+    font-size: 11px; cursor: pointer;
+    transition: all var(--transition-duration) var(--transition-timing);
+  }
+  .pager button:hover:not(:disabled) { border-color: var(--color-primary); color: var(--color-primary); }
+  .pager button.on { background: var(--color-primary); border-color: var(--color-primary); color: #fff; }
+  .pager button:disabled { opacity: 0.3; cursor: not-allowed; }
+  .pg-dot { width: 20px; display: inline-flex; align-items: center; justify-content: center; color: var(--color-text-quaternary); font-size: 11px; }
+
+  /* ===== Right detail column ===== */
+  .detail-col {
+    min-height: 0;
+    display: flex; flex-direction: column;
+    gap: var(--spacing-sm);
     background: var(--color-bg-elevated);
     border: 1px solid var(--color-border-secondary);
     border-radius: var(--border-radius-lg);
-  }
-
-  .toolbar {
-    display: flex;
-    gap: var(--spacing-sm);
-    align-items: center;
-    flex-shrink: 0;
-    flex-wrap: wrap;
-  }
-
-  .search-box {
-    flex: 1;
-    height: 36px;
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-xs);
-    padding: 0 var(--spacing-sm);
-    background-color: var(--color-bg-base);
-    border: 1px solid var(--color-border-secondary);
-    border-radius: var(--border-radius);
-  }
-
-  .search-box input {
-    flex: 1;
-    border: none;
-    background: transparent;
-    outline: none;
-    color: var(--color-text);
-  }
-
-  select,
-  .secondary {
-    height: 36px;
-    background-color: var(--color-bg-base);
-    border: 1px solid var(--color-border-secondary);
-    color: var(--color-text-secondary);
-    border-radius: var(--border-radius);
-    padding: 0 var(--spacing-sm);
-  }
-
-  .view-toggle {
-    display: flex;
-    gap: 2px;
-    padding: 2px;
-    background-color: var(--color-bg-base);
-    border: 1px solid var(--color-border-secondary);
-    border-radius: var(--border-radius);
-  }
-
-  .view-toggle button {
-    width: 30px;
-    height: 30px;
-    border: none;
-    border-radius: var(--border-radius-sm);
-    background: transparent;
-    color: var(--color-text-tertiary);
-  }
-
-  .view-toggle button.active {
-    color: #fff;
-    background: var(--color-primary);
-  }
-
-  .voice-grid {
-    flex: 1;
-    min-height: 0;
-    overflow: hidden;
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-    gap: var(--spacing-md);
-    align-content: start;
-  }
-
-  .voice-card {
-    padding: 0;
-    border: 1px solid var(--color-border-secondary);
-    border-radius: var(--border-radius-lg);
-    background-color: var(--color-bg-elevated);
-    overflow: hidden;
-    text-align: left;
-    cursor: pointer;
-    color: var(--color-text);
-  }
-
-  .voice-card:hover,
-  .voice-card.selected {
-    border-color: var(--color-primary);
-  }
-
-  .cover,
-  .detail-cover {
-    position: relative;
-    background: var(--color-primary);
-  }
-  .cover { height: 96px; overflow: hidden; }
-  .cover.blue, .detail-cover.blue { background: linear-gradient(135deg, #1f4f99, #3b6eaf); }
-  .cover.purple, .detail-cover.purple { background: linear-gradient(135deg, #4b2a78, #7a4cc2); }
-  .cover.pink, .detail-cover.pink { background: linear-gradient(135deg, #78304d, #c65b78); }
-  .cover.orange, .detail-cover.orange { background: linear-gradient(135deg, #7b4a1f, #c07a35); }
-  .cover.green, .detail-cover.green { background: linear-gradient(135deg, #285f3a, #60a874); }
-  .cover.cyan, .detail-cover.cyan { background: linear-gradient(135deg, #1d6170, #44a4ba); }
-
-  .wave,
-  .preview-wave {
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 3px;
-    opacity: 0.7;
-  }
-
-  .wave span,
-  .preview-wave span {
-    width: 3px;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.75);
-  }
-
-  .cover em {
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    font-style: normal;
-    color: #1a1a1a;
-    background: #d4a44a;
-    border-radius: var(--border-radius-sm);
-    padding: 2px 6px;
-    font-size: 10px;
-    font-weight: 700;
-  }
-
-  .voice-body {
-    padding: var(--spacing-md);
-  }
-
-  .voice-body h3,
-  .detail-head h2 {
-    margin: 0;
-    color: var(--color-text);
-    font-size: var(--font-size-lg);
-  }
-
-  .voice-body p,
-  .detail-head p,
-  .detail-desc {
-    margin: 4px 0 0;
-    color: var(--color-text-tertiary);
-    font-size: var(--font-size-sm);
-    line-height: 1.5;
-  }
-
-  .voice-tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    margin: var(--spacing-sm) 0;
-  }
-
-  .voice-tags span {
-    font-size: 10px;
-    color: var(--color-primary);
-    background: color-mix(in srgb, var(--color-primary) 12%, transparent);
-    border-radius: var(--border-radius-sm);
-    padding: 2px 6px;
-  }
-
-  .voice-body footer {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-sm);
-    color: var(--color-text-tertiary);
-    font-size: 11px;
-  }
-
-  .play-dot {
-    width: 26px;
-    height: 26px;
-    border-radius: 50%;
-    background: var(--color-primary);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .uses {
-    margin-left: auto;
-  }
-
-  .library-status {
-    height: 40px;
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-md);
-    border-top: 1px solid var(--color-border-secondary);
-    color: var(--color-text-tertiary);
-    font-size: var(--font-size-sm);
-  }
-  .library-status div:first-child { flex: 1; display: flex; gap: var(--spacing-sm); }
-  .library-status span {
-    color: var(--color-text-secondary);
-    background: var(--color-bg-base);
-    padding: 3px 8px;
-    border-radius: var(--border-radius-sm);
-  }
-  .library-status strong { color: var(--color-text-secondary); font-weight: 400; }
-  .pager { display: flex; gap: 4px; }
-  .pager button {
-    min-width: 24px;
-    height: 24px;
-    border: none;
-    border-radius: var(--border-radius-sm);
-    color: var(--color-text-tertiary);
-    background: var(--color-bg-base);
-  }
-  .pager button.active { color: #fff; background: var(--color-primary); }
-
-  .detail-head {
-    display: flex;
-    gap: var(--spacing-md);
-    align-items: center;
-  }
-
-  .detail-cover {
-    width: 80px;
-    height: 80px;
-    border-radius: var(--border-radius-lg);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-  }
-
-  .detail-head h2 {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-sm);
-  }
-
-  .detail-head h2 span {
-    color: #1a1a1a;
-    background: #d4a44a;
-    border-radius: var(--border-radius-sm);
-    font-size: 10px;
-    padding: 2px 6px;
-  }
-
-  .detail-desc {
-    margin: var(--spacing-lg) 0;
-  }
-
-  .detail-meta {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    color: var(--color-text-tertiary);
-    font-size: var(--font-size-sm);
-    padding-bottom: var(--spacing-md);
-    border-bottom: 1px solid var(--color-border-secondary);
-  }
-
-  .preview-player {
-    margin: var(--spacing-lg) 0;
-    display: grid;
-    grid-template-columns: 38px 1fr auto;
-    align-items: center;
-    gap: var(--spacing-sm);
     padding: var(--spacing-sm);
-    background: var(--color-bg-base);
-    border: 1px solid var(--color-border-secondary);
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-border) transparent;
+  }
+
+  .d-cover {
+    width: 100%; aspect-ratio: 1; max-height: 200px;
     border-radius: var(--border-radius);
+    overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(145deg, #1e3a5c, #3b6eaf);
+    position: relative; flex-shrink: 0;
+  }
+  .d-cover.female { background: linear-gradient(145deg, #3a2060, #8B5CF6); }
+  .d-cover.neutral { background: linear-gradient(145deg, #2a2a36, #64748b); }
+  .d-cover img { width: 100%; height: 100%; object-fit: cover; }
+
+  .d-letter { font-size: 56px; font-weight: 700; color: rgba(255, 255, 255, 0.3); user-select: none; }
+
+  .d-premium {
+    position: absolute; bottom: 8px; left: 8px;
+    display: inline-flex; align-items: center; gap: 3px;
+    padding: 2px 8px; border-radius: var(--border-radius-pill);
+    background: linear-gradient(135deg, #f0d060, #d4a44a);
+    color: #1a1a1a; font-size: 10px; font-weight: 700; font-style: normal;
   }
 
-  .preview-play-btn {
-    width: 38px;
-    height: 38px;
-    border-radius: 50%;
-    border: none;
-    background: var(--color-primary);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: background-color var(--motion-duration-mid) var(--motion-ease-base),
-      transform 0.15s var(--motion-ease-base);
-    flex-shrink: 0;
-  }
+  .d-head h2 { margin: 0; font-size: var(--font-size-lg); color: var(--color-text); font-weight: 600; }
+  .d-head p { margin: 4px 0 0; color: var(--color-text-tertiary); font-size: var(--font-size-sm); line-height: 1.5; }
 
-  .preview-play-btn:hover {
-    background: var(--color-primary-hover);
-    transform: scale(1.05);
-  }
+  .d-tags { display: flex; flex-wrap: wrap; gap: 5px; }
 
-  .preview-waveform {
-    min-width: 0;
-    height: 36px;
-  }
+  .d-player { background: var(--color-bg-base); border-radius: var(--border-radius); padding: 4px; }
 
-  .preview-wave-empty {
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-    gap: 2px;
-    opacity: 0.4;
-  }
+  .d-meta { display: flex; flex-direction: column; gap: 4px; padding: var(--spacing-xs) var(--spacing-sm); background: var(--color-bg-base); border-radius: var(--border-radius); }
+  .dm { display: flex; justify-content: space-between; font-size: var(--font-size-sm); }
+  .dm span:first-child { color: var(--color-text-tertiary); }
+  .dm span:last-child { color: var(--color-text-secondary); }
 
-  .preview-wave-empty span {
-    width: 3px;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.2);
-    flex-shrink: 0;
-  }
+  .d-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--spacing-sm); color: var(--color-text-tertiary); font-size: var(--font-size-sm); }
 
-  .preview-time {
-    color: var(--color-text-tertiary);
-    font-size: 11px;
-    font-variant-numeric: tabular-nums;
-    flex-shrink: 0;
-    white-space: nowrap;
-  }
-
-  .hidden-audio { display: none; }
-
-  .detail-panel :global(.ui-btn.variant-link) {
-    margin: var(--spacing-md) 0;
-  }
-
-  .detail-foot {
+  /* -- Bottom area -- */
+  .d-bottom {
     margin-top: auto;
-    display: flex;
-    justify-content: space-between;
-    color: var(--color-text-tertiary);
-    font-size: 11px;
+    display: flex; flex-direction: column;
+    gap: var(--spacing-sm);
+    padding-top: var(--spacing-sm);
+    border-top: 1px solid var(--color-border-secondary);
+    flex-shrink: 0;
+  }
+
+  .d-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--spacing-xs); }
+  .ds { display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 4px; background: var(--color-bg-base); border-radius: var(--border-radius-sm); }
+  .ds strong { font-size: var(--font-size-sm); color: var(--color-primary); line-height: 1; }
+  .ds.gold strong { color: var(--color-warning); }
+  .ds span { font-size: 10px; color: var(--color-text-tertiary); }
+
+  .imp { font-size: 11px; color: var(--color-text-secondary); display: flex; flex-direction: column; gap: 3px; }
+  .imp-track { height: 3px; border-radius: var(--border-radius-pill); background: var(--color-bg-base); overflow: hidden; }
+  .imp-track i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--color-primary), var(--color-primary-hover)); transition: width 0.3s ease; }
+
+  .d-vocal { display: flex; align-items: center; gap: var(--spacing-sm); }
+  .d-vocal.off { opacity: 0.5; }
+  .d-vocal div { display: flex; flex-direction: column; gap: 1px; }
+  .d-vocal strong { font-size: 12px; color: var(--color-text); }
+  .d-vocal span { font-size: 10px; color: var(--color-text-tertiary); }
+
+  @media (max-width: 900px) {
+    .res-page { grid-template-columns: 1fr; }
+    .detail-col { display: none; }
   }
 </style>

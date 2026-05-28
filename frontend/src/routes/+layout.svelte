@@ -9,10 +9,13 @@
   import TitleBar from '$lib/components/TitleBar.svelte';
   import Sidebar from '$lib/components/Sidebar.svelte';
   import Toast from '$lib/components/Toast.svelte';
+  import UpgradeModal from '$lib/components/membership/UpgradeModal.svelte';
   import { getMenuKeyFromPath, MENU_ROUTES } from '$lib/utils/navigation';
   import { env } from '$lib/stores/environment.svelte';
   import { appSettings } from '$lib/stores/settings.svelte';
   import { dubbing, type EngineMode } from '$lib/stores/dubbing.svelte';
+  import { membership } from '$lib/stores/membership.svelte';
+  import { requestEngineChange } from '$lib/utils/entitlements';
   import { toast } from '$lib/stores/toast.svelte';
 
   const ENGINE_CYCLE: EngineMode[] = ['lightweight', 'emotion', 'cloud'];
@@ -65,8 +68,9 @@
         event.preventDefault();
         const idx = ENGINE_CYCLE.indexOf(dubbing.engineMode);
         const next = ENGINE_CYCLE[(idx + 1) % ENGINE_CYCLE.length];
-        dubbing.setEngine(next);
-        toast.success(`已切换到${ENGINE_LABELS[next]}引擎`);
+        if (requestEngineChange(next)) {
+          toast.success(`已切换到${ENGINE_LABELS[next]}引擎`);
+        }
       }
     };
 
@@ -115,6 +119,7 @@
   }
   async function hydrateDesktopSettings() {
     await appSettings.init();
+    await membership.init();
     sidebarCollapsed = appSettings.settings.ui.sidebarCollapsed;
     dubbing.syncSettings();
   }
@@ -168,6 +173,7 @@
           </div>
         </div>
       </div>
+      <UpgradeModal />
       <Toast />
     </div>
   </div>
@@ -288,7 +294,7 @@
   :global(.content > .align-page),
   :global(.content > .about-page),
   :global(.content > .settings-page) {
-    padding: clamp(8px, 1.2vw, 15px);
+    padding: 15px;
   }
 
   @media (max-width: 768px) {

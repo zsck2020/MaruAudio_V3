@@ -41,8 +41,8 @@
   --color-text-active: #ffffff;
 
   /* —— 边框色 · 改为半透明（仅在输入/必要轮廓使用，不再做分割主力） —— */
-  --color-border: rgba(255, 255, 255, 0.1);
-  --color-border-secondary: rgba(255, 255, 255, 0.06);
+  --color-border: rgba(255, 255, 255, 0.12);
+  --color-border-secondary: rgba(255, 255, 255, 0.10);
 
   /* —— 字体 · 整体 +1px 提升舒展感 —— */
   --font-family: 'HarmonyOS Sans SC', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
@@ -60,15 +60,15 @@
 
   /* —— 圆角 · 内部元素统一 8px —— */
   --border-radius-sm: 4px;
-  --border-radius: 8px;
-  --border-radius-lg: 8px;
+  --border-radius: 6px;
+  --border-radius-lg: 10px;
   --border-radius-pill: 999px;
 
   /* —— 间距 · +25% 更舒展 —— */
-  --spacing-xs: 6px;
+  --spacing-xs: 8px;
   --spacing-sm: 10px;
   --spacing-md: 16px;
-  --spacing-lg: 22px;
+  --spacing-lg: 24px;
   --spacing-xl: 32px;
   --spacing-2xl: 48px;
 
@@ -177,24 +177,30 @@
   box-sizing: border-box;
   margin: 0;
   padding: 0;
-  /* 全局隐藏滚动条（Firefox / 旧 IE/Edge），保留滚动能力 */
-  scrollbar-width: none;
-  -ms-overflow-style: none;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
 }
 
-/* 全局隐藏滚动条（Chrome / Safari / 新 Edge） */
 *::-webkit-scrollbar {
-  width: 0;
-  height: 0;
-  display: none;
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-track {
   background: transparent;
 }
 
-*::-webkit-scrollbar-track,
-*::-webkit-scrollbar-thumb,
+*::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 3px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.20);
+}
+
 *::-webkit-scrollbar-corner {
   background: transparent;
-  display: none;
 }
 
 html, body {
@@ -286,6 +292,19 @@ a:focus-visible,
 [role="button"]:focus-visible,
 [tabindex]:not([tabindex="-1"]):focus-visible {
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 65%, transparent);
+}
+
+/* 页面级控件高度规范：标题栏/组件内部可自行覆写，业务页面默认统一。 */
+.content :where(button, input:not([type='checkbox']):not([type='radio']):not([type='range']), select) {
+  min-height: 32px;
+}
+
+.content :where(.ui-btn.size-sm, .icon-btn, .ibtn, .pb, .pager-btn, .window-btn) {
+  min-height: var(--control-height-xs);
+}
+
+.content :where(textarea) {
+  min-height: 96px;
 }
 
 /* 标题文字优化 — 更锐利的渲染 */

@@ -194,7 +194,7 @@
     display: grid;
     grid-template-columns: clamp(180px, 20vw, 240px) minmax(0, 1fr) clamp(220px, 24vw, 300px);
     gap: var(--spacing-sm);
-    padding: clamp(8px, 1.2vw, 15px);
+    padding: 15px;
     background-color: var(--color-bg-container);
     overflow: hidden;
   }
@@ -211,11 +211,11 @@
   @media (max-width: 800px) {
     .files-page {
       grid-template-columns: 1fr;
-      overflow-y: auto;
+      overflow: hidden;
     }
     .preview-panel {
       max-height: 280px;
-      overflow-y: auto;
+      overflow: hidden;
     }
   }
 

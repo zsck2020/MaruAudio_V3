@@ -1,6 +1,9 @@
 <script lang="ts">
   import Icon from '$lib/icons/Icon.svelte';
   import { dubbing, type EngineMode } from '$lib/stores/dubbing.svelte';
+  import { membership } from '$lib/stores/membership.svelte';
+  import PermissionBadge from '$lib/components/membership/PermissionBadge.svelte';
+  import { requestEngineChange } from '$lib/utils/entitlements';
 
   const engines: { id: EngineMode; label: string; icon: string; desc: string }[] = [
     { id: 'lightweight', label: '轻量引擎', icon: 'zap', desc: '本地推理 · 速度优先' },
@@ -21,7 +24,7 @@
   }
 
   function handleSelect(mode: EngineMode) {
-    dubbing.setEngine(mode);
+    requestEngineChange(mode);
   }
 </script>
 
@@ -44,6 +47,11 @@
           color={dubbing.engineMode === engine.id ? 'var(--color-primary)' : 'var(--color-text-tertiary)'}
         />
         <span class="engine-label">{engine.label}</span>
+        {#if engine.id === 'emotion'}
+          <PermissionBadge feature="emotion_engine" locked={!membership.canUseFeature('emotion_engine')} compact />
+        {:else if engine.id === 'cloud'}
+          <PermissionBadge feature="cloud_engine" locked={!membership.canUseFeature('cloud_engine')} compact />
+        {/if}
         <span
           class="status-dot"
           class:checking={dubbing.engineChecking}
@@ -107,6 +115,8 @@
     display: flex;
     align-items: center;
     gap: 4px;
+    white-space: nowrap;
+    flex-wrap: nowrap;
   }
 
   .engine-label {
@@ -114,6 +124,7 @@
     font-weight: 500;
     color: var(--color-text-secondary);
     transition: color var(--transition-duration) var(--transition-timing);
+    white-space: nowrap;
   }
 
   .engine-option.active .engine-label {

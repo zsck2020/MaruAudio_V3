@@ -1,6 +1,8 @@
 <script lang="ts">
   import Icon from '$lib/icons/Icon.svelte';
   import { dubbing } from '$lib/stores/dubbing.svelte';
+  import PermissionBadge from '$lib/components/membership/PermissionBadge.svelte';
+  import { membership } from '$lib/stores/membership.svelte';
 
   let isLightweight = $derived(dubbing.engineMode === 'lightweight');
   let isEmotion = $derived(dubbing.engineMode === 'emotion');
@@ -74,7 +76,14 @@
       <Icon name={engineMeta.icon} size={20} color="var(--color-primary)" />
     </div>
     <div class="engine-summary-body">
-      <strong>{engineMeta.title}</strong>
+      <strong>
+        {engineMeta.title}
+        {#if !isLightweight}
+          <PermissionBadge feature={isCloud ? 'cloud_engine' : 'emotion_engine'} locked={!membership.canUseFeature(isCloud ? 'cloud_engine' : 'emotion_engine')} compact />
+        {:else}
+          <PermissionBadge feature="advanced_params" locked={!membership.canUseFeature('advanced_params')} compact />
+        {/if}
+      </strong>
       <p>{engineMeta.desc}</p>
       <div class="engine-chip-row">
         {#each engineMeta.chips as chip (chip)}
@@ -293,6 +302,9 @@
   }
 
   .engine-summary strong {
+    display: flex;
+    align-items: center;
+    gap: 6px;
     color: var(--color-text);
     font-size: var(--font-size-sm);
   }

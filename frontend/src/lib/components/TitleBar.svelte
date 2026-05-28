@@ -2,12 +2,21 @@
   import Icon from '../icons/Icon.svelte';
   import Logo from '../icons/Logo.svelte';
   import Tooltip from './Tooltip.svelte';
+  import Modal from '$lib/components/ui/Modal.svelte';
+  import Button from '$lib/components/ui/Button.svelte';
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { toast } from '$lib/stores/toast.svelte';
+  import { membership } from '$lib/stores/membership.svelte';
+  import PermissionBadge from '$lib/components/membership/PermissionBadge.svelte';
 
   let isMaximized = $state(false);
   let showProfileMenu = $state(false);
+  let showOrdersModal = $state(false);
+  let showRedeemModal = $state(false);
+  let showLogoutConfirm = $state(false);
+  let redeemKey = $state('');
+  let redeemLoading = $state(false);
 
   async function getWindow() {
     try {
@@ -54,21 +63,46 @@
     toast.info(`${feature} 功能即将开放`);
   }
 
+  const mockOrders = [
+    { id: 'ORD-20260527001', time: '2026-05-27 14:32', type: '云端字符包', detail: '日常包 · 5 万字', amount: '¥39.9', status: '已完成' },
+    { id: 'ORD-20260525002', time: '2026-05-25 09:18', type: '旗舰版', detail: '永久授权', amount: '¥198', status: '已完成' },
+    { id: 'ORD-20260520003', time: '2026-05-20 16:45', type: '云端字符包', detail: '体验包 · 1 万字', amount: '¥9.9', status: '已完成' },
+    { id: 'ORD-20260518004', time: '2026-05-18 11:22', type: '卡密兑换', detail: '旗舰版激活码', amount: '¥0', status: '已兑换' },
+    { id: 'ORD-20260515005', time: '2026-05-15 20:08', type: '云端字符包', detail: '创作包 · 20 万字', amount: '¥129', status: '已退款' },
+    { id: 'ORD-20260510006', time: '2026-05-10 08:30', type: '云端字符包', detail: '商业包 · 100 万字', amount: '¥499', status: '已完成' },
+  ];
+
   function handleProfileAction(action: 'profile' | 'account' | 'billing' | 'orders' | 'redeem' | 'logout') {
     showProfileMenu = false;
-    if (action === 'profile') {
-      goto('/profile');
-      return;
-    }
+    if (action === 'profile') { goto('/profile'); return; }
+    if (action === 'account') { goto('/setting'); return; }
+    if (action === 'billing') { membership.requestUpgrade('cloud_chars'); return; }
+    if (action === 'orders') { showOrdersModal = true; return; }
+    if (action === 'redeem') { redeemKey = ''; showRedeemModal = true; return; }
+    if (action === 'logout') { showLogoutConfirm = true; return; }
+  }
 
-    const labels: Record<typeof action, string> = {
-      account: '账号设置',
-      billing: '充值中心',
-      orders: '消费记录',
-      redeem: '卡密兑换',
-      logout: '退出登录',
-    };
-    toast.info(`${labels[action]} 功能即将开放`);
+  async function handleRedeem() {
+    redeemLoading = true;
+    try {
+      const result = await membership.redeemCardKey(redeemKey);
+      if (result.ok) {
+        toast.success(result.message);
+        showRedeemModal = false;
+        redeemKey = '';
+      } else {
+        toast.warning(result.message);
+      }
+    } finally {
+      redeemLoading = false;
+    }
+  }
+
+  async function handleLogout() {
+    await membership.logout();
+    showLogoutConfirm = false;
+    toast.success('已退出登录');
+    goto('/');
   }
 
   function handleProfileFocusOut(event: FocusEvent) {
@@ -94,6 +128,9 @@
         <Logo size={28} color="var(--color-text)" />
       </div>
       <div class="app-title">丸子配音<span class="version">V3.0.0</span></div>
+        <button type="button" class="plan-chip" onclick={() => goto('/profile')} title="查看套餐权益">
+          <PermissionBadge label={membership.plan.badge} tone={membership.isPaid ? 'flagship' : 'free'} compact />
+        </button>
     </div>
   </div>
   
@@ -123,7 +160,14 @@
             </div>
             <div class="profile-meta">
               <div class="profile-name">清风明月</div>
-              <div class="profile-sub">PRO 会员 · 剩余 128,420 字符</div>
+              <div class="profile-sub">
+                {membership.plan.name}
+                {#if membership.isPaid}
+                  · 云端 {membership.account.cloudBalance.toLocaleString('zh-CN')} 字
+                {:else}
+                  · 今日剩余 {membership.dailyRemaining.toLocaleString('zh-CN')} 字
+                {/if}
+              </div>
             </div>
           </div>
           <button type="button" role="menuitem" class="profile-menu-item active" onclick={() => handleProfileAction('profile')}>
@@ -136,7 +180,7 @@
           </button>
           <button type="button" role="menuitem" class="profile-menu-item" onclick={() => handleProfileAction('billing')}>
             <Icon name="wallet" size={14} color="currentColor" />
-            <span>充值中心</span>
+            <span>字符包 / 升级</span>
           </button>
           <button type="button" role="menuitem" class="profile-menu-item" onclick={() => handleProfileAction('orders')}>
             <Icon name="file-text" size={14} color="currentColor" />
@@ -184,6 +228,86 @@
   </div>
 </div>
 
+<!-- 消费记录弹窗 -->
+<Modal bind:open={showOrdersModal} title="消费记录" size="lg" onClose={() => showOrdersModal = false}>
+  <div class="orders-body">
+    <div class="orders-summary">
+      <div class="summary-item">
+        <span>累计消费</span>
+        <strong>¥875.8</strong>
+      </div>
+      <div class="summary-item">
+        <span>订单总数</span>
+        <strong>{mockOrders.length}</strong>
+      </div>
+      <div class="summary-item">
+        <span>云端字符累计购买</span>
+        <strong>126 万字</strong>
+      </div>
+    </div>
+    <div class="orders-table">
+      <div class="orders-head">
+        <span>订单号</span><span>时间</span><span>类型</span><span>详情</span><span>金额</span><span>状态</span>
+      </div>
+      {#each mockOrders as order (order.id)}
+        <div class="order-row">
+          <span class="order-id">{order.id}</span>
+          <span>{order.time}</span>
+          <span>{order.type}</span>
+          <span>{order.detail}</span>
+          <span class="order-amount">{order.amount}</span>
+          <span class="order-status" class:refunded={order.status === '已退款'}>{order.status}</span>
+        </div>
+      {/each}
+    </div>
+    <p class="orders-hint">以上为本机记录，完整消费明细请登录管理后台查看。</p>
+  </div>
+</Modal>
+
+<!-- 卡密兑换弹窗 -->
+<Modal bind:open={showRedeemModal} title="卡密兑换" size="sm" onClose={() => showRedeemModal = false}>
+  <div class="redeem-body">
+    <div class="redeem-icon">
+      <Icon name="gift" size={36} color="var(--color-primary)" />
+    </div>
+    <p class="redeem-desc">输入卡密激活码，兑换旗舰版权益或云端字符包。卡密不区分大小写，每个卡密仅可使用一次。</p>
+    <div class="redeem-input-wrap">
+      <input
+        type="text"
+        class="redeem-input"
+        placeholder="请输入卡密，如 MARU-VIP-XXXX-XXXX"
+        bind:value={redeemKey}
+        onkeydown={(e) => e.key === 'Enter' && !redeemLoading && redeemKey.trim() && handleRedeem()}
+      />
+    </div>
+    <div class="redeem-actions">
+      <Button variant="default" size="sm" onclick={() => showRedeemModal = false}>取消</Button>
+      <Button variant="primary" size="sm" onclick={handleRedeem} loading={redeemLoading} disabled={!redeemKey.trim()}>兑换</Button>
+    </div>
+    <p class="redeem-hint">卡密来源：官方活动、合作渠道、邀请奖励。如有问题请联系客服。</p>
+  </div>
+</Modal>
+
+<!-- 退出登录确认弹窗 -->
+<Modal bind:open={showLogoutConfirm} title="退出登录" size="sm" onClose={() => showLogoutConfirm = false}>
+  <div class="logout-body">
+    <div class="logout-icon">
+      <Icon name="warning" size={36} color="var(--color-warning)" />
+    </div>
+    <p class="logout-desc">退出登录后，会员权益将暂停，云端余额保留在账户中。本地项目和样音不受影响。</p>
+    <div class="logout-info">
+      <div><span>当前套餐</span><strong>{membership.plan.name}</strong></div>
+      {#if membership.account.cloudBalance > 0}
+        <div><span>云端余额</span><strong>{membership.account.cloudBalance.toLocaleString('zh-CN')} 字</strong></div>
+      {/if}
+    </div>
+    <div class="logout-actions">
+      <Button variant="default" size="sm" onclick={() => showLogoutConfirm = false}>取消</Button>
+      <Button variant="danger" size="sm" onclick={handleLogout}>确认退出</Button>
+    </div>
+  </div>
+</Modal>
+
 <style>
   .header {
     height: 55px;
@@ -217,6 +341,16 @@
     display: flex;
     align-items: center;
     gap: 10px;
+  }
+
+  .plan-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 0;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    -webkit-app-region: no-drag;
   }
   
   .logo-icon {
@@ -517,4 +651,220 @@
       gap: 4px;
     }
   }
+
+  /* 消费记录弹窗 */
+  .orders-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+  }
+
+  .orders-summary {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--spacing-sm);
+  }
+
+  .summary-item {
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: var(--color-bg-container);
+    border: 1px solid var(--color-border-secondary);
+    border-radius: var(--border-radius);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .summary-item span {
+    color: var(--color-text-tertiary);
+    font-size: 11px;
+  }
+
+  .summary-item strong {
+    color: var(--color-primary);
+    font-size: var(--font-size-lg);
+  }
+
+  .orders-table {
+    border: 1px solid var(--color-border-secondary);
+    border-radius: var(--border-radius);
+    overflow: hidden;
+  }
+
+  .orders-head,
+  .order-row {
+    display: grid;
+    grid-template-columns: minmax(100px, 1.2fr) minmax(90px, 1fr) 70px minmax(80px, 1fr) 60px 60px;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: 0 var(--spacing-md);
+    min-height: 38px;
+    font-size: var(--font-size-sm);
+  }
+
+  .orders-head {
+    color: var(--color-text-tertiary);
+    background: var(--color-bg-container);
+    border-bottom: 1px solid var(--color-border-secondary);
+    font-size: 11px;
+  }
+
+  .order-row {
+    color: var(--color-text-secondary);
+    border-bottom: 1px solid var(--color-border-secondary);
+    transition: background-color var(--transition-duration) var(--transition-timing);
+  }
+
+  .order-row:last-child { border-bottom: none; }
+  .order-row:hover { background: var(--color-hover-bg); }
+
+  .order-id {
+    color: var(--color-text-tertiary);
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: 11px;
+  }
+
+  .order-amount { color: var(--color-text); font-weight: 500; }
+
+  .order-status {
+    padding: 2px 7px;
+    border-radius: var(--border-radius-pill);
+    font-size: 11px;
+    color: var(--color-success);
+    background: color-mix(in srgb, var(--color-success) 14%, transparent);
+    text-align: center;
+  }
+
+  .order-status.refunded {
+    color: var(--color-warning);
+    background: color-mix(in srgb, var(--color-warning) 14%, transparent);
+  }
+
+  .orders-hint {
+    margin: 0;
+    color: var(--color-text-disabled);
+    font-size: 11px;
+    text-align: center;
+  }
+
+  /* 卡密兑换弹窗 */
+  .redeem-body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md) 0;
+  }
+
+  .redeem-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: color-mix(in srgb, var(--color-primary) 14%, transparent);
+  }
+
+  .redeem-desc {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    line-height: 1.6;
+    text-align: center;
+  }
+
+  .redeem-input-wrap {
+    width: 100%;
+  }
+
+  .redeem-input {
+    width: 100%;
+    height: 40px;
+    padding: 0 var(--spacing-md);
+    border: 1px solid var(--color-border-secondary);
+    border-radius: var(--border-radius);
+    background: var(--color-bg-base);
+    color: var(--color-text);
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: var(--font-size);
+    letter-spacing: 1px;
+    text-align: center;
+    outline: none;
+    box-sizing: border-box;
+    transition: border-color var(--transition-duration) var(--transition-timing);
+  }
+
+  .redeem-input:focus { border-color: var(--color-primary); }
+
+  .redeem-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+    width: 100%;
+  }
+
+  .redeem-actions :global(.ui-btn) { flex: 1; }
+
+  .redeem-hint {
+    margin: 0;
+    color: var(--color-text-disabled);
+    font-size: 11px;
+    text-align: center;
+  }
+
+  /* 退出登录确认弹窗 */
+  .logout-body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md) 0;
+  }
+
+  .logout-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: color-mix(in srgb, var(--color-warning) 14%, transparent);
+  }
+
+  .logout-desc {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    line-height: 1.6;
+    text-align: center;
+  }
+
+  .logout-info {
+    width: 100%;
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: var(--color-bg-container);
+    border: 1px solid var(--color-border-secondary);
+    border-radius: var(--border-radius);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+  }
+
+  .logout-info div {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: var(--font-size-sm);
+  }
+
+  .logout-info span { color: var(--color-text-tertiary); }
+  .logout-info strong { color: var(--color-text); font-weight: 500; }
+
+  .logout-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+    width: 100%;
+  }
+
+  .logout-actions :global(.ui-btn) { flex: 1; }
 </style>

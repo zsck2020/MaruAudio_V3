@@ -5,6 +5,8 @@
   import Modal from '$lib/components/ui/Modal.svelte';
   import { toast } from '$lib/stores/toast.svelte';
   import { appSettings } from '$lib/stores/settings.svelte';
+  import { membership } from '$lib/stores/membership.svelte';
+  import PermissionBadge from '$lib/components/membership/PermissionBadge.svelte';
   import { transcribe, translateSubtitle, optimizeTiming, type SubtitleFormat } from '$lib/api/tts';
 
   interface SubtitleRow {
@@ -220,6 +222,10 @@
   let translatedText = $state('');
 
   async function handleTranslate() {
+    if (!membership.canUseFeature('subtitle_pro')) {
+      membership.requestUpgrade('subtitle_pro');
+      return;
+    }
     if (subtitles.length === 0) {
       toast.info('暂无字幕内容可翻译');
       return;
@@ -289,6 +295,10 @@
   }
 
   async function handleOptimize() {
+    if (!membership.canUseFeature('subtitle_pro')) {
+      membership.requestUpgrade('subtitle_pro');
+      return;
+    }
     if (subtitles.length === 0) {
       toast.info('暂无字幕可优化');
       return;
@@ -387,8 +397,14 @@
       </div>
       <div class="toolbar-actions">
         <Button variant="default" size="sm" prefixIcon="sync" onclick={handleRecognize} disabled={isTranscribing}>重新识别</Button>
-        <Button variant="default" size="sm" prefixIcon="translation" onclick={handleTranslate}>翻译</Button>
-        <Button variant="default" size="sm" onclick={handleOptimize} loading={isOptimizing}>时间轴优化</Button>
+        <Button variant="default" size="sm" prefixIcon="translation" onclick={handleTranslate}>
+          翻译
+          <PermissionBadge feature="subtitle_pro" locked={!membership.canUseFeature('subtitle_pro')} compact />
+        </Button>
+        <Button variant="default" size="sm" onclick={handleOptimize} loading={isOptimizing}>
+          时间轴优化
+          <PermissionBadge feature="subtitle_pro" locked={!membership.canUseFeature('subtitle_pro')} compact />
+        </Button>
         <Button variant="primary" size="sm" onclick={handleExport} disabled={!currentSubtitlePath}>导出字幕</Button>
       </div>
     </header>
@@ -498,7 +514,7 @@
     display: grid;
     grid-template-columns: clamp(180px, 20vw, 240px) minmax(0, 1fr) clamp(220px, 24vw, 300px);
     gap: var(--spacing-sm);
-    padding: clamp(8px, 1.2vw, 15px);
+    padding: 15px;
     background: var(--color-bg-container);
     overflow: hidden;
   }
@@ -515,11 +531,11 @@
   @media (max-width: 800px) {
     .subtitle-page {
       grid-template-columns: 1fr;
-      overflow-y: auto;
+      overflow: hidden;
     }
     .editor-panel {
       max-height: 320px;
-      overflow-y: auto;
+      overflow: hidden;
     }
   }
 
@@ -534,8 +550,7 @@
     border: 1px solid var(--color-border-secondary);
     border-radius: var(--border-radius-lg);
     min-height: 0;
-    overflow-y: auto;
-    overflow-x: hidden;
+    overflow: hidden;
   }
 
   .editor-panel {
@@ -544,8 +559,7 @@
     border: 1px solid var(--color-border-secondary);
     border-radius: var(--border-radius-lg);
     min-height: 0;
-    overflow-y: auto;
-    overflow-x: hidden;
+    overflow: hidden;
   }
 
   .upload-card {
@@ -982,7 +996,7 @@
     max-height: 320px;
     padding: var(--spacing-md);
     margin: 0;
-    overflow-y: auto;
+    overflow: hidden;
     font-size: var(--font-size-sm);
     color: var(--color-text);
     white-space: pre-wrap;

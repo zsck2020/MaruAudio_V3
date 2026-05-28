@@ -7,6 +7,10 @@
   import { invoke } from '@tauri-apps/api/core';
   import * as ttsApi from '$lib/api/tts';
   import { appSettings } from '$lib/stores/settings.svelte';
+  import { membership } from '$lib/stores/membership.svelte';
+  import { dubbing } from '$lib/stores/dubbing.svelte';
+  import { toast } from '$lib/stores/toast.svelte';
+  import PermissionBadge from '$lib/components/membership/PermissionBadge.svelte';
   import type { BannerItem } from '$lib/types';
   import { MENU_ROUTES } from '$lib/utils/navigation';
   import type { MenuKey } from '$lib/types';
@@ -20,20 +24,17 @@
   let banners: BannerItem[] = $state(fallbackBanners);
 
   const quickActions = [
-    { icon: 'microphone', title: '开始配音', desc: '快速创建配音项目', route: '/dubbing', primary: true },
-    { icon: 'team', title: '多角色对话', desc: '创建多角色台词内容', route: '/project' },
-    { icon: 'subtitle', title: '字幕生成', desc: '智能生成字幕文件', route: '/copywriting' },
-    { icon: 'sound', title: '音库管理', desc: '管理音色与音频资源', route: '/resource' },
-  ];
+    { icon: 'microphone', title: '开始配音', desc: '快速创建配音项目', route: '/dubbing', primary: true, feature: undefined },
+    { icon: 'team', title: '多角色对话', desc: '创建多角色台词内容', route: '/project', primary: false, feature: 'multi_role' },
+    { icon: 'subtitle', title: '字幕生成', desc: '智能生成字幕文件', route: '/copywriting', primary: false, feature: 'subtitle_pro' },
+    { icon: 'sound', title: '音库管理', desc: '管理音色与音频资源', route: '/resource', primary: false, feature: undefined },
+  ] as const;
 
   function fmtNum(n: number): string { return n.toLocaleString('zh-CN'); }
   let todayChars = $derived(fmtNum(appSettings.usage.monthlyCharsGenerated));
   let totalChars = $derived(fmtNum(appSettings.usage.totalCharsGenerated));
-  let quotaPct = $derived(
-    appSettings.usage.quota > 0
-      ? Math.min(100, Math.round((appSettings.usage.monthlyCharsGenerated / appSettings.usage.quota) * 100))
-      : 0,
-  );
+  let quotaPct = $derived(membership.dailyPercent);
+  let dailyRemaining = $derived(membership.dailyRemaining.toLocaleString('zh-CN'));
 
   const recentProjects = [
     { name: '《风起云涌》第12集', time: '2026-05-13 14:32', engine: '轻量', words: '12,840', tone: 'blue' },
@@ -43,6 +44,14 @@
     { name: '有声书《平凡的世界》片段', time: '2026-05-11 09:15', engine: '情感', words: '9,114', tone: 'gold' },
     { name: '英语教学课件配音', time: '2026-05-10 15:32', engine: '云端', words: '4,256', tone: 'green' },
   ];
+
+  // 最近项目本地分页（示例数据，但翻页真实可用，消除死分页）
+  const recentPageSize = 5;
+  let recentPage = $state(1);
+  let recentTotalPages = $derived(Math.max(1, Math.ceil(recentProjects.length / recentPageSize)));
+  let pagedRecent = $derived(recentProjects.slice((recentPage - 1) * recentPageSize, recentPage * recentPageSize));
+  function gotoRecentPage(p: number) { recentPage = Math.max(1, Math.min(p, recentTotalPages)); }
+  function openDemoProject() { toast.info('这是示例项目，仅供界面预览'); }
 
   interface EngineInfo {
     name: string;
@@ -79,6 +88,11 @@
           };
         }
       }
+      dubbing.engineAvailable = {
+        lightweight: { available: engines[0].available, message: engines[0].message },
+        emotion: { available: engines[1].available, message: engines[1].message },
+        cloud: { available: engines[2].available, message: engines[2].message },
+      };
     } catch {
       engines = engines.map(e => ({ ...e, available: false, message: 'TTS 服务未启动' }));
     } finally {
@@ -169,7 +183,12 @@
         <Icon name={action.icon} size={32} color={action.primary ? '#fff' : 'var(--color-text-tertiary)'} />
         <div>
           <strong>{action.title}</strong>
-          <span>{action.desc}</span>
+          <span>
+            {action.desc}
+            {#if action.feature}
+              <PermissionBadge feature={action.feature} locked={!membership.canUseFeature(action.feature)} compact />
+            {/if}
+          </span>
         </div>
       </button>
     {/each}
@@ -185,7 +204,7 @@
         <div class="table-head">
           <span>项目名称</span><span>修改时间</span><span>引擎</span><span>字符数</span><span>操作</span>
         </div>
-        {#each recentProjects as project, i (project.name)}
+        {#each pagedRecent as project (project.name)}
           <div class="project-row">
             <div class="project-name">
               <span class="thumb {project.tone}">{project.name.replace(/[《》]/g, '').charAt(0)}</span>
@@ -194,17 +213,18 @@
             <span>{project.time}</span>
             <span class="engine-badge {project.tone}">{project.engine}</span>
             <span>{project.words}</span>
-            <Button variant="link" size="sm" onclick={() => goto('/dubbing')}>打开</Button>
+            <Button variant="link" size="sm" onclick={openDemoProject}>打开</Button>
           </div>
         {/each}
       </div>
       <div class="recent-pager">
-        <span class="pager-info">共 12 个项目 · 每页 6 条</span>
+        <span class="pager-info">共 {recentProjects.length} 个项目 · 每页 {recentPageSize} 条</span>
         <div class="pager-btns">
-          <button type="button" class="pager-btn" disabled>‹</button>
-          <button type="button" class="pager-btn active">1</button>
-          <button type="button" class="pager-btn">2</button>
-          <button type="button" class="pager-btn">›</button>
+          <button type="button" class="pager-btn" disabled={recentPage <= 1} onclick={() => gotoRecentPage(recentPage - 1)}>‹</button>
+          {#each Array.from({ length: recentTotalPages }, (_, i) => i + 1) as p (p)}
+            <button type="button" class="pager-btn" class:active={recentPage === p} onclick={() => gotoRecentPage(p)}>{p}</button>
+          {/each}
+          <button type="button" class="pager-btn" disabled={recentPage >= recentTotalPages} onclick={() => gotoRecentPage(recentPage + 1)}>›</button>
         </div>
       </div>
     </article>
@@ -214,15 +234,12 @@
         <div class="stat-content">
           <div class="stat-top">
             <div class="stat-value-group">
-              <span class="stat-value">{todayChars}</span>
+              <span class="stat-value">{membership.isPaid ? '不限' : dailyRemaining}</span>
               <span class="stat-unit">字符</span>
             </div>
             <div class="stat-badge-row">
-              <span class="stat-badge up">
-                <Icon name="ant-design:rise-outlined" size={10} color="currentColor" />
-                18%
-              </span>
-              <span class="stat-vs">vs 昨日</span>
+              <PermissionBadge label={membership.plan.badge} tone={membership.isPaid ? 'flagship' : 'free'} compact />
+              <span class="stat-vs">{membership.isPaid ? '本地不限' : '今日剩余'}</span>
             </div>
           </div>
           <div class="stat-meter">
@@ -230,7 +247,7 @@
               <div class="stat-meter-today" style="width:{quotaPct}%"></div>
             </div>
             <div class="stat-meter-legend">
-              <span><i class="legend-dot today"></i>本月 {todayChars}</span>
+              <span><i class="legend-dot today"></i>今日已用 {membership.account.dailyCharsUsed.toLocaleString('zh-CN')}</span>
               <span class="stat-total">累计 {totalChars}</span>
             </div>
           </div>
@@ -253,6 +270,11 @@
               <div class="engine-info">
                 <div class="engine-name-line">
                   <strong>{eng.name}</strong>
+                {#if eng.name === '情感引擎'}
+                  <PermissionBadge feature="emotion_engine" locked={!membership.canUseFeature('emotion_engine')} compact />
+                {:else if eng.name === '云端引擎'}
+                  <PermissionBadge feature="cloud_engine" locked={!membership.canUseFeature('cloud_engine')} compact />
+                {/if}
                   <span class="engine-status" class:ok={eng.available}>{eng.message}</span>
                 </div>
                 {#if eng.device}
@@ -278,7 +300,7 @@
     flex: 1;
     min-height: 0;
     overflow: hidden;
-    padding: clamp(8px, 1.2vw, 15px);
+    padding: 15px;
     background-color: var(--color-bg-container);
     display: flex;
     flex-direction: column;
@@ -373,6 +395,12 @@
     font-size: var(--font-size-sm);
   }
 
+  .quick-card div > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
   .quick-card.primary span {
     color: rgba(255,255,255,0.75);
   }
@@ -388,7 +416,7 @@
   @media (max-width: 900px) {
     .dashboard-grid {
       grid-template-columns: 1fr;
-      overflow-y: auto;
+      overflow: hidden;
     }
   }
 
@@ -861,7 +889,7 @@
 
   @media (max-width: 700px) {
     .home-page {
-      overflow-y: auto;
+      overflow: hidden;
     }
     .quick-card {
       padding: var(--spacing-md);

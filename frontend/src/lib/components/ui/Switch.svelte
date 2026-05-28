@@ -57,22 +57,28 @@
   .ui-switch {
     position: relative;
     display: inline-block;
+    flex-shrink: 0;
     border: none;
     cursor: pointer;
     padding: 0;
-    background-color: var(--color-border);
+    background-color: rgba(255, 255, 255, 0.25);
     transition: background-color var(--motion-duration-mid) var(--motion-ease-base);
+    vertical-align: middle;
+    user-select: none;
+    line-height: 0;
+    min-height: unset !important;
+    min-width: unset;
   }
 
   .ui-switch.size-md {
-    width: 36px;
-    height: 20px;
-    border-radius: 10px;
+    width: 44px;
+    height: 22px;
+    border-radius: 100px;
   }
   .ui-switch.size-sm {
     width: 28px;
     height: 16px;
-    border-radius: 8px;
+    border-radius: 100px;
   }
 
   .ui-switch:focus-visible {
@@ -85,23 +91,22 @@
 
   .ui-switch.disabled {
     cursor: not-allowed;
-    opacity: 0.5;
+    opacity: 0.65;
   }
 
   .thumb {
     position: absolute;
-    top: 50%;
+    top: 2px;
     left: 2px;
-    transform: translateY(-50%);
-    background-color: var(--color-bg-elevated);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+    background-color: #fff;
+    box-shadow: 0 2px 4px 0 rgba(0, 35, 11, 0.2);
     border-radius: 50%;
-    transition: left var(--motion-duration-mid) var(--motion-ease-out-back);
+    transition: left var(--motion-duration-mid) var(--motion-ease-base);
   }
 
   .ui-switch.size-md .thumb {
-    width: 16px;
-    height: 16px;
+    width: 18px;
+    height: 18px;
   }
   .ui-switch.size-sm .thumb {
     width: 12px;
@@ -109,9 +114,9 @@
   }
 
   .ui-switch.size-md.checked .thumb {
-    left: 18px;
+    left: calc(100% - 20px);
   }
   .ui-switch.size-sm.checked .thumb {
-    left: 14px;
+    left: calc(100% - 14px);
   }
 </style>

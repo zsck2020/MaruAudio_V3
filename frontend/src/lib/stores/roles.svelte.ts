@@ -78,6 +78,22 @@ const pageSize = 15;
 let totalPages = $derived(Math.max(1, Math.ceil(lines.length / pageSize)));
 let pagedLines = $derived(lines.slice((currentPage - 1) * pageSize, currentPage * pageSize));
 
+// 派生统计索引：避免模板内对全量 lines 反复 filter（台词量大时显著降开销）
+let lineStatsByRole = $derived.by(() => {
+  const m = new Map<string, { total: number; done: number; failed: number }>();
+  for (const l of lines) {
+    const s = m.get(l.roleId) ?? { total: 0, done: 0, failed: 0 };
+    s.total++;
+    if (l.status === '已生成') s.done++;
+    else if (l.status === '失败') s.failed++;
+    m.set(l.roleId, s);
+  }
+  return m;
+});
+let generatedCount = $derived(lines.filter(l => l.status === '已生成').length);
+let failedCount = $derived(lines.filter(l => l.status === '失败').length);
+let pendingCount = $derived(lines.filter(l => l.status !== '已生成').length);
+
 function createRole(name: string, type = '配角'): RoleConfig {
   const color = roleColors[roles.length % roleColors.length];
   const role: RoleConfig = { ...defaultRole, id: generateId(), name, color, type };
@@ -281,6 +297,10 @@ export const rolesStore = {
   get roles() { return roles; },
   get lines() { return lines; },
   get pagedLines() { return pagedLines; },
+  get generatedCount() { return generatedCount; },
+  get failedCount() { return failedCount; },
+  get pendingCount() { return pendingCount; },
+  roleLineStats(roleId: string) { return lineStatsByRole.get(roleId) ?? { total: 0, done: 0, failed: 0 }; },
   get activeRoleId() { return activeRoleId; },
   get activeRole() { return activeRole; },
   get currentPage() { return currentPage; },

@@ -2,6 +2,8 @@
   import Icon from '$lib/icons/Icon.svelte';
   import Tooltip from '../Tooltip.svelte';
   import { dubbing, type GenerationMode } from '$lib/stores/dubbing.svelte';
+  import { membership } from '$lib/stores/membership.svelte';
+  import PermissionBadge from '$lib/components/membership/PermissionBadge.svelte';
 
   let {
     onGenerate = () => {},
@@ -38,6 +40,11 @@
   }
 
   function selectInferenceMode(mode: GenerationMode) {
+    if (mode === 'batch' && !membership.canUseFeature('batch_generation')) {
+      membership.requestUpgrade('batch_generation');
+      showInferenceDropdown = false;
+      return;
+    }
     dubbing.generationMode = mode;
     showInferenceDropdown = false;
   }
@@ -45,6 +52,8 @@
   function getCurrentInferenceLabel(): string {
     return INFERENCE_OPTIONS.find(opt => opt.value === dubbing.generationMode)?.label ?? '普通推理';
   }
+
+  let cloudEstimate = $derived(membership.estimateCloudChars(dubbing.text));
 </script>
 
 <div class="left-bottom-bar">
@@ -78,7 +87,10 @@
                   aria-checked={dubbing.generationMode === option.value}
                   onclick={() => selectInferenceMode(option.value)}
                 >
-                  {option.label}
+                  <span>{option.label}</span>
+                  {#if option.value === 'batch'}
+                    <PermissionBadge feature="batch_generation" locked={!membership.canUseFeature('batch_generation')} compact />
+                  {/if}
                 </button>
               {/each}
             </div>
@@ -100,6 +112,15 @@
 
     <span class="word-count" class:over={dubbing.wordCount > 10000}>
       {dubbing.wordCount} 字
+    </span>
+    <span class="quota-hint" class:warn={!membership.isPaid && dubbing.wordCount > membership.dailyRemaining}>
+      {#if dubbing.engineMode === 'cloud'}
+        云端预计扣 {cloudEstimate.toLocaleString('zh-CN')} 字
+      {:else if membership.isPaid}
+        本地生成不扣字符
+      {:else}
+        今日剩余 {membership.dailyRemaining.toLocaleString('zh-CN')} 字
+      {/if}
     </span>
   </div>
 
@@ -203,6 +224,8 @@
   .inference-option {
     display: flex;
     align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
     width: 100%;
     height: var(--control-height-sm);
     padding: 0 var(--spacing-sm);
@@ -259,6 +282,25 @@
 
   .word-count.over {
     color: var(--color-error);
+  }
+
+  .quota-hint {
+    height: 22px;
+    display: inline-flex;
+    align-items: center;
+    padding: 0 var(--spacing-sm);
+    border-radius: var(--border-radius-pill);
+    background: var(--color-bg-base);
+    border: 1px solid var(--color-border-secondary);
+    color: var(--color-text-tertiary);
+    font-size: 11px;
+    white-space: nowrap;
+  }
+
+  .quota-hint.warn {
+    color: var(--color-warning);
+    border-color: color-mix(in srgb, var(--color-warning) 36%, transparent);
+    background: color-mix(in srgb, var(--color-warning) 10%, transparent);
   }
 
   .generate-btn {

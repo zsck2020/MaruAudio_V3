@@ -1,13 +1,18 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import Icon from '$lib/icons/Icon.svelte';
   import Switch from '$lib/components/ui/Switch.svelte';
   import Slider from '$lib/components/ui/Slider.svelte';
+  import Select from '$lib/components/ui/Select.svelte';
   import { toast } from '$lib/stores/toast.svelte';
   import * as ttsApi from '$lib/api/tts';
   import { dubbing, type EngineMode } from '$lib/stores/dubbing.svelte';
   import { appSettings } from '$lib/stores/settings.svelte';
   import { listLlmModels } from '$lib/api/tts';
   import Modal from '$lib/components/ui/Modal.svelte';
+  import { membership } from '$lib/stores/membership.svelte';
+  import PermissionBadge from '$lib/components/membership/PermissionBadge.svelte';
+  import { requestEngineChange } from '$lib/utils/entitlements';
 
   type SectionKey =
     | 'general'
@@ -38,20 +43,13 @@
     { key: 'advanced', icon: 'experiment', label: '高级设置' },
   ];
 
-  let active = $state<SectionKey | null>(null);
+  let active = $state<SectionKey>('general');
   let search = $state('');
 
-  let modalOpen = $derived(active !== null);
-  let modalTitle = $derived(
-    active ? (sections.find((s) => s.key === active)?.label ?? '') : ''
-  );
+  let activeLabel = $derived(sections.find((s) => s.key === active)?.label ?? '');
 
   function openSection(key: SectionKey) {
     active = key;
-  }
-
-  function closeSection() {
-    active = null;
   }
 
   // ---- 基础设置 ----
@@ -73,7 +71,7 @@
     message: '未检测',
     device: undefined,
   });
-  let cloudLoggedIn = $state(false);
+  let cloudLoggedIn = $derived(membership.isPaid);
   let llmModels = $state<string[]>([]);
   let llmDetecting = $state(false);
 
@@ -98,10 +96,6 @@
       llmDetecting = false;
     }
   }
-  let cloudAccount = $state('');
-  let cloudBalance = $state(0);
-  let cloudQuota = $state(100000);
-
   let device = $state<'auto' | 'gpu' | 'cpu'>(appSettings.settings.dubbing.device);
   let vramLimit = $state(appSettings.settings.dubbing.vramLimit);
   let parallelTasks = $state(appSettings.settings.dubbing.parallelTasks);
@@ -117,24 +111,32 @@
   });
 
   function selectPreferEngine(mode: EngineMode) {
+    if (!requestEngineChange(mode)) return;
     preferEngine = mode;
-    dubbing.setEngine(mode);
     toast.success(`已切换默认推理引擎：${mode === 'lightweight' ? '轻量' : mode === 'emotion' ? '情感' : '云端'}`);
   }
 
   function syncCloudAvailability(available: boolean, message: string) {
+    const currentCloud = untrack(() => dubbing.engineAvailable.cloud);
+    if (currentCloud.available === available && currentCloud.message === message) return;
+
+    const currentAvailability = untrack(() => dubbing.engineAvailable);
     dubbing.engineAvailable = {
-      ...dubbing.engineAvailable,
+      ...currentAvailability,
       cloud: { available, message },
     };
   }
+
+  $effect(() => {
+    syncCloudAvailability(membership.isPaid, membership.isPaid ? '云端权益已解锁' : '云端引擎未解锁');
+  });
 
   // ---- 音频 ----
   let outputFormat = $state<'wav' | 'mp3' | 'flac'>('wav');
   let outputSampleRate = $state(24000);
   let normalizeLoudness = $state(true);
   let trimSilence = $state(false);
-  let defaultIntervalSilence = $state(200);
+  let defaultIntervalSilence = $state(appSettings.settings.dubbing.intervalSilence);
 
   // ---- 字幕 ----
   let subtitleFormat = $state<'srt' | 'vtt' | 'ass'>('srt');
@@ -153,6 +155,10 @@
   let modelCacheGB = $state(8.6);
   let outputSizeGB = $state(45.2);
   let cacheLifecycle = $state<'7' | '30' | '90' | 'forever'>('30');
+
+  // ---- 高级 ----
+  let devLog = $state(false);
+  let experimentalFeatures = $state(false);
 
   async function detectEngines() {
     detecting = true;
@@ -201,7 +207,9 @@
         vramLimit,
         parallelTasks,
         halfPrecision,
+        intervalSilence: defaultIntervalSilence,
       });
+      dubbing.intervalSilence = defaultIntervalSilence;
       toast.success('设置已保存');
     } catch (err) {
       toast.warning(`保存失败：${err instanceof Error ? err.message : String(err)}`);
@@ -224,15 +232,6 @@
     }
   }
 
-  async function handleCloudLogin() {
-    const { goto } = await import('$app/navigation');
-    await goto('/profile');
-  }
-
-  function handleRecharge() {
-    toast.info('充值中心即将推出');
-  }
-
   function handleClearCache() {
     cacheSizeGB = 0;
     toast.success('缓存已清空');
@@ -240,26 +239,12 @@
 </script>
 
 <div class="settings-page">
-  <header class="settings-toolbar">
-    <h1 class="page-title">设置</h1>
-    <div class="toolbar-actions">
-      <div class="search-input">
-        <Icon name="search" size={14} color="var(--color-text-tertiary)" />
-        <input type="text" placeholder="搜索设置项…" bind:value={search} />
-      </div>
-      <button type="button" class="btn-secondary" disabled title="即将推出">
-        <Icon name="import" size={14} color="currentColor" />
-        <span>导入</span>
-      </button>
-      <button type="button" class="btn-secondary" disabled title="即将推出">
-        <Icon name="export" size={14} color="currentColor" />
-        <span>导出</span>
-      </button>
-    </div>
-  </header>
-
   <div class="settings-body">
     <aside class="settings-rail">
+      <div class="rail-head">
+        <Icon name="setting" size={16} color="var(--color-primary)" />
+        <span>设置</span>
+      </div>
       {#each sections as section (section.key)}
         <button
           type="button"
@@ -269,86 +254,45 @@
         >
           <Icon
             name={section.icon}
-            size={18}
+            size={16}
             color={active === section.key ? 'var(--color-primary)' : 'var(--color-text-tertiary)'}
           />
           <span>{section.label}</span>
         </button>
       {/each}
+      <div class="rail-foot">
+        <button type="button" class="rail-action" onclick={handleReset}>
+          <Icon name="refresh" size={12} color="currentColor" />
+          <span>恢复默认值</span>
+        </button>
+      </div>
     </aside>
 
-    <section class="settings-overview">
-      <div class="overview-card">
-        <Icon name="setting" size={36} color="var(--color-primary)" />
-        <h2>选择左侧章节进行配置</h2>
-        <p>所有设置项以弹窗形式打开，避免长滚动页面。修改完保存即生效。</p>
-        <div class="overview-stats">
-          <div class="stat">
-            <span class="stat-num">{sections.length}</span>
-            <span class="stat-label">配置章节</span>
-          </div>
-          <div class="stat">
-            <span class="stat-num">{appSettings.settings.dubbing.engineMode === 'lightweight' ? '轻量' : appSettings.settings.dubbing.engineMode === 'emotion' ? '情感' : '云端'}</span>
-            <span class="stat-label">当前引擎</span>
-          </div>
-          <div class="stat">
-            <span class="stat-num">{appSettings.settings.dubbing.device.toUpperCase()}</span>
-            <span class="stat-label">计算设备</span>
-          </div>
-        </div>
-        <div class="overview-quick">
-          <button type="button" class="quick-btn" onclick={() => openSection('engine')}>
-            <Icon name="thunderbolt" size={14} color="currentColor" />
-            <span>引擎设置</span>
-          </button>
-          <button type="button" class="quick-btn" onclick={() => openSection('cloud')}>
-            <Icon name="cloud" size={14} color="currentColor" />
-            <span>云端账号</span>
-          </button>
-          <button type="button" class="quick-btn" onclick={() => openSection('audio')}>
-            <Icon name="sound" size={14} color="currentColor" />
-            <span>音频默认</span>
+    <section class="settings-content">
+      <header class="content-head">
+        <h2>{activeLabel}</h2>
+        <div class="head-actions">
+          <button type="button" class="btn-save" onclick={handleSave}>
+            <Icon name="save" size={14} color="currentColor" />
+            <span>保存设置</span>
           </button>
         </div>
-      </div>
-    </section>
-  </div>
+      </header>
 
-  <footer class="settings-foot">
-    <button type="button" class="link" onclick={handleReset}>
-      <Icon name="refresh" size={12} color="currentColor" />
-      <span>恢复默认值</span>
-    </button>
-    <div class="foot-right">
-      <button type="button" class="btn-secondary" onclick={() => toast.info('设置未保存的修改已撤销')}>取消</button>
-      <button type="button" class="btn-primary" onclick={handleSave}>
-        <Icon name="save" size={14} color="#fff" />
-        <span>保存设置</span>
-      </button>
-    </div>
-  </footer>
-</div>
-
-<Modal
-  open={modalOpen}
-  title={modalTitle}
-  size="lg"
-  onClose={closeSection}
->
-  <div class="modal-section-body">
-      {#if active === 'general'}
-        <article class="card">
-          <header class="card-head">
-            <h2 class="card-title">通用</h2>
-          </header>
-          <div class="card-body">
+      <div class="content-body">
+        {#if active === 'general'}
+          <div class="section-body">
             <div class="row">
               <div class="row-label">界面语言</div>
-              <select bind:value={language} class="select">
-                <option value="zh-CN">简体中文</option>
-                <option value="zh-TW">繁體中文</option>
-                <option value="en-US">English</option>
-              </select>
+              <Select
+                bind:value={language}
+                ariaLabel="界面语言"
+                options={[
+                  { value: 'zh-CN', label: '简体中文' },
+                  { value: 'zh-TW', label: '繁體中文' },
+                  { value: 'en-US', label: 'English' },
+                ]}
+              />
             </div>
             <div class="row">
               <div class="row-label">外观主题</div>
@@ -375,19 +319,17 @@
               <Switch bind:checked={autoCheckUpdate} size="sm" />
             </div>
           </div>
-        </article>
-      {/if}
+        {/if}
 
-      {#if active === 'engine'}
-        <article class="card">
-          <header class="card-head">
-            <h2 class="card-title">本地推理引擎</h2>
-            <button type="button" class="link" onclick={detectEngines} disabled={detecting}>
-              <Icon name="sync" size={12} color="var(--color-primary)" />
-              <span>{detecting ? '检测中…' : '检测可用性'}</span>
-            </button>
-          </header>
-          <div class="card-body">
+        {#if active === 'engine'}
+          <div class="section-body">
+            <div class="inline-head">
+              <span>本地推理引擎</span>
+              <button type="button" class="link" onclick={detectEngines} disabled={detecting}>
+                <Icon name="sync" size={12} color="var(--color-primary)" />
+                <span>{detecting ? '检测中…' : '检测可用性'}</span>
+              </button>
+            </div>
             <p class="card-hint">轻量引擎与情感引擎已内置于客户端，无需手动配置模型路径。首次使用情感引擎可能需要下载附加权重，下载完成后会自动加载。</p>
 
             <div class="engine-row">
@@ -433,8 +375,14 @@
                 <div class="row-label">推理优先引擎</div>
                 <div class="seg">
                   <button class:active={preferEngine === 'lightweight'} onclick={() => selectPreferEngine('lightweight')}>轻量</button>
-                  <button class:active={preferEngine === 'emotion'} onclick={() => selectPreferEngine('emotion')}>情感</button>
-                  <button class:active={preferEngine === 'cloud'} onclick={() => selectPreferEngine('cloud')}>云端</button>
+                  <button class:active={preferEngine === 'emotion'} onclick={() => selectPreferEngine('emotion')}>
+                    情感
+                    <PermissionBadge feature="emotion_engine" locked={!membership.canUseFeature('emotion_engine')} compact />
+                  </button>
+                  <button class:active={preferEngine === 'cloud'} onclick={() => selectPreferEngine('cloud')}>
+                    云端
+                    <PermissionBadge feature="cloud_engine" locked={!membership.canUseFeature('cloud_engine')} compact />
+                  </button>
                 </div>
               </div>
               <div class="row">
@@ -457,63 +405,40 @@
               </div>
             </div>
           </div>
-        </article>
-      {/if}
+        {/if}
 
-      {#if active === 'cloud'}
-        <article class="card">
-          <header class="card-head">
-            <h2 class="card-title">云端引擎</h2>
-            <div class="head-meta">
-              <span class="dot" class:on={cloudLoggedIn} title={cloudLoggedIn ? '云端引擎可用' : '云端引擎未就绪'}></span>
-              <span class="badge-info">云端 = 情感引擎远程推理</span>
+        {#if active === 'cloud'}
+          <div class="section-body">
+            <div class="inline-head">
+              <span>云端引擎状态</span>
+              <div class="head-meta">
+                <span class="dot" class:on={cloudLoggedIn} title={cloudLoggedIn ? '云端引擎可用' : '云端引擎未就绪'}></span>
+                <PermissionBadge feature="cloud_chars" locked={!membership.canUseFeature('cloud_engine')} compact />
+              </div>
             </div>
-          </header>
-          <div class="card-body">
-            <p class="card-hint">云端引擎由情感引擎在云端 GPU 上提供推理能力，按字符计费，不占用本地显存。登录账号后即可使用。</p>
-
-            {#if cloudLoggedIn}
-              <div class="cloud-card">
-                <div class="cloud-account">
-                  <div class="avatar-circle"><Icon name="avatar" size={20} color="var(--color-primary)" /></div>
-                  <div>
-                    <div class="account-name">{cloudAccount || '清风明月'}</div>
-                    <div class="account-sub">已登录 · 专业版</div>
-                  </div>
-                </div>
-                <div class="cloud-balance">
-                  <div class="balance-num">{cloudBalance.toLocaleString()} / {cloudQuota.toLocaleString()}</div>
-                  <div class="balance-bar"><span style="width: {Math.min(100, (cloudBalance / cloudQuota) * 100)}%"></span></div>
-                  <div class="balance-sub">本月剩余字符额度</div>
-                </div>
-                <div class="cloud-actions">
-                  <button type="button" class="btn-primary" onclick={handleRecharge}>
-                    <Icon name="thunder-fill" size={14} color="#fff" />
-                    <span>充值中心</span>
-                  </button>
-                  <button type="button" class="btn-secondary" onclick={() => { cloudLoggedIn = false; syncCloudAvailability(false, '云端账号已退出'); toast.info('已退出云端账号'); }}>
-                    <Icon name="logout" size={14} color="currentColor" />
-                    <span>退出</span>
-                  </button>
-                </div>
+            <div class="cloud-status-row">
+              <div class="cloud-status-info">
+                <span class="cloud-status-label">{cloudLoggedIn ? '已解锁' : '未解锁'}</span>
+                <span class="cloud-status-sub">
+                  {#if cloudLoggedIn}
+                    {membership.plan.name} · 余额 {membership.account.cloudBalance.toLocaleString('zh-CN')} 字
+                  {:else}
+                    升级旗舰版后可使用云端引擎
+                  {/if}
+                </span>
               </div>
-            {:else}
-              <div class="cloud-empty">
-                <Icon name="cloud-server" size={40} color="var(--color-text-tertiary)" />
-                <div class="empty-title">未登录云端账号</div>
-                <div class="empty-sub">登录后可使用云端高质量推理，不消耗本地显存</div>
-                <button type="button" class="btn-primary" onclick={handleCloudLogin}>
-                  <Icon name="cloud" size={14} color="#fff" />
-                  <span>登录云端账号</span>
-                </button>
-              </div>
-            {/if}
-          </div>
-        </article>
+              <button type="button" class="btn-link" onclick={() => import('$app/navigation').then(m => m.goto('/profile'))}>
+                <span>{cloudLoggedIn ? '账号管理' : '前往升级'}</span>
+                <Icon name="ant-design:right-outlined" size={10} color="currentColor" />
+              </button>
+            </div>
+            <p class="card-hint">云端引擎按字符计费，不占用本地显存。余额充值与套餐管理请前往个人中心。</p>
 
-        <article class="card" style="margin-top: var(--spacing-md)">
-          <header class="card-head"><h2 class="card-title">LLM 智能拆分配置</h2></header>
-          <div class="card-body">
+            <div class="divider-line"></div>
+
+            <div class="inline-head">
+              <span>LLM 智能拆分配置</span>
+            </div>
             <div class="row">
               <div class="row-label">API 地址</div>
               <input
@@ -538,13 +463,13 @@
               <div class="row-label">模型</div>
               <div class="model-row">
                 {#if llmModels.length > 0}
-                  <select
-                    class="row-input"
+                  <Select
+                    block
                     value={appSettings.settings.llm.model}
-                    onchange={(e) => void appSettings.saveLlm({ model: (e.target as HTMLSelectElement).value })}
-                  >
-                    {#each llmModels as m}<option value={m}>{m}</option>{/each}
-                  </select>
+                    ariaLabel="LLM 模型"
+                    options={llmModels.map((m) => ({ value: m, label: m }))}
+                    onchange={(v) => void appSettings.saveLlm({ model: v })}
+                  />
                 {:else}
                   <input
                     type="text"
@@ -561,13 +486,10 @@
             </div>
             <p class="help-text">用于多角色配音页的台词智能拆分功能。支持 OpenAI 兼容接口（DeepSeek / Gemini / 通义等）。{llmModels.length > 0 ? ` 已检测到 ${llmModels.length} 个模型。` : ''}</p>
           </div>
-        </article>
-      {/if}
+        {/if}
 
-      {#if active === 'audio'}
-        <article class="card">
-          <header class="card-head"><h2 class="card-title">音频默认值</h2></header>
-          <div class="card-body">
+        {#if active === 'audio'}
+          <div class="section-body">
             <div class="grid-2">
               <div class="row">
                 <div class="row-label">默认导出格式</div>
@@ -579,13 +501,18 @@
               </div>
               <div class="row">
                 <div class="row-label">采样率</div>
-                <select class="select" bind:value={outputSampleRate}>
-                  <option value={16000}>16000 Hz</option>
-                  <option value={22050}>22050 Hz</option>
-                  <option value={24000}>24000 Hz</option>
-                  <option value={44100}>44100 Hz</option>
-                  <option value={48000}>48000 Hz</option>
-                </select>
+                <Select
+                  value={String(outputSampleRate)}
+                  ariaLabel="采样率"
+                  options={[
+                    { value: '16000', label: '16000 Hz' },
+                    { value: '22050', label: '22050 Hz' },
+                    { value: '24000', label: '24000 Hz' },
+                    { value: '44100', label: '44100 Hz' },
+                    { value: '48000', label: '48000 Hz' },
+                  ]}
+                  onchange={(v) => (outputSampleRate = Number(v))}
+                />
               </div>
               <div class="row">
                 <div class="row-label">默认段间静音</div>
@@ -604,13 +531,10 @@
               </div>
             </div>
           </div>
-        </article>
-      {/if}
+        {/if}
 
-      {#if active === 'subtitle'}
-        <article class="card">
-          <header class="card-head"><h2 class="card-title">字幕默认值</h2></header>
-          <div class="card-body">
+        {#if active === 'subtitle'}
+          <div class="section-body">
             <div class="grid-2">
               <div class="row">
                 <div class="row-label">默认导出格式</div>
@@ -622,11 +546,15 @@
               </div>
               <div class="row">
                 <div class="row-label">字符编码</div>
-                <select class="select" bind:value={subtitleEncoding}>
-                  <option value="utf-8">UTF-8</option>
-                  <option value="utf-8-bom">UTF-8 with BOM</option>
-                  <option value="gbk">GBK</option>
-                </select>
+                <Select
+                  bind:value={subtitleEncoding}
+                  ariaLabel="字符编码"
+                  options={[
+                    { value: 'utf-8', label: 'UTF-8' },
+                    { value: 'utf-8-bom', label: 'UTF-8 with BOM' },
+                    { value: 'gbk', label: 'GBK' },
+                  ]}
+                />
               </div>
               <div class="row">
                 <div class="row-label">换行</div>
@@ -641,13 +569,10 @@
               </div>
             </div>
           </div>
-        </article>
-      {/if}
+        {/if}
 
-      {#if active === 'security'}
-        <article class="card">
-          <header class="card-head"><h2 class="card-title">安全与隐私</h2></header>
-          <div class="card-body">
+        {#if active === 'security'}
+          <div class="section-body">
             <div class="grid-2">
               <div class="row">
                 <div class="row-label">启动应用时需密码</div>
@@ -673,19 +598,10 @@
             </div>
             <p class="card-hint">诊断数据仅用于改善产品稳定性，不包含您的文本内容、参考音频或生成结果。</p>
           </div>
-        </article>
-      {/if}
+        {/if}
 
-      {#if active === 'shortcut'}
-        <article class="card">
-          <header class="card-head">
-            <h2 class="card-title">键盘快捷键</h2>
-            <button type="button" class="link" disabled title="即将推出">
-              <Icon name="edit" size={12} color="var(--color-primary)" />
-              <span>自定义</span>
-            </button>
-          </header>
-          <div class="card-body">
+        {#if active === 'shortcut'}
+          <div class="section-body">
             <table class="shortcut-table">
               <thead>
                 <tr><th>操作</th><th>快捷键</th></tr>
@@ -709,19 +625,10 @@
               </tbody>
             </table>
           </div>
-        </article>
-      {/if}
+        {/if}
 
-      {#if active === 'storage'}
-        <article class="card">
-          <header class="card-head">
-            <h2 class="card-title">存储与缓存</h2>
-            <button type="button" class="link" disabled title="即将推出">
-              <Icon name="folder-open" size={12} color="var(--color-primary)" />
-              <span>打开数据目录</span>
-            </button>
-          </header>
-          <div class="card-body">
+        {#if active === 'storage'}
+          <div class="section-body">
             <div class="storage-grid">
               <div class="storage-cell">
                 <div class="cell-title">推理缓存</div>
@@ -753,20 +660,17 @@
               </div>
             </div>
           </div>
-        </article>
-      {/if}
+        {/if}
 
-      {#if active === 'advanced'}
-        <article class="card">
-          <header class="card-head"><h2 class="card-title">高级</h2></header>
-          <div class="card-body">
+        {#if active === 'advanced'}
+          <div class="section-body">
             <div class="row">
               <div class="row-label">开启开发者日志</div>
-              <Switch size="sm" />
+              <Switch bind:checked={devLog} size="sm" />
             </div>
             <div class="row">
               <div class="row-label">实验性功能</div>
-              <Switch size="sm" />
+              <Switch bind:checked={experimentalFeatures} size="sm" />
             </div>
             <div class="row">
               <div class="row-label">重置全部偏好</div>
@@ -776,10 +680,11 @@
               </button>
             </div>
           </div>
-        </article>
-      {/if}
+        {/if}
+      </div>
+    </section>
   </div>
-</Modal>
+</div>
 
 <style>
   .settings-page {
@@ -787,57 +692,9 @@
     flex-direction: column;
     flex: 1;
     min-height: 0;
-    padding: clamp(8px, 1.2vw, 15px);
+    padding: 15px;
     gap: var(--spacing-sm);
     background-color: var(--color-bg-container);
-  }
-
-  .settings-toolbar {
-    min-height: 56px;
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: var(--spacing-sm) var(--spacing-lg);
-    border-bottom: 1px solid var(--color-border-secondary);
-    flex-wrap: wrap;
-    gap: var(--spacing-sm);
-  }
-
-  .page-title {
-    margin: 0;
-    font-size: var(--font-size-xl);
-    font-weight: 600;
-    color: var(--color-text);
-    letter-spacing: 0.3px;
-  }
-
-  .toolbar-actions {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-sm);
-  }
-
-  .search-input {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-xs);
-    height: 32px;
-    padding: 0 var(--spacing-sm);
-    width: clamp(160px, 22vw, 240px);
-    background-color: var(--color-bg-base);
-    border: 1px solid var(--color-border-secondary);
-    border-radius: var(--border-radius);
-    transition: border-color var(--transition-duration) var(--transition-timing);
-  }
-  .search-input:focus-within { border-color: var(--color-primary); }
-  .search-input input {
-    flex: 1;
-    background: transparent;
-    border: none;
-    color: var(--color-text);
-    font-size: var(--font-size-sm);
-    outline: none;
   }
 
   .settings-body {
@@ -849,9 +706,9 @@
   }
 
   .settings-rail {
-    width: clamp(140px, 18vw, 200px);
+    width: clamp(150px, 18vw, 210px);
     flex-shrink: 0;
-    padding: var(--spacing-md);
+    padding: var(--spacing-sm);
     display: flex;
     flex-direction: column;
     gap: 2px;
@@ -865,152 +722,142 @@
     display: flex;
     align-items: center;
     gap: var(--spacing-sm);
-    height: 36px;
-    padding: 0 var(--spacing-sm);
+    height: 38px;
+    padding: 0 var(--spacing-md);
     background: transparent;
     border: none;
     border-radius: var(--border-radius);
     color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
     cursor: pointer;
-    transition: background-color var(--transition-duration) var(--transition-timing), color var(--transition-duration) var(--transition-timing);
+    transition: background-color var(--motion-duration-mid) var(--motion-ease-base), color var(--motion-duration-mid) var(--motion-ease-base);
   }
-  .rail-item:hover { background-color: var(--color-bg-spotlight); color: var(--color-text); }
-  .rail-item.active { background-color: var(--color-bg-elevated); color: var(--color-primary); }
+  .rail-item:hover { background-color: color-mix(in srgb, var(--color-bg-spotlight) 40%, transparent); color: var(--color-text); }
+  .rail-item.active {
+    background: transparent;
+    color: var(--color-primary);
+    font-weight: 500;
+  }
   .rail-item.active::before {
     content: '';
-    width: 3px; height: 14px;
-    margin-left: -8px;
+    width: 3px;
+    height: 16px;
+    margin-left: -12px;
     margin-right: 4px;
-    background-color: var(--color-primary);
+    background: var(--color-primary);
     border-radius: 2px;
+    flex-shrink: 0;
   }
 
-  .settings-overview {
-    flex: 1;
-    padding: var(--spacing-xl);
+  .rail-head {
     display: flex;
     align-items: center;
-    justify-content: center;
-    min-width: 0;
-  }
-
-  .overview-card {
-    width: 100%;
-    max-width: 560px;
-    padding: var(--spacing-xl);
-    background-color: var(--color-bg-elevated);
-    border-radius: var(--border-radius-lg);
-    box-shadow: var(--shadow-2);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-    gap: var(--spacing-md);
-  }
-
-  .overview-card h2 {
-    margin: var(--spacing-sm) 0 0;
-    font-size: var(--font-size-xl);
-    color: var(--color-text);
-  }
-
-  .overview-card p {
-    margin: 0;
-    color: var(--color-text-tertiary);
-    font-size: var(--font-size-sm);
-    line-height: 1.6;
-  }
-
-  .overview-stats {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: var(--spacing-md);
-    width: 100%;
-    margin-top: var(--spacing-sm);
-  }
-
-  .stat {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    align-items: center;
-    padding: var(--spacing-md);
-    background-color: var(--color-bg-spotlight);
-    border-radius: var(--border-radius);
-  }
-
-  .stat-num {
-    font-size: var(--font-size-xl);
-    color: var(--color-primary);
-    font-weight: 600;
-  }
-
-  .stat-label {
-    font-size: 11px;
-    color: var(--color-text-tertiary);
-  }
-
-  .overview-quick {
-    display: flex;
     gap: var(--spacing-sm);
-    flex-wrap: wrap;
-    justify-content: center;
-    margin-top: var(--spacing-sm);
+    padding: var(--spacing-md) var(--spacing-md) var(--spacing-md);
+    font-size: var(--font-size);
+    font-weight: 600;
+    color: var(--color-text);
+    letter-spacing: 0.3px;
   }
 
-  .quick-btn {
-    display: inline-flex;
+  .rail-foot {
+    margin-top: auto;
+    padding-top: var(--spacing-sm);
+    border-top: 1px solid var(--color-border-secondary);
+  }
+
+  .rail-action {
+    display: flex;
     align-items: center;
     gap: 6px;
-    height: var(--control-height-sm);
+    width: 100%;
+    height: 34px;
     padding: 0 var(--spacing-md);
-    background-color: var(--color-bg-spotlight);
-    color: var(--color-text-secondary);
+    background: transparent;
     border: none;
     border-radius: var(--border-radius);
-    cursor: pointer;
+    color: var(--color-text-tertiary);
     font-size: var(--font-size-sm);
-    transition: background-color var(--transition-duration) var(--transition-timing), color var(--transition-duration) var(--transition-timing);
+    cursor: pointer;
+    transition: color var(--motion-duration-mid) var(--motion-ease-base), background-color var(--motion-duration-mid) var(--motion-ease-base);
   }
+  .rail-action:hover { color: var(--color-primary); background-color: var(--color-bg-spotlight); }
 
-  .quick-btn:hover {
-    background-color: color-mix(in srgb, var(--color-primary) 14%, var(--color-bg-spotlight));
-    color: var(--color-primary);
-  }
-
-  .modal-section-body {
+  .settings-content {
+    flex: 1;
+    min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-md);
-  }
-
-  .card {
-    background-color: var(--color-bg-elevated);
-    border: 1px solid var(--color-border-secondary);
-    border-radius: var(--border-radius-lg);
+    gap: var(--spacing-sm);
     overflow: hidden;
   }
-  .card-head {
-    height: 48px;
-    padding: 0 var(--spacing-lg);
-    border-bottom: 1px solid var(--color-border-secondary);
+
+  .content-head {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    flex-shrink: 0;
+    padding: var(--spacing-xs) 0;
   }
-  .card-title {
+  .content-head h2 {
     margin: 0;
     font-size: var(--font-size-lg);
+    font-weight: 600;
     color: var(--color-text);
-    font-weight: 500;
   }
-  .card-body {
-    padding: var(--spacing-lg);
+  .head-actions { display: flex; gap: var(--spacing-sm); }
+
+  .btn-save {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 30px;
+    padding: 0 var(--spacing-md);
+    background: transparent;
+    border: 1px solid var(--color-border-secondary);
+    border-radius: var(--border-radius);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+    transition: border-color var(--motion-duration-mid) var(--motion-ease-base), color var(--motion-duration-mid) var(--motion-ease-base);
+  }
+  .btn-save:hover { border-color: var(--color-primary); color: var(--color-primary); }
+
+  .content-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--color-border-secondary) 60%, transparent) transparent;
+  }
+
+  .section-body {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-md);
+    padding: var(--spacing-lg);
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border-secondary);
+    border-radius: var(--border-radius-lg);
   }
+
+  .inline-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: var(--spacing-sm);
+    margin-bottom: var(--spacing-xs);
+    font-size: var(--font-size);
+    font-weight: 500;
+    color: var(--color-text);
+  }
+
+  .divider-line {
+    height: 1px;
+    background: linear-gradient(90deg, var(--color-border-secondary), transparent);
+    margin: var(--spacing-lg) 0;
+  }
+
   .card-hint {
     margin: 0;
     color: var(--color-text-tertiary);
@@ -1033,14 +880,6 @@
   .link:hover { background-color: var(--color-bg-spotlight); }
   .link:disabled { opacity: 0.5; cursor: not-allowed; }
 
-  .badge-info {
-    font-size: 11px;
-    color: var(--color-primary);
-    background: color-mix(in srgb, var(--color-primary) 16%, transparent);
-    padding: 2px 8px;
-    border-radius: var(--border-radius-sm);
-  }
-
   .head-meta {
     display: inline-flex;
     align-items: center;
@@ -1052,7 +891,7 @@
     align-items: center;
     justify-content: space-between;
     gap: var(--spacing-md);
-    padding: 6px 0;
+    padding: var(--spacing-sm) 0;
   }
   .row-label {
     color: var(--color-text-secondary);
@@ -1063,18 +902,6 @@
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: var(--spacing-md) var(--spacing-xl);
-  }
-
-  .select {
-    height: 28px;
-    padding: 0 var(--spacing-sm);
-    background-color: var(--color-bg-base);
-    border: 1px solid var(--color-border-secondary);
-    color: var(--color-text);
-    border-radius: var(--border-radius-sm);
-    font-size: var(--font-size-sm);
-    outline: none;
-    min-width: 160px;
   }
 
   .seg {
@@ -1094,6 +921,9 @@
     color: var(--color-text-tertiary);
     font-size: var(--font-size-sm);
     cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
     transition: background-color var(--transition-duration) var(--transition-timing), color var(--transition-duration) var(--transition-timing);
   }
   .seg button.active { background-color: var(--color-primary); color: #fff; }
@@ -1109,66 +939,57 @@
     border-radius: var(--border-radius);
   }
   .engine-meta { display: flex; flex-direction: column; gap: 4px; }
-  .engine-name { display: flex; align-items: center; gap: 6px; color: var(--color-text); font-weight: 500; font-size: var(--font-size); }
-  .engine-sub { color: var(--color-text-tertiary); font-size: 11px; }
+  .engine-name { display: flex; align-items: center; gap: 8px; color: var(--color-text); font-weight: 500; font-size: var(--font-size); }
+  .engine-sub { color: var(--color-text-tertiary); font-size: 11px; line-height: 1.5; }
 
   .engine-status { display: flex; align-items: center; gap: var(--spacing-sm); color: var(--color-text-secondary); font-size: var(--font-size-sm); }
-  .dot { width: 8px; height: 8px; border-radius: 50%; background-color: var(--color-error); display: inline-block; }
-  .dot.on { background-color: var(--color-success); box-shadow: 0 0 6px color-mix(in srgb, var(--color-success) 45%, transparent); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background-color: var(--color-error); display: inline-block; transition: background-color var(--motion-duration-mid); }
+  .dot.on { background-color: var(--color-success); box-shadow: 0 0 8px color-mix(in srgb, var(--color-success) 50%, transparent); }
   .device-tag {
     font-size: 11px;
     color: var(--color-primary);
-    background: color-mix(in srgb, var(--color-primary) 16%, transparent);
-    padding: 1px 6px;
-    border-radius: var(--border-radius-sm);
+    background: color-mix(in srgb, var(--color-primary) 14%, transparent);
+    padding: 2px 8px;
+    border-radius: var(--border-radius-pill);
+    font-weight: 500;
   }
 
   .slider-row { display: flex; align-items: center; gap: var(--spacing-sm); min-width: 0; }
   .slider-value { min-width: 60px; text-align: right; color: var(--color-text-tertiary); font-size: var(--font-size-sm); }
 
-  .cloud-card {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: var(--spacing-lg);
+  .cloud-status-row {
+    display: flex;
     align-items: center;
-    padding: var(--spacing-lg);
+    justify-content: space-between;
+    padding: var(--spacing-md) var(--spacing-lg);
     background-color: var(--color-bg-container);
     border: 1px solid var(--color-border-secondary);
     border-radius: var(--border-radius);
+    transition: border-color var(--motion-duration-mid) var(--motion-ease-base);
   }
-  .cloud-account { display: flex; align-items: center; gap: var(--spacing-md); }
-  .avatar-circle {
-    width: 40px; height: 40px;
-    border-radius: 50%;
-    background-color: color-mix(in srgb, var(--color-primary) 22%, transparent);
-    display: flex; align-items: center; justify-content: center;
+  .cloud-status-row:hover { border-color: color-mix(in srgb, var(--color-primary) 30%, var(--color-border-secondary)); }
+  .cloud-status-info { display: flex; flex-direction: column; gap: 4px; }
+  .cloud-status-label { color: var(--color-text); font-weight: 500; font-size: var(--font-size); }
+  .cloud-status-sub { color: var(--color-text-tertiary); font-size: 11px; }
+  .btn-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: transparent;
+    border: none;
+    color: var(--color-primary);
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: var(--border-radius-sm);
+    transition: background-color var(--transition-duration) var(--transition-timing);
   }
-  .account-name { color: var(--color-text); font-weight: 500; font-size: var(--font-size); }
-  .account-sub { color: var(--color-text-tertiary); font-size: 11px; }
-
-  .cloud-balance { display: flex; flex-direction: column; gap: 4px; }
-  .balance-num { font-size: var(--font-size-lg); color: var(--color-primary); font-weight: 600; }
-  .balance-bar { height: 4px; background-color: var(--color-bg-base); border-radius: 2px; overflow: hidden; }
-  .balance-bar span { display: block; height: 100%; background-color: var(--color-primary); }
-  .balance-sub { color: var(--color-text-tertiary); font-size: 11px; }
-
-  .cloud-actions { display: flex; flex-direction: column; gap: var(--spacing-sm); }
-
-  .cloud-empty {
-    display: flex; flex-direction: column;
-    align-items: center; gap: var(--spacing-sm);
-    padding: var(--spacing-xl);
-    background-color: var(--color-bg-container);
-    border: 1px dashed var(--color-border);
-    border-radius: var(--border-radius);
-  }
-  .empty-title { color: var(--color-text); font-weight: 500; font-size: var(--font-size); }
-  .empty-sub { color: var(--color-text-tertiary); font-size: var(--font-size-sm); margin-bottom: var(--spacing-sm); }
+  .btn-link:hover { background-color: var(--color-bg-spotlight); }
 
   .storage-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: var(--spacing-md);
+    gap: var(--spacing-sm);
   }
   .storage-cell {
     padding: var(--spacing-md);
@@ -1181,19 +1002,21 @@
   .cell-value { color: var(--color-text); font-size: var(--font-size-xl); font-weight: 600; }
 
   .shortcut-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: var(--font-size-sm); }
-  .shortcut-table th { color: var(--color-text-tertiary); text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--color-border-secondary); font-weight: 500; }
-  .shortcut-table td { padding: 8px 12px; color: var(--color-text-secondary); border-bottom: 1px solid var(--color-border-secondary); }
+  .shortcut-table th { color: var(--color-text-tertiary); text-align: left; padding: var(--spacing-sm) var(--spacing-md); font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .shortcut-table td { padding: var(--spacing-sm) var(--spacing-md); color: var(--color-text-secondary); border-top: 1px solid color-mix(in srgb, var(--color-border-secondary) 60%, transparent); }
+  .shortcut-table tr:hover td { background: color-mix(in srgb, var(--color-bg-spotlight) 50%, transparent); }
   kbd {
     font-family: ui-monospace, Menlo, Consolas, monospace;
     background: var(--color-bg-base);
     border: 1px solid var(--color-border-secondary);
     color: var(--color-text);
-    padding: 2px 6px;
+    padding: 3px 8px;
     border-radius: var(--border-radius-sm);
     font-size: 11px;
+    box-shadow: 0 1px 0 var(--color-border-secondary);
   }
 
-  .btn-primary, .btn-secondary, .btn-danger {
+  .btn-secondary, .btn-danger {
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -1205,25 +1028,11 @@
     border: none;
     transition: background-color var(--transition-duration) var(--transition-timing), border-color var(--transition-duration) var(--transition-timing), color var(--transition-duration) var(--transition-timing);
   }
-  .btn-primary { background-color: var(--color-primary); color: #fff; }
-  .btn-primary:hover { background-color: var(--color-primary-hover); }
   .btn-secondary { background-color: transparent; color: var(--color-text-secondary); border: 1px solid var(--color-border-secondary); }
   .btn-secondary:hover { border-color: var(--color-primary); color: var(--color-text); }
   .btn-danger { background-color: var(--color-error); color: #fff; }
 
   .tiny { height: 26px; padding: 0 var(--spacing-sm); font-size: 11px; }
-
-  .settings-foot {
-    flex-shrink: 0;
-    height: 56px;
-    padding: 0 var(--spacing-lg);
-    border-top: 1px solid var(--color-border-secondary);
-    background-color: var(--color-bg-container);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-  .foot-right { display: flex; gap: var(--spacing-sm); }
 
   .row-input {
     width: 100%;

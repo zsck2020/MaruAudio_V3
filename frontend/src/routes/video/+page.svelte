@@ -138,7 +138,7 @@
     display: grid;
     grid-template-columns: minmax(0, 1fr) clamp(220px, 24vw, 300px);
     gap: var(--spacing-sm);
-    padding: clamp(8px, 1.2vw, 15px);
+    padding: 15px;
     background: var(--color-bg-container);
     overflow: hidden;
   }
@@ -146,7 +146,7 @@
   @media (max-width: 800px) {
     .align-page {
       grid-template-columns: 1fr;
-      overflow-y: auto;
+      overflow: hidden;
     }
   }
 
@@ -380,7 +380,7 @@
     border-radius: var(--border-radius-lg);
     padding: var(--spacing-md);
     min-height: 0;
-    overflow-y: auto;
+    overflow: hidden;
     overflow-x: hidden;
   }
 

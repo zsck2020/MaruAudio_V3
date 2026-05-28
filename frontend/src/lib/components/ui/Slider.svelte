@@ -111,7 +111,7 @@
     position: absolute;
     inset: auto 0;
     height: 4px;
-    background-color: rgba(255, 255, 255, 0.15);
+    background-color: rgba(255, 255, 255, 0.20);
     border-radius: 2px;
     pointer-events: none;
     overflow: hidden;

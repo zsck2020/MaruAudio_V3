@@ -56,6 +56,40 @@
   - **store / API / 样式**：roles.svelte.ts / tts.ts / app.css 配套调整
   - **依赖**：package.json 新增 pinyin-pro
   - 验证：svelte-check 0/0 · 安全扫描无密钥泄露
+- **2026-05-27 20:27** 接力恢复 sessionId `135721-e014239b` · 猫总先令「结合市场需求更新 docs/付费方案.md」→ 已重写为免费版 + ¥198 永久旗舰 + 创作者年卡 + 团队版 + 云端字符包的完整商业方案，并清理对外底层技术名；随后猫总令「根据付费方案全面优化前端权限标识和相关界面」→ 新增 `membership.svelte.ts`、`PermissionBadge.svelte`、`UpgradeModal.svelte`，并改造首页/标题栏/个人中心/配音页/多角色页/字幕页/设置页/关于页/音库等权限展示与锁定态；验证：`npm run check` 0 error 0 warning，用户面敏感底层词扫描通过
+- **2026-05-27 21:05** 猫总令「对整个项目前端进行深度审查，找到优化点」→ 已完成代码级深度审查并落盘 `docs/前端深度审查报告-2026-05-27.md`；核心结论：前端商业产品雏形已成，下一阶段重点不是继续堆页面，而是修权限/额度/云端字符单一可信数据源、快捷键绕过付费引擎、多角色行级编辑绕过、云端余额双状态、图标全量打包等问题；验证：`npm run check` 0/0，`npm run build` 成功但有 chunk size warning（Icon.js 约 729KB）
+- **2026-05-27 21:18** 猫总令「进行全面优化」→ 已先落地审查报告中的 Sprint A：①新增 `lib/utils/entitlements.ts` 统一 `requireFeature/requestEngineChange/requireGeneratePermission` ②`membership.svelte.ts` 增加 Tauri store 持久化、每日额度自动重置、云端余额/本地生成校验 ③修 `Ctrl+Shift+E` 快捷键绕过付费引擎 ④修配音页生成前统一权限/额度校验 ⑤修多角色页行级角色/情绪/强度/文本编辑禁用与升级入口，批量生成/拼接导出加权益校验 ⑥设置页云端余额改为会员状态单源派生；验证：`npm run check` 0/0，`npm run build` 成功（仍有既有 chunk size warning）
+- **2026-05-27 21:34** 猫总补充全页面设计硬规范：卡片隔离、四周 15px、卡片间距 10px、页面 flex column + 主区 flex:1、单屏无页面滚动、控件高度统一 → 已同步 `.cursor/rules/page-design.mdc` v3；全局 `app.css` 增加页面控件默认高度；各业务页面外边距从 `clamp(8px,1.2vw,15px)` 统一到 `15px`；清理 routes 页面级 `overflow-y:auto`（Modal 法务文本等局部滚动也先禁掉，后续超长内容应分页/弹窗内分段）；验证：`npm run check` 0/0，`npm run build` 成功（仍有既有 chunk size warning）
+- **2026-05-27 21:45** 猫总反馈「音库页加载非常慢，且非常卡顿」→ 已优化 `resource/+page.svelte`：①首屏只渲染当前页 8 个样音，避免一次性渲染全部预置音色和数万根波形柱 ②搜索与真实分页接入 `filteredVoices/pagedVoices` ③预置样音加载改为 `onMount` 单次执行，首屏加载与人声分离能力检测解耦，后者延后异步执行 ④卡片波形柱从 22 降到 10，空波形从 28 降到 18 ⑤增加 skeleton 与空状态；验证：`npm run check` 0/0，`npm run build` 成功（仍有既有 Icon chunk warning）
+- **2026-05-27 21:58** 猫总要求参考 `E:\Exploitation\MaruAudio\MaruAudio_V2` 样音库页面设计或直接搬运 → 已读取 V2 `frontend/pages/sample_library_page.py` 与 `components/voice_card.py`，将 V3 音库页从卡片网格重构为 V2 风格列表：顶部筛选工具栏（搜索/性别/语言/排序/上传/批量）、批量工具条、表头 + 10 行分页列表、行内头像/名称/描述/性别/标签/播放/应用/更多、底部状态栏与迷你预览；保留 V3 的 `listPresets/vocalSeparate/dubbing.setVoice` 能力，异步加载与分页继续保留；验证：`npm run check` 0/0，`npm run build` 成功（仍有既有 Icon chunk warning）
+- **2026-05-27 22:08** 猫总要求「连样音文件一起搬运」→ 已从 `MaruAudio_V2\outputs\Sample\Presets` 拷贝到 V3 `backend\outputs\preset`：42 个 `.wav` + 39 个 covers + `metadata.json`；同步把 metadata 的 `file_path` 改为文件名、`cover` 改为 `covers/<文件名>`；修 `backend/maruaudio_tts/server.py::list_presets` 让 cover 相对路径正确指向 `preset/covers/`；验证：`npm run check` 0/0，`python -m py_compile backend\maruaudio_tts\server.py` 通过
+- **2026-05-27 22:16** 猫总要求「美化音库页面」→ 在 V2 列表结构基础上继续润色 `resource/+page.svelte`：顶部增加「样音库」标题与统计芯片，列表头像优先显示搬运来的 cover 图片、无图则首字母渐变，选中/hover 行增加柔和主色渐变与左侧播放态，底部预览增加封面头像；同时保留 10 条分页与异步加载，避免回到卡顿网格；验证：`npm run check` 0/0，`npm run build` 成功（仍有既有 Icon chunk warning）
+- **2026-05-27 22:28** 猫总反馈「样音库页面加载非常缓慢，非常消耗资源」→ 深查后确认主因不是列表 DOM，而是 TTS 后端 :9880 未运行时 `/presets` 和 `/vocal-separate/info` fetch 会阻塞数秒，且 fallback 又会再次尝试 `/output-dir`；已修：①`tts.ts` 增加 `fetchWithTimeout`，`listPresets` 900ms 超时、`vocalSeparateInfo` 900ms 超时 ②`resource/+page.svelte` fallback 不再依赖 `/output-dir`，直接读本地 `backend\outputs\preset\metadata.json`（再退 appData）③继续保留 V2 风格 10 行分页、异步加载、封面懒加载；验证：`npm run check` 0/0，`npm run build` 成功（仍有既有 Icon chunk warning）
+- **2026-05-27 22:40** 猫总明确希望「通过重构样音库页面，彻底解决页面打开加载缓慢」→ 已再次重构加载链：音库页首屏完全本地优先，`loadVoices()` 不再先等 `/presets`，而是直接读 `backend\outputs\preset\metadata.json` 并立即渲染；后端 `/presets` 只作为后台刷新，不阻塞页面；搜索字段预先缓存 `searchText`，避免每次过滤拼接大字符串；继续 10 行分页 + 封面 lazy；验证：`npm run check` 0/0，`npm run build` 成功；当前 dev server 1420 LISTENING，`maruaudio_v3.exe` PID 65508
+- **2026-05-27 22:50** 猫总要求「当前样音库页面需要进行 UI 美化」→ 在不牺牲性能的前提下继续美化 `resource/+page.svelte`：新增顶部 hero（样音库标题/说明/全部样音/精品/用户导入统计/上传/批量按钮），筛选栏保留为独立卡片并显示筛选数量，列表行增加封面头像阴影、选中/hover 主色渐变、精品徽标辉光、底部预览补充封面与性别/标签/精品 chips；仍保持本地优先加载、10 行分页、封面 lazy；验证：`npm run check` 0/0，`npm run build` 成功（仍有既有 Icon chunk warning）
+- **2026-05-27 22:58** 猫总指出「一页显示 6 个样音 + 样音缩略图异常」→ 已改 `resource/+page.svelte`：`PAGE_SIZE` 从 10 改 6；修 cover 路径解析，后端返回相对 cover 时在前端兜底拼到 `backend\outputs\preset\covers\`，本地 metadata fallback 也保持 covers 路径；`mediaSrc` 增强 Windows 盘符路径识别；验证：`npm run check` 0/0，`npm run build` 成功（仍有既有 Icon chunk warning）
+- **2026-05-27 23:04** 猫总截图确认缩略图仍异常（坏图标）→ 查 metadata 发现 43 条中 3 条 cover 文件缺失/乱码名不匹配；已给 `resource/+page.svelte` 增加 `coverBroken` 兜底：`img onerror` 后立刻标记该样音封面不可用并改显示首字母渐变头像，底部预览同样兜底，避免出现坏图标；验证：`npm run check` 0/0
+- **2026-05-28 01:28** 猫总反馈「打开设置页界面会卡死，无法打开其他页面」→ 定位为 `setting/+page.svelte` 中 `syncCloudAvailability` 被 `$effect` 调用时读取并重写 `dubbing.engineAvailable`，形成自触发响应式循环；已用 `untrack` 读取当前云端状态，并在状态未变化时直接返回，避免打开设置页后持续重渲染；验证：`npm run check` 0/0，dev server HMR 正常
+- **2026-05-28 01:44** 猫总要求修复关于页用户协议/隐私政策/服务条款弹窗不能上下滑动，并补充法律文本以降低风险 → 已改 `about/+page.svelte`：法律正文容器从 `overflow:hidden` 改为弹窗内局部 `overflow-y:auto`，高度限制 `min(62vh,560px)`，并完善用户协议（声音授权/深度合成标识/违约赔偿/责任边界）、隐私政策（敏感个人信息、共享委托、用户权利、未成年人、数据保留）、服务条款（计费、退款例外、授权设备、违规处理、责任限制）；验证：`npm run check` 0/0，浏览器实测用户协议弹窗可滚动到底部
+- **2026-05-29 01:48** 接力恢复 sessionId `135721-e014239b`（猫总经 wanzi-mcp 指定恢复）· 猫总令「深度审查 → 全部修复」→ 主 agent 全栈扫读后端 6 文件 + 前端权限核心，落出严重2/高4/中5/低2 问题，随即落盘本仓可闭环修复：
+  - **H1** 统一 output 路径：`inference.py` 运行时产物根由「项目根/output」改为「backend/output」（与 cache.py 一致、受 .gitignore 忽略），`_OUTPUT_PRESET_DIR` 指向真实样音目录 `backend/outputs/preset`，修好 `/presets` 干净环境返回空
+  - **H2** 缓存单例（server 复用 `inference._cache`）+ 同步推理接入缓存 + 指纹补全（max_mel_tokens/num_beams/repetition_penalty/inference_mode/bucket/max_text_tokens + speaker 用 名:大小:mtime）
+  - **H3** 云端临时文件按请求隔离（`_decode_base64_audio` 返回 tmp 路径，finally `_safe_unlink`），删全局 `_cloud_tmp_files` 除并发竞态
+  - **H4** 后端异常脱敏（/synthesize、stream、cloud、check_cloud 不再外泄 str(e)/路径/栈，详情仅入日志）
+  - **M1** SSRF：3 个 LLM 端点加 `_validate_api_base`（仅 http(s)，不封内网保留本地 LLM）；**M2** base64 参考音 50MB 上限（本地+云端双侧）；**M3** `check_cloud` 统一独立线程跑新 loop
+  - **S2** 路径白名单（`_validate_input_file`/`_validate_output_path`：vocal-separate 输出强制落 ref_audio、transcribe/synthesize 输入校验存在+扩展名）+ CORS 收紧到 tauri 协议 + localhost:1420 + 可选 token 中间件（env `MARUAUDIO_API_TOKEN`，默认不启用零回归）
+  - **S1** 前端移除随 build 自动解锁的 DEV 后门（改 `VITE_DEV_PLAN` 显式开关，默认 free）+ membership 会员态边界标注（仅客户端缓存、卡密须服务端核销）
+  - 验证：`python -m py_compile` 5 文件 exit 0 · `npm run check` 0/0
+  - **需重启 TTS server 方生效**（旧 :9880 进程仍跑旧码）；未闭环（需后端/admin 或属低优先）：S1 服务端签发令牌、S2 token 自动注入链路、M4 server.py 拆分、M5 云端 reserve/settle、L1 假进度、L2 mel_tokens 隐式覆盖、云端远程 output_path 本地可达性（待查 Rust）
+- **2026-05-29 02:16** 猫总令「前端 UI 设计深度审查 → 开始执行」→ 主 agent 浏览器实地观阵（dev_force_tauri 绕桌面遮挡，截首页/配音/多角色）+ 精读 app.css/Button/Sidebar/roles store，出 UI 设计审查（设计系统⭐5、多角色页为标杆；短板：演示数据/死控件、组件文档脱节、长列表伸缩、a11y），随即执行 A/B/C 批次：
+  - **A 首页**：最近项目改本地真实分页（5 条/页、翻页可用），消死分页与「打开」假跳转（改 toast 示例提示），「共 N 项」用真实条数
+  - **B1**：修 `component-spec.mdc` Button variant 文档对齐实现（实为 default/primary/text/link/danger/ghost/dashed，无 warning/success；补 suffixIcon）
+  - **B2**：新建 `membership/LockedAction.svelte` 统一锁态按钮（锁定点击弹升级，内含 Button+PermissionBadge）并登记组件规范
+  - **C1**：`roles.svelte.ts` 加派生统计索引（lineStatsByRole/generatedCount/failedCount/pendingCount + roleLineStats），多角色页 6 处模板全量 filter 改用派生（降长列表卡顿）
+  - 验证：`npm run check` 0/0 · 首页实地截图确认分页真实化
+  - 未做（建议下批）：Select/Segmented 全量组件化与各页迁移、虚拟列表、a11y 全量（卡片键盘可达/滚动提示/轮播无障碍）、窄视口右栏策略、台词卡高度
+- **2026-05-29 02:35** 续 UI 批次（猫总「继续」）：新建 `ui/Select.svelte`（原生底 + token + a11y）与 `ui/Segmented.svelte`（tablist 分段器），纳入 `ui/index.ts` barrel 导出与 `component-spec.mdc` 登记；台词卡紧凑因属布局改动、回归面大暂缓（留逐页验证）。验证 `npm run check` 0/0。组件已就绪，各页手写原生 select / 分段按钮可逐步迁移（迁移需逐页回归，故未一次性铺开）。
+- **2026-05-29 02:48** 续（猫总「继续」）：设置页 `language`/`subtitleEncoding` 两处纯字符串原生 select 迁移到 Select 组件（CDP 实测选中项 zh-CN/简体中文 正确、自定义箭头渲染正常、设置页无卡死）；`sampleRate`(number)/`llmModels`(dynamic) 暂留待逐页处理。`npm run check` 0/0。**注：本会话已累积大量未提交改动（后端安全 + 前端 UI + 新组件），建议拆 commit 固化后再继续逐页迁移。**
 
 ## PChat 会话关联
 

@@ -18,7 +18,7 @@ globs:
 
 | 组件 | 路径 | 用途 | 关键 Props |
 |---|---|---|---|
-| **Button** | `ui/Button.svelte` | 所有按钮 | `variant`: default/primary/ghost/link/danger/warning/success · `size`: sm/md/lg · `loading` · `disabled` · `block` · `prefixIcon` · `iconOnly` |
+| **Button** | `ui/Button.svelte` | 所有按钮 | `variant`: default/primary/text/link/danger/ghost/dashed · `size`: sm/md/lg · `loading` · `disabled` · `block` · `prefixIcon` · `suffixIcon` · `iconOnly` |
 | **IconButton** | `ui/IconButton.svelte` | 纯图标按钮 | `icon` · `size` · `label` · `tooltip` |
 | **Input** | `ui/Input.svelte` | 文本输入 | `type` · `size` · `prefix` · `suffix` · `error` · `hint` |
 | **Switch** | `ui/Switch.svelte` | 开关 | `checked` (bindable) · `size`: sm/md · `disabled` |
@@ -30,6 +30,9 @@ globs:
 | **Empty** | `ui/Empty.svelte` | 空状态 | `icon` · `title` · `description` |
 | **WaveformView** | `ui/WaveformView.svelte` | 音频波形 | `audioSrc` · `currentTime` · `duration` · `onSeek` · `height` · `barWidth` · `barGap` |
 | **MiniPlayer** | `ui/MiniPlayer.svelte` | 迷你播放器 | `src` · `label` · `height` · `onEnded` · 内含 WaveformView |
+| **Select** | `ui/Select.svelte` | 下拉选择（原生底 + token 样式 + a11y） | `value`(bindable) · `options` · `size` · `disabled` · `placeholder` · `block` · `onchange` |
+| **Segmented** | `ui/Segmented.svelte` | 分段控制器（tablist） | `value`(bindable) · `options` · `size` · `disabled` · `block` · `onchange` |
+| **LockedAction** | `membership/LockedAction.svelte` | 付费锁态按钮（锁定时点击弹升级弹窗） | `feature` · `variant` · `size` · `onAction` · `showBadge` · 内含 Button + PermissionBadge |
 
 ### 2. 业务组件（`lib/components/dubbing/`）— 配音模块
 

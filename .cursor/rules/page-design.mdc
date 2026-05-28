@@ -1,42 +1,46 @@
 ---
-description: 页面设计规范 · 猫总确认 · 2026-05-19 v2
+description: 页面设计规范 · 猫总确认 · 2026-05-27 v3
 globs:
   - frontend/src/routes/**/*.svelte
   - frontend/src/lib/components/**/*.svelte
 ---
 
-# 丸子配音 V3 · 页面设计规范 v2
+# 丸子配音 V3 · 页面设计规范 v3
 
 ## 核心原则
 
-1. **卡片化**：所有页面内容区使用卡片隔离，不使用线条分割
-2. **单屏适配**：所有内容在一屏以内，无滚动。放不下的内容用弹窗（Modal）
-3. **间距统一**：四周 15px，卡片间距 10px (var(--spacing-sm))
-4. **控件规范**：所有按钮、输入框、下拉框、选择框高度统一
+1. **卡片化**：整个页面内容区必须使用卡片隔离，不能用线条作为主要分隔方式。
+2. **间距统一**：页面四周固定 15px，内部卡片间距固定 10px（`var(--spacing-sm)`）。
+3. **Flex Column**：页面容器默认 `display:flex; flex-direction:column;`，仪表盘 / 主内容区用 `flex:1` 吸收剩余空间。
+4. **单屏适配**：页面内容必须控制在一屏以内，不允许页面级滚动；放不下的内容使用 Modal、分页、折叠、详情弹窗。
+5. **控件规范**：页面内所有下拉框、按钮、输入框、选择框使用统一高度体系。
 
 ## 布局结构
 
-- 页面容器：flex column，主内容区 flex:1 吸收剩余空间
-- 四周留空：15px 不可变
-- 卡片间距：var(--spacing-sm) = 10px
+- 页面容器：`flex:1; min-height:0; display:flex; flex-direction:column; padding:15px; gap:var(--spacing-sm); overflow:hidden;`
+- 仪表盘 / 主内容区：`flex:1; min-height:0; display:grid/flex; gap:var(--spacing-sm); overflow:hidden;`
+- 四周留空：15px 不可变，不再使用 `clamp(8px, 1.2vw, 15px)`
+- 卡片间距：`var(--spacing-sm) = 10px`
 - 修改单卡片不得影响其他卡片位置
-- 禁止 overflow-y: auto / overflow: scroll
+- 禁止页面级 `overflow-y:auto` / `overflow:scroll`
+- 列表内容放不下时，优先分页；确需滚动的局部列表必须有明确高度、可见渐隐/分页提示，并不得撑破页面
 
 ## 卡片样式
 
 ```css
 background: var(--color-bg-elevated);
 border: 1px solid var(--color-border-secondary);
-border-radius: var(--border-radius-lg);  /* 14px */
+border-radius: var(--border-radius-lg);
 ```
 
 ## 控件高度标准
 
 | 控件类型 | 高度 | CSS 变量 |
 |---|---|---|
-| 大按钮（主操作） | 36px | var(--control-height-sm) |
-| 常规按钮/输入框/下拉框 | 32px | - |
-| 紧凑按钮/小控件 | 28px | var(--control-height-xs) |
+| 主按钮 / 常规按钮 | 36px | `var(--control-height-sm)` |
+| 输入框 / 下拉框 / 选择框 | 36px | `var(--control-height-sm)` |
+| 紧凑图标按钮 / 分页按钮 | 28px | `var(--control-height-xs)` |
+| 大型主操作 | 40px | `var(--control-height)` |
 
 ## 按钮样式
 

@@ -1,0 +1,383 @@
+{
+  "report_time": "2026-05-28T16:11:00+08:00",
+  "project_path": "E:\\Exploitation\\MaruAudio\\MaruAudio_V3",
+  "scan_method": "File-by-file read and content search (terminal blocked by security scan)",
+  "note": "Recent file changes (last 30 minutes) could not be determined because `find -mmin` was blocked by security scan. Analysis is based on PROJECT-STATE.md (last update 2026-05-28 01:44) and source code inspection.",
+
+  "recent_changes": {
+    "status": "unable_to_determine",
+    "reason": "Terminal find/mmin command blocked by security scan",
+    "last_known_changes_from_project_state": [
+      "2026-05-28 01:28 - Fixed setting page $effect loop causing UI freeze (setting/+page.svelte untrack fix)",
+      "2026-05-28 01:44 - Fixed about page legal modal scrolling + expanded legal text (about/+page.svelte)",
+      "2026-05-27 22:58 - Resource page PAGE_SIZE 10→6, cover path fix, coverBroken fallback",
+      "2026-05-27 22:50 - Resource page UI beautification (hero header, filters, hover effects)",
+      "2026-05-27 22:40 - Resource page local-first loading refactor (no /presets blocking)",
+      "2026-05-27 22:28 - Resource page fetchWithTimeout + fallback fixes",
+      "2026-05-27 22:16 - Resource page beautification on V2 list structure",
+      "2026-05-27 22:08 - Preset samples copied from V2 to V3 (42 wav + 39 covers)",
+      "2026-05-27 21:58 - Resource page V2-style list redesign",
+      "2026-05-27 21:45 - Resource page performance optimization (lazy loading, pagination)",
+      "2026-05-27 21:34 - Page design hard rules + app.css + all pages margin unification",
+      "2026-05-27 21:18 - Sprint A entitlements unification + permission/quota checks",
+      "2026-05-27 21:05 - Frontend deep audit report generated",
+      "2026-05-27 20:27 - Membership system (PermissionBadge, UpgradeModal, membership store)"
+    ]
+  },
+
+  "todo_markers": {
+    "total_count": 4,
+    "items": [
+      {
+        "file": "frontend/src/lib/config/categories.ts",
+        "line": 24,
+        "type": "TODO",
+        "text": "TODO: 接入实际的历史记录存储",
+        "module": "frontend/config",
+        "severity": "low"
+      },
+      {
+        "file": "frontend/src-tauri/src/commands/audio.rs",
+        "line": 5,
+        "type": "TODO",
+        "text": "TODO: 实际检查音频输出目录可写性",
+        "module": "rust/commands",
+        "severity": "medium"
+      },
+      {
+        "file": "frontend/src-tauri/src/commands/file.rs",
+        "line": 5,
+        "type": "TODO",
+        "text": "TODO: 实际检查文件存储目录可访问性",
+        "module": "rust/commands",
+        "severity": "medium"
+      },
+      {
+        "file": "frontend/src-tauri/src/commands/sample.rs",
+        "line": 5,
+        "type": "TODO",
+        "text": "TODO: 实际检查样音库目录与索引",
+        "module": "rust/commands",
+        "severity": "medium"
+      }
+    ]
+  },
+
+  "module_completeness": {
+    "frontend_routes": {
+      "summary": "All 9 business routes implemented with full UI. Commercial-grade design with design tokens, card isolation, 15px margins.",
+      "routes": {
+        "dubbing": {
+          "path": "frontend/src/routes/dubbing/+page.svelte",
+          "description": "配音页 (Dubbing)",
+          "completeness": 85,
+          "status": "Complete - Three engine modes, SSE streaming, waveform player, emotion control, batch cancel, text editor with toolbar",
+          "notes": "Full TTS integration, emotion sliders, reference audio, parameter panel"
+        },
+        "cover": {
+          "path": "frontend/src/routes/cover/+page.svelte",
+          "description": "封面页/文件管理 (File Management)",
+          "completeness": 80,
+          "status": "Complete - File management for generated audio/video/subtitle outputs",
+          "notes": "UI complete, export commands implemented"
+        },
+        "copywriting": {
+          "path": "frontend/src/routes/copywriting/+page.svelte",
+          "description": "字幕页 (Subtitle)",
+          "completeness": 75,
+          "status": "Complete - Connected to real Bicut ASR via Tauri bridge",
+          "notes": "Translate/optimize backend ready, frontend auto-routed through isTauri check"
+        },
+        "video": {
+          "path": "frontend/src/routes/video/+page.svelte",
+          "description": "对轴页 (Audio/Subtitle Alignment)",
+          "completeness": 70,
+          "status": "UI complete - commercial-grade alignment interface",
+          "notes": "Core UI implemented, some features may be placeholder"
+        },
+        "project": {
+          "path": "frontend/src/routes/project/+page.svelte",
+          "description": "角色页/多角色配音 (Multi-Role Dubbing)",
+          "completeness": 85,
+          "status": "Complete - Role management, batch generation, line editing, emotion/strength per line",
+          "notes": "Large 440-line refactor completed, entitlement checks integrated"
+        },
+        "resource": {
+          "path": "frontend/src/routes/resource/+page.svelte",
+          "description": "音库/样音库 (Voice Library)",
+          "completeness": 80,
+          "status": "Complete - V2-style list design, local-first loading, pagination, cover images",
+          "notes": "42 presets migrated from V2, performance optimized with 900ms timeout, lazy loading"
+        },
+        "setting": {
+          "path": "frontend/src/routes/setting/+page.svelte",
+          "description": "设置页 (Settings)",
+          "completeness": 80,
+          "status": "Complete - Settings with cloud availability sync, fixed $effect loop bug",
+          "notes": "Cloud balance derived from membership store, LLM API key encrypted"
+        },
+        "about": {
+          "path": "frontend/src/routes/about/+page.svelte",
+          "description": "关于页 (About)",
+          "completeness": 90,
+          "status": "Complete - Legal modals (ToS/Privacy/EULA) with scrollable content",
+          "notes": "Full legal text, deep synthesis disclosure, modal overflow fix applied"
+        },
+        "profile": {
+          "path": "frontend/src/routes/profile/+page.svelte",
+          "description": "个人中心 (Profile)",
+          "completeness": 70,
+          "status": "UI complete - Permission badges, upgrade modal integration",
+          "notes": "Account/billing/orders/redeem show 'coming soon' toasts"
+        },
+        "home": {
+          "path": "frontend/src/routes/+page.svelte",
+          "description": "首页 (Home)",
+          "completeness": 80,
+          "status": "Complete - Banner carousel, quick actions, membership display",
+          "notes": "Entitlement checks on engine switch"
+        }
+      }
+    },
+
+    "frontend_components": {
+      "summary": "Full UI atomic library + business components. Design system with 11+ atomic components, comprehensive dubbing components.",
+      "sidebar": {
+        "path": "frontend/src/lib/components/Sidebar.svelte",
+        "completeness": 95,
+        "status": "Complete - 7 main items + 2 bottom items, mobile/tablet responsive, collapse support"
+      },
+      "titlebar": {
+        "path": "frontend/src/lib/components/TitleBar.svelte",
+        "completeness": 90,
+        "status": "Complete - Window controls, logo, profile menu, membership badge, double-click maximize"
+      },
+      "tts_components": {
+        "audio_player": {
+          "path": "frontend/src/lib/components/dubbing/AudioPlayer.svelte",
+          "completeness": 85,
+          "status": "Complete - WaveformView integration, seek, time display"
+        },
+        "engine_selector": {
+          "path": "frontend/src/lib/components/dubbing/EngineSelector.svelte",
+          "completeness": 90,
+          "status": "Complete - Three engine modes with entitlement gating"
+        },
+        "parameter_panel": {
+          "path": "frontend/src/lib/components/dubbing/TabParamControl.svelte",
+          "completeness": 85,
+          "status": "Complete - Temperature/topP/topK/beams/repetition/emoAlpha/melTokens controls"
+        },
+        "emotion_control": {
+          "path": "frontend/src/lib/components/dubbing/TabEmotionControl.svelte",
+          "completeness": 85,
+          "status": "Complete - Emotion sliders (8 dimensions), random emotion, emotion text"
+        },
+        "player_bar": {
+          "path": "frontend/src/lib/components/dubbing/PlayerBar.svelte",
+          "completeness": 85,
+          "status": "Complete - WaveformView replacement, generation progress, time labels"
+        },
+        "text_editor": {
+          "path": "frontend/src/lib/components/dubbing/TextEditor.svelte",
+          "completeness": 80,
+          "status": "Complete - Text editing area with word count"
+        },
+        "text_toolbar": {
+          "path": "frontend/src/lib/components/dubbing/TextToolbar.svelte",
+          "completeness": 80,
+          "status": "Complete - Formatting toolbar for dubbing text"
+        },
+        "audio_uploader": {
+          "path": "frontend/src/lib/components/dubbing/AudioUploader.svelte",
+          "completeness": 75,
+          "status": "Mostly complete - Recording placeholder noted"
+        },
+        "reference_audio_panel": {
+          "path": "frontend/src/lib/components/dubbing/ReferenceAudioPanel.svelte",
+          "completeness": 80,
+          "status": "Complete - Reference audio selection"
+        },
+        "preset_library": {
+          "path": "frontend/src/lib/components/dubbing/PresetLibrary.svelte",
+          "completeness": 75,
+          "status": "Complete - Preset voice selection"
+        },
+        "left_bottom_bar": {
+          "path": "frontend/src/lib/components/dubbing/LeftBottomBar.svelte",
+          "completeness": 85,
+          "status": "Complete - Generate/cancel buttons with entitlement checks"
+        }
+      },
+      "ui_atomic_library": {
+        "components": ["Button", "Card", "Empty", "IconButton", "Input", "MiniPlayer", "Modal", "Slider", "Spin", "Switch", "Tag", "WaveformView"],
+        "completeness": 95,
+        "status": "Complete - 12 atomic components with tests, design token system"
+      },
+      "membership_components": {
+        "permission_badge": { "completeness": 90, "status": "Complete" },
+        "upgrade_modal": { "completeness": 85, "status": "Complete" }
+      }
+    },
+
+    "frontend_stores": {
+      "settings": { "path": "frontend/src/lib/stores/settings.svelte.ts", "completeness": 90 },
+      "dubbing": { "path": "frontend/src/lib/stores/dubbing.svelte.ts", "completeness": 90 },
+      "membership": { "path": "frontend/src/lib/stores/membership.svelte.ts", "completeness": 85 },
+      "environment": { "path": "frontend/src/lib/stores/environment.svelte.ts", "completeness": 90 },
+      "toast": { "path": "frontend/src/lib/stores/toast.svelte.ts", "completeness": 95 },
+      "roles": { "path": "frontend/src/lib/stores/roles.svelte.ts", "completeness": 80 }
+    },
+
+    "backend_services": {
+      "summary": "Python FastAPI server on port 9880. Three TTS engines (lightweight/emotion/cloud), subtitle ASR, vocal separation.",
+      "tts_engine_management": {
+        "path": "backend/maruaudio_tts/engine_manager.py",
+        "completeness": 85,
+        "status": "Complete - Lazy loading, acceleration env vars (FP16/CUDA_KERNEL/DEEPSPEED/ACCEL/TORCH_COMPILE), cloud health HTTP ping"
+      },
+      "inference_service": {
+        "path": "backend/maruaudio_tts/inference.py",
+        "completeness": 80,
+        "status": "Complete - Sync/stream synthesis, SSE progress, max_mel_tokens adaptive (v1.5:600, v2.0/cloud:1500)",
+        "notes": "Base64 audio decode for cloud forwarding, segment-level progress with duration/RTF"
+      },
+      "cloud_engine": {
+        "path": "backend/maruaudio_tts/cloud_engine.py",
+        "completeness": 80,
+        "status": "Complete - Xiānggōng Cloud IndexTTS 2.0 remote instance, SSE protocol reuse, base64 audio"
+      },
+      "voice_separation": {
+        "path": "backend/maruaudio_tts/services/vocal_separator.py",
+        "completeness": 75,
+        "status": "Implemented - Vocal separation service with info endpoint"
+      },
+      "subtitle_transcription": {
+        "path": "backend/maruaudio_tts/services/subtitle/",
+        "files": ["bcut_asr.py", "transcribe.py", "entities.py", "asr_data.py"],
+        "completeness": 80,
+        "status": "Complete - Real Bicut ASR implementation (not mock), audio/video transcription",
+        "notes": "Also has translate and optimize-timing endpoints"
+      },
+      "server_api": {
+        "path": "backend/maruaudio_tts/server.py",
+        "completeness": 85,
+        "status": "Complete - FastAPI with CORS, SSE streaming, all endpoints implemented",
+        "endpoints": [
+          "POST /synthesize (sync)", "POST /synthesize-stream (SSE)", "POST /cancel",
+          "GET /health", "GET /presets", "POST /vocal-separate", "GET /vocal-separate/info",
+          "POST /transcribe", "POST /subtitle/translate", "POST /subtitle/optimize-timing",
+          "POST /llm-models", "POST /split-lines", "POST /glossary", "POST /custom-prompt"
+        ]
+      }
+    },
+
+    "rust_layer": {
+      "summary": "Tauri 2 commands and services. 24 Rust source files. All commands registered in lib.rs.",
+      "tts_commands": {
+        "path": "frontend/src-tauri/src/commands/tts.rs",
+        "commands": ["tts_check_health", "tts_synthesize", "tts_synthesize_stream", "tts_preload_engine", "tts_cancel"],
+        "completeness": 90,
+        "status": "Complete - Full sync/stream synthesis, cancel, engine preload"
+      },
+      "subtitle_commands": {
+        "path": "frontend/src-tauri/src/commands/subtitle.rs",
+        "commands": ["subtitle_transcribe_stream", "subtitle_cancel", "subtitle_read_output"],
+        "completeness": 85,
+        "status": "Complete - SSE streaming via Tauri events, cancel, path-whitelist security"
+      },
+      "user_commands": {
+        "path": "frontend/src-tauri/src/commands/user.rs",
+        "commands": ["user_health", "user_login", "user_register", "user_logout", "user_get_info", "user_refresh_token", "user_sync", "user_is_logged_in"],
+        "completeness": 85,
+        "status": "Complete - Full auth flow with token persistence, encrypted storage"
+      },
+      "llm_commands": {
+        "path": "frontend/src-tauri/src/commands/llm.rs",
+        "commands": ["llm_save_api_key", "llm_get_api_key", "llm_clear_api_key"],
+        "completeness": 90,
+        "status": "Complete - AES-256-GCM encrypted API key storage"
+      },
+      "engine_commands": {
+        "path": "frontend/src-tauri/src/commands/engine.rs",
+        "commands": ["engine_health"],
+        "completeness": 100,
+        "status": "Complete - Delegates to TTS service health check"
+      },
+      "export_commands": {
+        "path": "frontend/src-tauri/src/commands/export.rs",
+        "commands": ["export_concat_audio"],
+        "completeness": 80,
+        "status": "Implemented - Audio concatenation export"
+      },
+      "app_commands": {
+        "path": "frontend/src-tauri/src/commands/app.rs",
+        "commands": ["ping", "get_banners"],
+        "completeness": 90
+      },
+      "system_services": {
+        "tts_service": {
+          "path": "frontend/src-tauri/src/services/tts/mod.rs",
+          "completeness": 90,
+          "status": "Complete - HTTP client to Python server, SSE parsing, event forwarding, cancel token"
+        },
+        "subtitle_service": {
+          "path": "frontend/src-tauri/src/services/subtitle/mod.rs",
+          "completeness": 85,
+          "status": "Complete - SSE streaming, cancel, read with path whitelist + size limit"
+        }
+      },
+      "ipc": {
+        "completeness": 90,
+        "status": "Complete - 20+ Tauri commands registered, event-based SSE streaming, state management",
+        "registered_commands_count": 21
+      },
+      "utils": {
+        "storage": { "completeness": 90, "status": "Complete - AES-256-GCM encrypted keyring storage" },
+        "session": { "completeness": 85, "status": "Complete - Runtime session state management" },
+        "api": { "completeness": 85, "status": "Complete - HTTP client for backend API" },
+        "config": { "completeness": 80 },
+        "crypto": { "completeness": 90, "status": "Complete - AES-256-GCM encryption" },
+        "error": { "completeness": 90, "status": "Complete - Typed error variants" }
+      }
+    }
+  },
+
+  "overall_assessment": {
+    "total_source_files": {
+      "frontend_ts": 27,
+      "frontend_svelte": 46,
+      "rust": 24,
+      "python_backend": 15,
+      "total_excluding_indextts_and_build": 112
+    },
+    "git_commits": 19,
+    "overall_completeness": 82,
+    "strengths": [
+      "Complete Tauri 2 + SvelteKit 5 desktop application shell with smart window sizing",
+      "Three TTS engine architecture (lightweight/emotion/cloud) fully wired end-to-end",
+      "Real Bicut ASR integration (not mock) with Tauri bridge",
+      "Comprehensive membership/entitlement system with encrypted storage",
+      "Commercial-grade UI with design tokens, 12 atomic components, responsive layout",
+      "SSE streaming pipeline from Python→Rust→Frontend for real-time progress",
+      "Security: path whitelist for subtitle output, AES-256-GCM for API keys, CSP configured",
+      "42 preset voice samples migrated from V2 with metadata",
+      "Performance optimized: local-first loading, 900ms fetch timeouts, pagination"
+    ],
+    "remaining_work": [
+      "Member character quota + account center UI (medium priority)",
+      "Frontend translate/optimize call layer integration (backend ready)",
+      "History record storage (TODO in categories.ts)",
+      "Health check implementations for audio/file/sample commands (3 TODOs)",
+      "Profile page actions (account/billing/orders/redeem) show 'coming soon'",
+      "Icon chunk size warning (~729KB, non-critical)",
+      "AudioUploader recording placeholder",
+      "Admin panel integration (separate repo)"
+    ],
+    "known_issues": [
+      "build chunk size warning for Icon.js (~729KB)",
+      "2 pre-existing Rust dead_code warnings (suppressed with #[allow])",
+      "Cloud engine requires XIANGONG_TTS_BASE env var to be useful"
+    ]
+  }
+}

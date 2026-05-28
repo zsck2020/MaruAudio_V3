@@ -102,6 +102,10 @@ async def check_availability() -> dict:
         }
 
 
+# 参考音频体积上限（转发云端前），防止超大文件撑爆内存
+_MAX_AUDIO_BYTES = 50 * 1024 * 1024
+
+
 def _encode_audio_file(path: Optional[str]) -> tuple[Optional[str], str]:
     """读取本地音频文件并 base64 编码，返回 (base64_str, ext)"""
     if not path:
@@ -109,6 +113,11 @@ def _encode_audio_file(path: Optional[str]) -> tuple[Optional[str], str]:
     p = Path(path)
     if not p.is_file():
         logger.warning("音频文件不存在，无法编码转发: %s", path)
+        return None, "wav"
+    try:
+        if p.stat().st_size > _MAX_AUDIO_BYTES:
+            raise RuntimeError("参考音频过大，无法转发云端")
+    except OSError:
         return None, "wav"
     ext = p.suffix.lstrip(".") or "wav"
     data = p.read_bytes()
@@ -288,6 +297,6 @@ async def synthesize_stream(
         yield {"type": "error", "message": "无法连接云端实例（请检查端点）"}
     except httpx.TimeoutException:
         yield {"type": "error", "message": "云端实例响应超时"}
-    except Exception as exc:
+    except Exception:
         logger.exception("cloud synthesize_stream failed")
-        yield {"type": "error", "message": f"云端推理失败：{exc}"}
+        yield {"type": "error", "message": "云端推理失败，请稍后重试"}

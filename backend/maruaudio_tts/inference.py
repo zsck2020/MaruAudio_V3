@@ -3,32 +3,64 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import time
 import uuid
 from pathlib import Path
 from typing import AsyncGenerator
 
+from .cache import TTSCache
 from .engine_manager import EngineManager
 from .models import SynthesizeRequest, ProgressEvent, CompleteEvent, ErrorEvent
 
-# 项目根目录
+logger = logging.getLogger(__name__)
+
+_cache = TTSCache()
+
+# 项目根目录与后端目录
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-# 输出目录：音频、视频、字幕、参考音频、情感音频、预置样音
-_OUTPUT_DIR = _PROJECT_ROOT / "output"
+_BACKEND_DIR = Path(__file__).resolve().parent.parent
+# 运行时产物根目录：统一到 backend/output（与 cache.py 一致，受 .gitignore 的 output/ 规则忽略）
+_OUTPUT_DIR = _BACKEND_DIR / "output"
 _OUTPUT_AUDIO_DIR = _OUTPUT_DIR / "audio"
 _OUTPUT_VIDEO_DIR = _OUTPUT_DIR / "video"
 _OUTPUT_SUBTITLE_DIR = _OUTPUT_DIR / "subtitle"
 _OUTPUT_REF_AUDIO_DIR = _OUTPUT_DIR / "ref_audio"
 _OUTPUT_EMO_AUDIO_DIR = _OUTPUT_DIR / "emo_audio"
-_OUTPUT_PRESET_DIR = _OUTPUT_DIR / "preset"
+# 预置样音随仓库分发，单独位于 backend/outputs/preset（已纳入 git，非运行时产物）
+_OUTPUT_PRESET_DIR = _BACKEND_DIR / "outputs" / "preset"
 
 
 def _ensure_output_dir() -> Path:
-    """确保所有输出子目录存在"""
+    """确保所有运行时输出子目录存在（预置样音目录为只读资源，不在此创建）"""
     for d in (_OUTPUT_DIR, _OUTPUT_AUDIO_DIR, _OUTPUT_VIDEO_DIR, _OUTPUT_SUBTITLE_DIR,
-              _OUTPUT_REF_AUDIO_DIR, _OUTPUT_EMO_AUDIO_DIR, _OUTPUT_PRESET_DIR):
+              _OUTPUT_REF_AUDIO_DIR, _OUTPUT_EMO_AUDIO_DIR):
         d.mkdir(parents=True, exist_ok=True)
     return _OUTPUT_DIR
+
+
+def _fingerprint_for(req: SynthesizeRequest) -> str:
+    """构造缓存指纹 — 纳入全部影响输出的参数，避免错误命中。"""
+    return _cache.compute_fingerprint(
+        text=req.text,
+        engine=req.engine,
+        speaker_audio_path=req.speaker_audio_path,
+        temperature=req.temperature,
+        top_p=req.top_p,
+        top_k=req.top_k,
+        interval_silence=req.interval_silence,
+        emotion_method=req.emotion_method,
+        emotion_text=req.emotion_text,
+        emotion_vector=req.emotion_vector,
+        emo_alpha=req.emo_alpha,
+        emotion_audio_path=req.emotion_audio_path,
+        max_mel_tokens=req.max_mel_tokens,
+        num_beams=req.num_beams,
+        repetition_penalty=req.repetition_penalty,
+        inference_mode=req.inference_mode,
+        bucket_max_size=req.bucket_max_size,
+        max_text_tokens_per_segment=req.max_text_tokens_per_segment,
+    )
 
 
 async def synthesize_stream(
@@ -36,6 +68,21 @@ async def synthesize_stream(
     req: SynthesizeRequest,
 ) -> AsyncGenerator[str, None]:
     """SSE 流式推理 — 逐步推送进度事件，最终推送完成/错误事件"""
+
+    fp = _fingerprint_for(req)
+
+    cached_path = _cache.lookup(fp)
+    if cached_path is not None:
+        duration_s = 0.0
+        try:
+            import wave
+            with wave.open(cached_path, 'rb') as wf:
+                duration_s = wf.getnframes() / wf.getframerate()
+        except Exception:
+            pass
+        yield f"data: {ProgressEvent(progress=1.0, message='缓存命中', segment_current=1, segment_total=1).model_dump_json()}\n\n"
+        yield f"data: {CompleteEvent(output_path=cached_path, duration_seconds=round(duration_s, 2), rtf=0.0).model_dump_json()}\n\n"
+        return
 
     engine = mgr.get_engine(req.engine)
     if engine is None:
@@ -77,13 +124,16 @@ async def synthesize_stream(
             pass
         rtf = elapsed / duration_s if duration_s > 0 else 0.0
 
+        _cache.store(fp, result, text_preview=req.text, engine=req.engine)
+
         yield f"data: {ProgressEvent(progress=0.95, message='合成完成，正在保存…', segment_current=est_segments, segment_total=est_segments).model_dump_json()}\n\n"
         await asyncio.sleep(0)
 
         yield f"data: {CompleteEvent(output_path=result, duration_seconds=round(duration_s, 2), rtf=round(rtf, 3)).model_dump_json()}\n\n"
 
     except Exception as e:
-        yield f"data: {ErrorEvent(message=str(e)).model_dump_json()}\n\n"
+        logger.exception("synthesize_stream failed")
+        yield f"data: {ErrorEvent(message=f'推理失败：{type(e).__name__}').model_dump_json()}\n\n"
 
 
 async def synthesize_sync(
@@ -91,6 +141,11 @@ async def synthesize_sync(
     req: SynthesizeRequest,
 ) -> str:
     """同步推理 — 返回输出路径，或抛出异常"""
+
+    fp = _fingerprint_for(req)
+    cached_path = _cache.lookup(fp)
+    if cached_path is not None:
+        return cached_path
 
     engine = mgr.get_engine(req.engine)
     if engine is None:
@@ -106,6 +161,8 @@ async def synthesize_sync(
 
     if result is None:
         raise RuntimeError("推理失败，未生成音频")
+
+    _cache.store(fp, result, text_preview=req.text, engine=req.engine)
     return result
 
 

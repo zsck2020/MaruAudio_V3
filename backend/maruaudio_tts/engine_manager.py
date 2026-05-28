@@ -171,8 +171,13 @@ class EngineManager:
         return None
 
     def check_cloud(self) -> dict:
-        """检查云端引擎可用性（同步包装异步检查）"""
+        """检查云端引擎可用性（同步包装异步检查）
+
+        无论调用线程是否已有运行中的事件循环，统一在独立线程里跑一个全新的
+        loop，规避「loop already running」与异常被吞后二次抛错的脆弱逻辑。
+        """
         import asyncio
+        import concurrent.futures
 
         from . import cloud_engine
 
@@ -184,20 +189,21 @@ class EngineManager:
             }
 
         try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                import concurrent.futures
-                with concurrent.futures.ThreadPoolExecutor() as pool:
-                    future = pool.submit(asyncio.run, cloud_engine.check_availability())
-                    return future.result(timeout=6)
-        except (RuntimeError, Exception):
-            pass
-
-        try:
-            return asyncio.run(cloud_engine.check_availability())  # type: ignore[arg-type]
-        except Exception as e:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                future = pool.submit(asyncio.run, cloud_engine.check_availability())
+                return future.result(timeout=8)
+        except concurrent.futures.TimeoutError:
             return {
                 "engine": "cloud",
                 "available": False,
-                "message": f"云端检测失败：{e}",
+                "message": "云端检测超时",
+            }
+        except Exception:
+            # 详情仅入日志，对外不暴露内部异常细节
+            import logging
+            logging.getLogger(__name__).warning("check_cloud failed", exc_info=True)
+            return {
+                "engine": "cloud",
+                "available": False,
+                "message": "云端检测失败",
             }

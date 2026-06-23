@@ -2,6 +2,7 @@
   import { goto } from '$app/navigation';
   import { onMount } from 'svelte';
   import Button from '$lib/components/ui/Button.svelte';
+  import Input from '$lib/components/ui/Input.svelte';
   import Icon from '$lib/icons/Icon.svelte';
   import PermissionBadge from '$lib/components/membership/PermissionBadge.svelte';
   import { membership, PLAN_INFO, FEATURE_INFO, type PlanId, type FeatureKey } from '$lib/stores/membership.svelte';
@@ -29,9 +30,22 @@
     { name: '商业包', chars: '100 万字', price: '¥499', unit: '¥0.50 / 千字' },
   ];
 
+  let cardKeyInput = $state('');
+  let cardKeyLoading = $state(false);
+  let activeTab = $state<'overview' | 'history'>('overview');
+
+  const ENGINE_LABEL: Record<string, string> = { lightweight: '轻量', emotion: '情感', cloud: '云端' };
+
+  let recentHistory = $derived(membership.usageHistory.slice(0, 20));
+
   function fmt(n: number): string {
     if (!Number.isFinite(n)) return '不限';
     return n.toLocaleString('zh-CN');
+  }
+
+  function fmtDate(iso: string): string {
+    const d = new Date(iso);
+    return `${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')} ${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
   }
 
   function planFeature(plan: PlanId): FeatureKey {
@@ -50,6 +64,22 @@
 
   function handleCloudPackage() {
     membership.requestUpgrade('cloud_chars');
+  }
+
+  async function handleRedeemCardKey() {
+    if (!cardKeyInput.trim()) { toast.warning('请输入卡密'); return; }
+    cardKeyLoading = true;
+    try {
+      const result = await membership.redeemCardKey(cardKeyInput);
+      if (result.ok) {
+        toast.success(result.message);
+        cardKeyInput = '';
+      } else {
+        toast.warning(result.message);
+      }
+    } finally {
+      cardKeyLoading = false;
+    }
   }
 </script>
 
@@ -125,27 +155,68 @@
   <section class="content-grid">
     <article class="card usage-card">
       <header class="card-head">
-        <h2>权益用量</h2>
-        <Button variant="link" size="sm" onclick={() => membership.requestUpgrade('watermark_free')}>升级旗舰</Button>
+        <div class="tab-row">
+          <button type="button" class="tab-btn" class:active={activeTab === 'overview'} onclick={() => activeTab = 'overview'}>权益用量</button>
+          <button type="button" class="tab-btn" class:active={activeTab === 'history'} onclick={() => activeTab = 'history'}>消费记录</button>
+        </div>
+        {#if !membership.isPaid}
+          <Button variant="link" size="sm" onclick={() => membership.requestUpgrade('watermark_free')}>升级旗舰</Button>
+        {/if}
       </header>
-      <div class="usage-list">
-        <div>
-          <span>本地生成</span>
-          <strong>{membership.isPaid ? '不限字符' : `${fmt(membership.dailyRemaining)} 字剩余`}</strong>
+
+      {#if activeTab === 'overview'}
+        <div class="usage-list">
+          <div>
+            <span>今日本地</span>
+            <strong>{membership.isPaid ? '不限' : `${fmt(membership.dailyRemaining)} 字`}</strong>
+            <small>{membership.isPaid ? '无限额度' : `已用 ${membership.dailyPercent}%`}</small>
+          </div>
+          <div>
+            <span>云端余额</span>
+            <strong>{fmt(membership.account.cloudBalance)} 字</strong>
+            <small>已累计用 {fmt(membership.totalCloudUsed)}</small>
+          </div>
+          <div>
+            <span>本地累计</span>
+            <strong>{fmt(membership.totalLocalUsed)} 字</strong>
+            <small>本月 {fmt(appSettings.usage.monthlyCharsGenerated)}</small>
+          </div>
+          <div>
+            <span>累计项目</span>
+            <strong>{fmt(appSettings.usage.totalProjects)} 个</strong>
+            <small>设备 {membership.account.devicesUsed}/{membership.account.devicesLimit}</small>
+          </div>
         </div>
-        <div>
-          <span>本月生成</span>
-          <strong>{fmt(appSettings.usage.monthlyCharsGenerated)} 字</strong>
+        {#if !membership.isPaid}
+          <div class="quota-bar" aria-label="免费额度使用情况">
+            <span style="width:{membership.dailyPercent}%"></span>
+          </div>
+        {/if}
+        <p class="hint">免费版每日 3,000 字符；升级后本地轻量 / 情感引擎无限生成，云端字符单独计费。</p>
+      {:else}
+        <div class="history-list">
+          {#if recentHistory.length === 0}
+            <div class="history-empty">
+              <Icon name="file-text" size={20} color="var(--color-text-disabled)" />
+              <span>暂无消费记录</span>
+            </div>
+          {:else}
+            {#each recentHistory as record (record.id)}
+              <div class="history-row">
+                <div class="history-type" class:cloud={record.type === 'cloud'}>
+                  <Icon name={record.type === 'cloud' ? 'cloud' : 'thunderbolt'} size={12} color="currentColor" />
+                </div>
+                <div class="history-info">
+                  <span class="history-label">{record.label}</span>
+                  <span class="history-meta">{ENGINE_LABEL[record.engine] ?? record.engine} · {record.lines} 段</span>
+                </div>
+                <div class="history-chars">-{fmt(record.chars)} 字</div>
+                <div class="history-date">{fmtDate(record.date)}</div>
+              </div>
+            {/each}
+          {/if}
         </div>
-        <div>
-          <span>累计项目</span>
-          <strong>{fmt(appSettings.usage.totalProjects)} 个</strong>
-        </div>
-      </div>
-      <div class="quota-bar" aria-label="免费额度使用情况">
-        <span style="width:{membership.dailyPercent}%"></span>
-      </div>
-      <p class="hint">免费版每日 3,000 字符；升级后本地轻量 / 情感引擎无限生成，云端字符单独计费。</p>
+      {/if}
     </article>
 
     <article class="card cloud-card">
@@ -189,8 +260,21 @@
 
     <article class="card side-card">
       <header class="card-head">
-        <h2>增长与账号</h2>
+        <h2>兑换与账号</h2>
       </header>
+      <div class="redeem-section">
+        <div class="redeem-row">
+          <input
+            type="text"
+            class="redeem-input"
+            bind:value={cardKeyInput}
+            placeholder="输入卡密兑换权益或字符"
+            onkeydown={(e) => e.key === 'Enter' && handleRedeemCardKey()}
+          />
+          <Button variant="primary" size="sm" loading={cardKeyLoading} onclick={handleRedeemCardKey}>兑换</Button>
+        </div>
+        <p class="redeem-hint">旗舰卡密以 MARU-VIP 开头，云端字符卡以 MARU-CLOUD 开头</p>
+      </div>
       <div class="side-list">
         <div><Icon name="gift" size={14} color="var(--color-primary)" /><span>邀请 1 位付费，双方各得 2 万云端字符</span></div>
         <div><Icon name="desktop" size={14} color="var(--color-primary)" /><span>个人版 1-2 台设备，团队版 3 台起</span></div>
@@ -408,15 +492,17 @@
 
   .content-grid {
     min-height: 0;
+    flex: 1;
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 310px;
     grid-template-rows: 1fr 1fr;
     gap: var(--spacing-sm);
+    overflow: hidden;
   }
 
-  .usage-card { grid-column: 1; grid-row: 1; }
+  .usage-card { grid-column: 1; grid-row: 1 / 3; }
   .cloud-card { grid-column: 2; grid-row: 1; }
-  .feature-card { grid-column: 1 / 3; grid-row: 2; }
+  .feature-card { grid-column: 2; grid-row: 2; }
   .side-card { grid-column: 3; grid-row: 1 / 3; }
 
   .card {
@@ -445,10 +531,21 @@
     padding: var(--spacing-md);
   }
 
+  .tab-row { display: flex; gap: 2px; }
+  .tab-btn {
+    height: 28px; padding: 0 var(--spacing-sm);
+    background: transparent; border: none; border-radius: var(--border-radius-sm);
+    color: var(--color-text-tertiary); font-size: var(--font-size-sm); cursor: pointer;
+    transition: color var(--motion-duration-mid), background var(--motion-duration-mid);
+  }
+  .tab-btn.active { color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 12%, transparent); font-weight: 500; }
+  .tab-btn:hover:not(.active) { color: var(--color-text-secondary); }
+
   .usage-list {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, 1fr);
     gap: var(--spacing-sm);
+    padding: var(--spacing-md);
   }
 
   .usage-list div {
@@ -457,10 +554,11 @@
     background: var(--color-bg-container);
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 3px;
   }
 
   .usage-list span,
+  .usage-list small,
   .package-card span,
   .package-card small {
     color: var(--color-text-tertiary);
@@ -471,6 +569,54 @@
   .package-card strong {
     color: var(--color-text);
   }
+
+  .history-list {
+    flex: 1; min-height: 0; overflow-y: auto; padding: var(--spacing-sm) var(--spacing-md);
+    display: flex; flex-direction: column; gap: 2px;
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--color-border-secondary) 60%, transparent) transparent;
+  }
+  .history-empty {
+    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: var(--spacing-sm); color: var(--color-text-disabled); font-size: var(--font-size-sm);
+  }
+  .history-row {
+    display: flex; align-items: center; gap: var(--spacing-sm);
+    padding: 6px var(--spacing-sm); border-radius: var(--border-radius-sm);
+    transition: background var(--motion-duration-mid);
+  }
+  .history-row:hover { background: var(--color-bg-container); }
+  .history-type {
+    width: 24px; height: 24px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: color-mix(in srgb, var(--color-primary) 14%, transparent);
+    color: var(--color-primary);
+  }
+  .history-type.cloud {
+    background: color-mix(in srgb, var(--color-info) 14%, transparent);
+    color: var(--color-info);
+  }
+  .history-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+  .history-label { font-size: var(--font-size-sm); color: var(--color-text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .history-meta { font-size: 10px; color: var(--color-text-disabled); }
+  .history-chars { font-size: var(--font-size-sm); color: var(--color-warning); font-weight: 500; white-space: nowrap; }
+  .history-date { font-size: 10px; color: var(--color-text-disabled); white-space: nowrap; }
+
+  .redeem-section {
+    padding: var(--spacing-md);
+    border-bottom: 1px solid var(--color-border-secondary);
+  }
+  .redeem-row { display: flex; gap: var(--spacing-xs); }
+  .redeem-input {
+    flex: 1; height: 32px; padding: 0 var(--spacing-sm);
+    border: 1px solid var(--color-border-secondary); border-radius: var(--border-radius-sm);
+    background: var(--color-bg-base); color: var(--color-text);
+    font-family: ui-monospace, Menlo, Consolas, monospace; font-size: var(--font-size-sm);
+    letter-spacing: 0.5px;
+  }
+  .redeem-input:focus { border-color: var(--color-primary); outline: none; }
+  .redeem-input::placeholder { color: var(--color-text-disabled); font-family: inherit; letter-spacing: 0; }
+  .redeem-hint { margin: 6px 0 0; font-size: 10px; color: var(--color-text-disabled); }
 
   .quota-bar {
     height: 8px;

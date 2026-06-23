@@ -38,6 +38,16 @@ export interface FeatureInfo {
   requiredPlan?: PlanId;
 }
 
+export interface UsageRecord {
+  id: string;
+  date: string;
+  type: 'local' | 'cloud';
+  engine: string;
+  chars: number;
+  lines: number;
+  label: string;
+}
+
 interface MembershipAccount {
   plan: PlanId;
   dailyCharsUsed: number;
@@ -46,6 +56,9 @@ interface MembershipAccount {
   cloudBalance: number;
   devicesUsed: number;
   devicesLimit: number;
+  totalCloudUsed: number;
+  totalLocalUsed: number;
+  usageHistory: UsageRecord[];
 }
 
 export const PLAN_INFO: Record<PlanId, PlanInfo> = {
@@ -228,6 +241,9 @@ let account = $state<MembershipAccount>({
   cloudBalance: _DEV_DEFAULT_PLAN === 'free' ? 0 : 100000,
   devicesUsed: 1,
   devicesLimit: _DEV_DEFAULT_PLAN === 'free' ? 1 : 2,
+  totalCloudUsed: 0,
+  totalLocalUsed: 0,
+  usageHistory: [],
 });
 
 let upgradeFeatureKey = $state<FeatureKey | null>(null);
@@ -254,6 +270,9 @@ function normalizeAccount(saved: Partial<MembershipAccount> | null | undefined):
     cloudBalance: 0,
     devicesUsed: 1,
     devicesLimit: 1,
+    totalCloudUsed: 0,
+    totalLocalUsed: 0,
+    usageHistory: [],
   };
   const next = { ...base, ...saved };
   if (next.dailyResetDate !== todayKey()) {
@@ -262,6 +281,7 @@ function normalizeAccount(saved: Partial<MembershipAccount> | null | undefined):
   }
   next.dailyQuota = next.plan === 'free' ? 3000 : Number.POSITIVE_INFINITY;
   next.devicesLimit = next.plan === 'team' ? 3 : next.plan === 'free' ? 1 : 2;
+  if (!Array.isArray(next.usageHistory)) next.usageHistory = [];
   return next;
 }
 
@@ -354,6 +374,28 @@ function addCloudChars(chars: number): void {
   void saveAccount();
 }
 
+function deductCloudChars(chars: number): boolean {
+  const amount = Math.max(0, chars);
+  if (account.cloudBalance < amount) return false;
+  account.cloudBalance -= amount;
+  account.totalCloudUsed += amount;
+  void saveAccount();
+  return true;
+}
+
+function recordUsage(entry: Omit<UsageRecord, 'id' | 'date'>): void {
+  const record: UsageRecord = {
+    ...entry,
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    date: new Date().toISOString(),
+  };
+  account.usageHistory = [record, ...account.usageHistory].slice(0, 200);
+  if (entry.type === 'local') {
+    account.totalLocalUsed += entry.chars;
+  }
+  void saveAccount();
+}
+
 function canGenerateLocal(chars: number): boolean {
   ensureDailyReset();
   return account.plan !== 'free' || chars <= Math.max(0, account.dailyQuota - account.dailyCharsUsed);
@@ -405,6 +447,9 @@ export const membership = {
   get upgradeFeatureKey() { return upgradeFeatureKey; },
   get upgradeFeature() { return upgradeFeatureKey ? FEATURE_INFO[upgradeFeatureKey] : null; },
   get upgradeOpen() { return upgradeFeatureKey !== null; },
+  get totalLocalUsed() { return account.totalLocalUsed; },
+  get totalCloudUsed() { return account.totalCloudUsed; },
+  get usageHistory() { return account.usageHistory; },
   init,
   canUseFeature,
   requestUpgrade,
@@ -413,6 +458,8 @@ export const membership = {
   estimateCloudChars,
   trackDailyChars,
   addCloudChars,
+  deductCloudChars,
+  recordUsage,
   canGenerateLocal,
   canGenerateCloud,
   logout,

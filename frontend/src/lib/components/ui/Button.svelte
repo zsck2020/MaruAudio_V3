@@ -122,28 +122,28 @@
     width: 100%;
   }
 
-  /* ---- size ---- */
+  /* ---- size · AntD 5: sm=24 / md=32 / lg=40 ---- */
   .ui-btn.size-sm {
-    height: var(--control-height-xs);
-    padding: 0 var(--spacing-sm);
+    height: var(--control-height-sm);
+    padding: 0 8px;
     font-size: var(--font-size-sm);
   }
   .ui-btn.size-md {
-    height: var(--control-height-sm);
+    height: var(--control-height);
     padding: 0 var(--spacing-md);
     font-size: var(--font-size);
   }
   .ui-btn.size-lg {
-    height: var(--control-height-md);
+    height: var(--control-height-lg);
     padding: 0 var(--spacing-lg);
     font-size: var(--font-size-lg);
   }
   .ui-btn.icon-only {
     padding: 0;
-    width: var(--control-height-sm);
+    width: var(--control-height);
   }
-  .ui-btn.icon-only.size-sm { width: var(--control-height-xs); }
-  .ui-btn.icon-only.size-lg { width: var(--control-height-md); }
+  .ui-btn.icon-only.size-sm { width: var(--control-height-sm); }
+  .ui-btn.icon-only.size-lg { width: var(--control-height-lg); }
 
   /* ---- default ---- */
   .ui-btn.variant-default {

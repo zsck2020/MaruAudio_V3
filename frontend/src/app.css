@@ -1,5 +1,5 @@
-/* 丸子配音设计令牌 v2 - 暗色主题 · 5 级背景层级 · 舒展尺寸 */
-/* 自有设计语言（已脱离 shadcn/ui 约束）：背景层级表达深度，避免线条分割 */
+/* 丸子配音设计令牌 v3 - 暗色主题 · 对标 Ant Design 5 Dark · 5 级背景层级 */
+/* 自有设计语言 + AntD 5 规范对齐：字号/控件高度/间距/圆角/文字色 */
 
 :root {
   /* —— 主色 · 声波蓝 + 10 级阶梯（基于 #3b6eaf） —— */
@@ -32,41 +32,41 @@
   --color-bg-glass: rgba(255, 255, 255, 0.04);
   --color-bg-glass-strong: rgba(255, 255, 255, 0.07);
 
-  /* —— 文字色 · 对比度提升 —— */
-  --color-text: rgba(255, 255, 255, 0.92);
-  --color-text-secondary: rgba(255, 255, 255, 0.72);
-  --color-text-tertiary: rgba(255, 255, 255, 0.5);
-  --color-text-disabled: rgba(255, 255, 255, 0.28);
-  --color-text-quaternary: rgba(255, 255, 255, 0.16);
+  /* —— 文字色 · 对标 AntD 5 Dark —— */
+  --color-text: rgba(255, 255, 255, 0.88);
+  --color-text-secondary: rgba(255, 255, 255, 0.65);
+  --color-text-tertiary: rgba(255, 255, 255, 0.45);
+  --color-text-disabled: rgba(255, 255, 255, 0.25);
+  --color-text-quaternary: rgba(255, 255, 255, 0.15);
   --color-text-active: #ffffff;
 
   /* —— 边框色 · 改为半透明（仅在输入/必要轮廓使用，不再做分割主力） —— */
   --color-border: rgba(255, 255, 255, 0.12);
   --color-border-secondary: rgba(255, 255, 255, 0.10);
 
-  /* —— 字体 · 整体 +1px 提升舒展感 —— */
-  --font-family: 'Microsoft YaHei', '微软雅黑', 'HarmonyOS Sans SC', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
+  /* —— 字体 · AntD 5 基准 14px —— */
+  --font-family: 'Microsoft YaHei', '微软雅黑', 'HarmonyOS Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   --font-size-xs: 12px;
-  --font-size-sm: 13px;
-  --font-size: 15px;
-  --font-size-lg: 17px;
-  --font-size-xl: 22px;
-  --font-size-2xl: 28px;
+  --font-size-sm: 12px;
+  --font-size: 14px;
+  --font-size-lg: 16px;
+  --font-size-xl: 20px;
+  --font-size-2xl: 24px;
 
-  /* —— 行高 —— */
-  --line-height: 1.55;
+  /* —— 行高 · AntD 5 标准 —— */
+  --line-height: 1.5714;
   --line-height-lg: 1.5;
-  --line-height-sm: 1.6;
+  --line-height-sm: 1.6667;
 
-  /* —— 圆角 · 内部元素统一 8px —— */
+  /* —— 圆角 · AntD 5 标准 —— */
   --border-radius-sm: 4px;
   --border-radius: 6px;
-  --border-radius-lg: 10px;
+  --border-radius-lg: 8px;
   --border-radius-pill: 999px;
 
-  /* —— 间距 · +25% 更舒展 —— */
+  /* —— 间距 · AntD 5 的 4px 基数制 —— */
   --spacing-xs: 8px;
-  --spacing-sm: 10px;
+  --spacing-sm: 12px;
   --spacing-md: 16px;
   --spacing-lg: 24px;
   --spacing-xl: 32px;
@@ -130,13 +130,13 @@
   --spacing-xxl: 32px;
   --spacing-xxxl: 48px;
 
-  /* —— 控件高度（V3 统一规范 · 整体放大 25%） —— */
-  --control-height-xs: 28px;
-  --control-height-sm: 36px;
-  --control-height: 40px;
-  --control-height-md: 40px;  /* = --control-height · 兼容旧名 · 下版移除 */
-  --control-height-lg: 48px;
-  --control-height-xl: 56px;
+  /* —— 控件高度 · AntD 5 标准 —— */
+  --control-height-xs: 24px;
+  --control-height-sm: 24px;
+  --control-height: 32px;
+  --control-height-md: 32px;
+  --control-height-lg: 40px;
+  --control-height-xl: 48px;
 
   /* —— 图标尺寸 —— */
   --icon-xs: 12px;
@@ -145,9 +145,10 @@
   --icon-lg: 20px;
   --icon-xl: 24px;
 
-  /* —— 字号扩展（V3 已到 2xl:24，追加 3xl/4xl） —— */
+  /* —— 字号扩展 · AntD 5 Heading 阶梯 —— */
   --font-size-3xl: 30px;
   --font-size-4xl: 38px;
+  --font-size-5xl: 46px;
 
   /* —— 字重 —— */
   --font-weight-normal: 400;
@@ -294,9 +295,9 @@ a:focus-visible,
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 65%, transparent);
 }
 
-/* 页面级控件高度规范：标题栏/组件内部可自行覆写，业务页面默认统一。 */
+/* 页面级控件高度规范 · AntD 5: default 32px, sm 24px */
 .content :where(button, input:not([type='checkbox']):not([type='radio']):not([type='range']), select) {
-  min-height: 32px;
+  min-height: var(--control-height);
 }
 
 .content :where(.ui-btn.size-sm, .icon-btn, .ibtn, .pb, .pager-btn, .window-btn) {
@@ -326,9 +327,9 @@ h1, h2, h3, h4, h5, h6 {
 
 @media (max-width: 600px) {
   :root {
-    --font-size: 14px;
-    --font-size-sm: 12px;
-    --font-size-lg: 15px;
+    --font-size: 13px;
+    --font-size-sm: 11px;
+    --font-size-lg: 14px;
     --spacing-md: 12px;
     --spacing-lg: 16px;
   }

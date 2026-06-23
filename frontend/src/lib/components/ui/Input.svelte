@@ -149,9 +149,9 @@
 
   .ui-input.block { width: 100%; }
 
-  .ui-input.size-sm { height: var(--control-height-xs); font-size: var(--font-size-sm); }
-  .ui-input.size-md { height: var(--control-height-sm); font-size: var(--font-size); }
-  .ui-input.size-lg { height: var(--control-height-md); font-size: var(--font-size-lg); }
+  .ui-input.size-sm { height: var(--control-height-sm); font-size: var(--font-size-sm); }
+  .ui-input.size-md { height: var(--control-height); font-size: var(--font-size); }
+  .ui-input.size-lg { height: var(--control-height-lg); font-size: var(--font-size-lg); }
 
   .ui-input:hover:not(.disabled):not(.error) {
     border-color: var(--color-primary-hover);

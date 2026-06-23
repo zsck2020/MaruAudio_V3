@@ -75,14 +75,14 @@
     appearance: none;
     -webkit-appearance: none;
     width: 100%;
-    height: var(--control-height-sm);
+    height: var(--control-height);
     padding: 0 30px 0 var(--spacing-sm);
     border: 1px solid var(--color-border);
     border-radius: var(--border-radius);
     background-color: var(--color-bg-elevated);
     color: var(--color-text);
     font-family: inherit;
-    font-size: var(--font-size-sm);
+    font-size: var(--font-size);
     cursor: pointer;
     transition:
       border-color var(--motion-duration-mid) var(--motion-ease-base),
@@ -90,7 +90,7 @@
   }
 
   .ui-select.size-sm select {
-    height: var(--control-height-xs);
+    height: var(--control-height-sm);
     font-size: var(--font-size-sm);
   }
 

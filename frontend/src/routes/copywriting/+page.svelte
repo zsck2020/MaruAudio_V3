@@ -49,6 +49,31 @@
 
   let languageLabel = $state('中文普通话');
   let needWordTimestamp = $state(false);
+  let subtitleFont = $state('思源黑体');
+  let subtitlePosition = $state('底部居中');
+
+  const ASR_LANG_OPTIONS = [
+    { value: '中文普通话', label: '中文普通话' },
+    { value: '粤语', label: '粤语' },
+    { value: '英语', label: '英语' },
+  ];
+  const EXPORT_FORMAT_OPTIONS = [
+    { value: 'srt', label: 'SRT' },
+    { value: 'vtt', label: 'VTT' },
+    { value: 'ass', label: 'ASS' },
+    { value: 'json', label: 'JSON' },
+  ];
+  const SUBTITLE_FONT_OPTIONS = [
+    { value: '思源黑体', label: '思源黑体' },
+    { value: '微软雅黑', label: '微软雅黑' },
+  ];
+  const SUBTITLE_POSITION_OPTIONS = [
+    { value: '底部居中', label: '底部居中' },
+    { value: '顶部居中', label: '顶部居中' },
+  ];
+  let roleSelectOptions = $derived(
+    [...new Set([activeSubtitle.role, '林澈', '苏晚', '旁白'])].map((r) => ({ value: r, label: r }))
+  );
 
   function langCode(label: string): string {
     if (label === '英语') return 'en';
@@ -352,15 +377,10 @@
 
     <section class="recognize-card">
       <h2>ASR 识别 · 必剪</h2>
-      <label>识别语言<select bind:value={languageLabel}><option>中文普通话</option><option>粤语</option><option>英语</option></select></label>
+      <label>识别语言<Select size="sm" block bind:value={languageLabel} ariaLabel="识别语言" options={ASR_LANG_OPTIONS} /></label>
       <label class="switch-row">词级时间戳<Switch bind:checked={needWordTimestamp} size="sm" /></label>
       <label>导出格式
-        <select bind:value={exportFormat}>
-          <option value="srt">SRT</option>
-          <option value="vtt">VTT</option>
-          <option value="ass">ASS</option>
-          <option value="json">JSON</option>
-        </select>
+        <Select size="sm" block value={exportFormat} ariaLabel="导出格式" options={EXPORT_FORMAT_OPTIONS} onchange={(v) => selectFormat(v as SubtitleFormat)} />
       </label>
       {#if isTranscribing}
         <div class="recognize-progress">
@@ -451,7 +471,7 @@
     <section class="edit-card">
       <label>入点<input value={activeSubtitle.start} /></label>
       <label>出点<input value={activeSubtitle.end} /></label>
-      <label>角色<select value={activeSubtitle.role}><option>{activeSubtitle.role}</option><option>林澈</option><option>苏晚</option><option>旁白</option></select></label>
+      <label>角色<Select size="sm" block value={activeSubtitle.role} ariaLabel="角色" options={roleSelectOptions} /></label>
       <label class="full">字幕内容<textarea value={activeSubtitle.text}></textarea></label>
       <div class="edit-actions">
         <Button variant="default" size="sm">上一条</Button>
@@ -462,10 +482,10 @@
 
     <section class="style-card">
       <h3>字幕样式</h3>
-      <label>字体<select><option>思源黑体</option><option>微软雅黑</option></select></label>
+      <label>字体<Select size="sm" block bind:value={subtitleFont} ariaLabel="字体" options={SUBTITLE_FONT_OPTIONS} /></label>
       <label>字号<input type="number" value="42" /></label>
       <label>描边<input type="number" value="2" /></label>
-      <label>位置<select><option>底部居中</option><option>顶部居中</option></select></label>
+      <label>位置<Select size="sm" block bind:value={subtitlePosition} ariaLabel="位置" options={SUBTITLE_POSITION_OPTIONS} /></label>
       <div class="style-preview">字幕预览</div>
     </section>
 
@@ -625,7 +645,6 @@
   }
 
   input,
-  select,
   textarea {
     border: 1px solid var(--color-border-secondary);
     border-radius: var(--border-radius-sm);
@@ -637,8 +656,7 @@
     box-sizing: border-box;
   }
 
-  input,
-  select {
+  input {
     height: 30px;
     padding: 0 8px;
   }

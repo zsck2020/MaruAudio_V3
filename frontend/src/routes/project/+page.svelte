@@ -7,6 +7,7 @@
   import type { EngineMode } from '$lib/types/dubbing';
   import Modal from '$lib/components/ui/Modal.svelte';
   import Button from '$lib/components/ui/Button.svelte';
+  import Select from '$lib/components/ui/Select.svelte';
   import Slider from '$lib/components/ui/Slider.svelte';
   import MiniPlayer from '$lib/components/ui/MiniPlayer.svelte';
   import TabParamControl from '$lib/components/dubbing/TabParamControl.svelte';
@@ -21,6 +22,27 @@
   const engineColors: Record<EngineMode, string> = { lightweight: 'var(--color-primary)', emotion: 'var(--color-accent)', cloud: 'var(--color-info)' };
   const emotions = ['平静', '开心', '悲伤', '愤怒', '紧张', '惊讶', '冷漠', '坚定', '害怕'];
   const strengths: EmotionStrength[] = ['微弱', '中等', '强烈'];
+  const ROLE_TYPE_OPTIONS = [
+    { value: '主角', label: '主角' },
+    { value: '女主', label: '女主' },
+    { value: '配角', label: '配角' },
+    { value: '旁白', label: '旁白' },
+  ];
+  const ENGINE_OPTIONS = [
+    { value: 'lightweight', label: '轻量' },
+    { value: 'emotion', label: '情感' },
+    { value: 'cloud', label: '云端' },
+  ];
+  const EMOTION_OPTIONS = emotions.map((e) => ({ value: e, label: e }));
+  const STRENGTH_OPTIONS = strengths.map((s) => ({ value: s, label: s }));
+
+  function roleOptionsFor(roleId: string) {
+    const opts = rolesStore.roles.map((r) => ({ value: r.id, label: r.name }));
+    if (!rolesStore.roles.find((r) => r.id === roleId)) {
+      opts.push({ value: roleId, label: '未知' });
+    }
+    return opts;
+  }
 
   let playingLineId = $state<string | null>(null);
   let playingLineSrc = $state('');
@@ -601,24 +623,9 @@
           <span class="lc-avatar" style="background:{rolesStore.getRoleColor(line.roleId)}">{rolesStore.getRoleName(line.roleId).slice(0, 1)}</span>
           <div class="lc-content">
             <div class="lc-header">
-              <select class="lc-role-sel" value={line.roleId} disabled={!membership.canUseFeature('line_editing')} onchange={(e) => { rolesStore.updateLine(line.id, { roleId: (e.target as HTMLSelectElement).value }); void rolesStore.saveToStore(); }}>
-                {#each rolesStore.roles as r (r.id)}
-                  <option value={r.id}>{r.name}</option>
-                {/each}
-                {#if !rolesStore.roles.find(r => r.id === line.roleId)}
-                  <option value="" disabled selected>未知</option>
-                {/if}
-              </select>
-              <select class="lc-emo-sel" value={line.emotion} disabled={!membership.canUseFeature('line_editing')} onchange={(e) => { rolesStore.updateLine(line.id, { emotion: (e.target as HTMLSelectElement).value, status: line.status === '已生成' ? '待生成' : line.status, audioPath: line.status === '已生成' ? null : line.audioPath }); void rolesStore.saveToStore(); }}>
-                {#each emotions as emo}
-                  <option value={emo}>{emo}</option>
-                {/each}
-              </select>
-              <select class="lc-str-sel" value={line.strength} disabled={!membership.canUseFeature('line_editing')} onchange={(e) => { rolesStore.updateLine(line.id, { strength: (e.target as HTMLSelectElement).value as EmotionStrength, status: line.status === '已生成' ? '待生成' : line.status, audioPath: line.status === '已生成' ? null : line.audioPath }); void rolesStore.saveToStore(); }}>
-                {#each strengths as str}
-                  <option value={str}>{str}</option>
-                {/each}
-              </select>
+              <Select class="lc-role-sel" hideArrow value={line.roleId} disabled={!membership.canUseFeature('line_editing')} options={roleOptionsFor(line.roleId)} onchange={(v) => { rolesStore.updateLine(line.id, { roleId: v }); void rolesStore.saveToStore(); }} />
+              <Select class="lc-emo-sel" hideArrow value={line.emotion} disabled={!membership.canUseFeature('line_editing')} options={EMOTION_OPTIONS} onchange={(v) => { rolesStore.updateLine(line.id, { emotion: v, status: line.status === '已生成' ? '待生成' : line.status, audioPath: line.status === '已生成' ? null : line.audioPath }); void rolesStore.saveToStore(); }} />
+              <Select class="lc-str-sel" hideArrow value={line.strength} disabled={!membership.canUseFeature('line_editing')} options={STRENGTH_OPTIONS} onchange={(v) => { rolesStore.updateLine(line.id, { strength: v as EmotionStrength, status: line.status === '已生成' ? '待生成' : line.status, audioPath: line.status === '已生成' ? null : line.audioPath }); void rolesStore.saveToStore(); }} />
               <span class="pill st {line.status}">{line.status}</span>
             </div>
             <div class="lc-text-row">
@@ -788,20 +795,11 @@
       </label>
       <label>
         <span>类型</span>
-        <select bind:value={newRoleType}>
-          <option value="主角">主角</option>
-          <option value="女主">女主</option>
-          <option value="配角">配角</option>
-          <option value="旁白">旁白</option>
-        </select>
+        <Select block bind:value={newRoleType} ariaLabel="角色类型" options={ROLE_TYPE_OPTIONS} />
       </label>
       <label>
         <span>引擎</span>
-        <select bind:value={newRoleEngine}>
-          <option value="lightweight">轻量</option>
-          <option value="emotion">情感</option>
-          <option value="cloud">云端</option>
-        </select>
+        <Select block value={newRoleEngine} ariaLabel="角色引擎" options={ENGINE_OPTIONS} onchange={(v) => (newRoleEngine = v as EngineMode)} />
       </label>
     </div>
     {#snippet footer()}
@@ -925,12 +923,16 @@
   .lc-header { display:flex; align-items:center; gap:var(--spacing-xs); }
   .lc-role-name { font-size:12px; font-weight:600; color:var(--lc); white-space:nowrap; }
   .lc-emotion { font-size:11px; color:var(--color-text-disabled); white-space:nowrap; }
-  .lc-role-sel, .lc-emo-sel, .lc-str-sel { height:22px; padding:0 4px; border:1px solid transparent; border-radius:var(--border-radius-sm); background:transparent; font-family:inherit; font-size:11px; cursor:pointer; outline:none; transition:border-color .15s,background .15s; appearance:none; -webkit-appearance:none; }
-  .lc-role-sel { font-weight:600; color:var(--lc); max-width:80px; }
-  .lc-emo-sel { color:var(--color-text-secondary); max-width:60px; }
-  .lc-str-sel { color:var(--color-text-disabled); max-width:50px; }
-  .lc-role-sel:hover, .lc-emo-sel:hover, .lc-str-sel:hover { border-color:var(--color-border-secondary); background:var(--color-bg-base); }
-  .lc-role-sel:focus, .lc-emo-sel:focus, .lc-str-sel:focus { border-color:var(--color-primary); background:var(--color-bg-base); }
+  :global(.ui-select.lc-role-sel), :global(.ui-select.lc-emo-sel), :global(.ui-select.lc-str-sel) { min-width:0; }
+  :global(.ui-select.lc-role-sel select), :global(.ui-select.lc-emo-sel select), :global(.ui-select.lc-str-sel select) { height:22px; padding:0 4px; border:1px solid transparent; border-radius:var(--border-radius-sm); background:transparent; font-family:inherit; font-size:11px; cursor:pointer; outline:none; transition:border-color .15s,background .15s; }
+  :global(.ui-select.lc-role-sel) { max-width:80px; }
+  :global(.ui-select.lc-emo-sel) { max-width:60px; }
+  :global(.ui-select.lc-str-sel) { max-width:50px; }
+  :global(.ui-select.lc-role-sel select) { font-weight:600; color:var(--lc); }
+  :global(.ui-select.lc-emo-sel select) { color:var(--color-text-secondary); }
+  :global(.ui-select.lc-str-sel select) { color:var(--color-text-disabled); }
+  :global(.ui-select.lc-role-sel select:hover), :global(.ui-select.lc-emo-sel select:hover), :global(.ui-select.lc-str-sel select:hover) { border-color:var(--color-border-secondary); background:var(--color-bg-base); }
+  :global(.ui-select.lc-role-sel select:focus), :global(.ui-select.lc-emo-sel select:focus), :global(.ui-select.lc-str-sel select:focus) { border-color:var(--color-primary); background:var(--color-bg-base); }
 
   .lc-text {
     width:100%;
@@ -1053,8 +1055,8 @@
 
   .add-role-form { display:flex; flex-direction:column; gap:var(--spacing-md); }
   .add-role-form label { display:flex; flex-direction:column; gap:4px; font-size:var(--font-size-sm); color:var(--color-text-secondary); }
-  .add-role-form input, .add-role-form select { height:36px; border:1px solid var(--color-border-secondary); border-radius:var(--border-radius-sm); background:var(--color-bg-base); color:var(--color-text); padding:0 var(--spacing-sm); font-family:inherit; font-size:var(--font-size-sm); }
-  .add-role-form input:focus, .add-role-form select:focus { border-color:var(--color-primary); outline:none; }
+  .add-role-form input { height:36px; border:1px solid var(--color-border-secondary); border-radius:var(--border-radius-sm); background:var(--color-bg-base); color:var(--color-text); padding:0 var(--spacing-sm); font-family:inherit; font-size:var(--font-size-sm); }
+  .add-role-form input:focus { border-color:var(--color-primary); outline:none; }
 
   .preset-grid { display:flex; flex-direction:column; gap:4px; max-height:360px; overflow:hidden; }
   .preset-item { display:flex; align-items:center; gap:var(--spacing-sm); padding:var(--spacing-sm) var(--spacing-md); border:1px solid var(--color-border-secondary); border-radius:var(--border-radius-sm); background:var(--color-bg-base); cursor:pointer; transition:border-color .15s,background .15s; text-align:left; }

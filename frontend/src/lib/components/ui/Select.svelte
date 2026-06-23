@@ -17,6 +17,8 @@
     placeholder?: string;
     block?: boolean;
     ariaLabel?: string;
+    class?: string;
+    hideArrow?: boolean;
     onchange?: (value: string) => void;
   }
 
@@ -28,6 +30,8 @@
     placeholder,
     block = false,
     ariaLabel,
+    class: className = '',
+    hideArrow = false,
     onchange,
   }: Props = $props();
 
@@ -38,7 +42,7 @@
   }
 </script>
 
-<div class="ui-select size-{size}" class:block class:disabled>
+<div class="ui-select size-{size} {className}" class:block class:disabled class:no-arrow={hideArrow}>
   <select {value} {disabled} aria-label={ariaLabel} onchange={handleChange}>
     {#if placeholder}
       <option value="" disabled selected={!value}>{placeholder}</option>
@@ -47,9 +51,11 @@
       <option value={opt.value} disabled={opt.disabled}>{opt.label}</option>
     {/each}
   </select>
-  <span class="ui-select-arrow" aria-hidden="true">
-    <Icon name="down" size={12} color="currentColor" />
-  </span>
+  {#if !hideArrow}
+    <span class="ui-select-arrow" aria-hidden="true">
+      <Icon name="down" size={12} color="currentColor" />
+    </span>
+  {/if}
 </div>
 
 <style>
@@ -86,6 +92,10 @@
   .ui-select.size-sm select {
     height: var(--control-height-xs);
     font-size: var(--font-size-sm);
+  }
+
+  .ui-select.no-arrow select {
+    padding-right: var(--spacing-sm);
   }
 
   .ui-select select:hover:not(:disabled) {

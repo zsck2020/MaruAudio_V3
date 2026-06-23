@@ -3,6 +3,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import Input from '$lib/components/ui/Input.svelte';
   import WaveformView from '$lib/components/ui/WaveformView.svelte';
+  import Select from '$lib/components/ui/Select.svelte';
   import { toast } from '$lib/stores/toast.svelte';
   import { convertFileSrc } from '@tauri-apps/api/core';
 
@@ -83,9 +84,9 @@
       <div class="breadcrumb">我的项目 / 风起云涌 第12集 / 配音</div>
       <div class="toolbar-row">
         <div class="file-search"><Icon name="search" size={14} color="var(--color-text-tertiary)" /><input placeholder="搜索文件…" /></div>
-        <select><option>类型</option></select>
-        <select><option>状态</option></select>
-        <select><option>日期范围</option></select>
+        <Select size="sm" ariaLabel="类型筛选" placeholder="类型" options={[]} />
+        <Select size="sm" ariaLabel="状态筛选" placeholder="状态" options={[]} />
+        <Select size="sm" ariaLabel="日期范围筛选" placeholder="日期范围" options={[]} />
         <Button variant="default" size="sm" disabled>+ 新建文件夹</Button>
         <Button variant="default" size="sm" disabled>导入文件</Button>
         <Button variant="primary" size="sm" onclick={() => toast.success('已加入批量导出队列')}>批量导出</Button>
@@ -241,8 +242,7 @@
   }
 
   input,
-  textarea,
-  select {
+  textarea {
     background: transparent;
     border: none;
     outline: none;
@@ -321,17 +321,6 @@
 
   .file-search {
     width: 180px;
-  }
-
-  .toolbar-row select {
-    height: 32px;
-    border: 1px solid var(--color-border-secondary);
-    border-radius: var(--border-radius-sm);
-    background-color: var(--color-bg-base);
-    color: var(--color-text-secondary);
-    padding: 0 var(--spacing-sm);
-    cursor: pointer;
-    font-size: var(--font-size-sm);
   }
 
   .file-table {

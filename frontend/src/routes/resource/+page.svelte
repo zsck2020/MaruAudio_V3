@@ -3,6 +3,7 @@
   import Icon from '$lib/icons/Icon.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import Switch from '$lib/components/ui/Switch.svelte';
+  import Select from '$lib/components/ui/Select.svelte';
   import MiniPlayer from '$lib/components/ui/MiniPlayer.svelte';
   import { toast } from '$lib/stores/toast.svelte';
   import { dubbing } from '$lib/stores/dubbing.svelte';
@@ -28,6 +29,11 @@
   }
 
   const PAGE_SIZE = 15;
+  const SORT_OPTIONS = [
+    { value: 'name', label: '按名称' },
+    { value: 'premium', label: '按精品' },
+    { value: 'duration', label: '按时长' },
+  ];
   const TONE_MAP: Record<string, string> = { '男': 'male', 'Male': 'male', '女': 'female', 'Female': 'female' };
 
   function normalizeGender(g = '') { return g === '男' || g === 'Male' ? '男' : g === '女' || g === 'Female' ? '女' : g || '未知'; }
@@ -75,6 +81,7 @@
   /* ── derived ── */
   let genderTabs = $derived(['全部', ...new Set(voices.map(v => v.genderLabel).filter(Boolean))]);
   let langOptions = $derived(['全部', ...new Set(voices.map(v => v.language).filter(Boolean))]);
+  let langSelectOptions = $derived(langOptions.map((o) => ({ value: o, label: o === '全部' ? '全部语言' : o })));
 
   let filtered = $derived.by(() => {
     const q = search.trim().toLowerCase();
@@ -233,14 +240,8 @@
           <button class:on={genderFilter === t} onclick={() => { genderFilter = t; resetPage(); }}>{t}</button>
         {/each}
       </div>
-      <select class="tb-select" bind:value={languageFilter} onchange={resetPage}>
-        {#each langOptions as o (o)}<option value={o}>{o === '全部' ? '全部语言' : o}</option>{/each}
-      </select>
-      <select class="tb-select" bind:value={sortBy}>
-        <option value="name">按名称</option>
-        <option value="premium">按精品</option>
-        <option value="duration">按时长</option>
-      </select>
+      <Select size="sm" ariaLabel="语言筛选" bind:value={languageFilter} options={langSelectOptions} onchange={resetPage} />
+      <Select size="sm" ariaLabel="排序方式" bind:value={sortBy} options={SORT_OPTIONS} />
       <span class="tb-count">{filtered.length}</span>
     </div>
 
@@ -449,16 +450,6 @@
   }
   .tb-tabs button:hover { color: var(--color-text-secondary); }
   .tb-tabs button.on { background: var(--color-primary); color: #fff; }
-
-  .tb-select {
-    height: 32px; padding: 0 8px;
-    border: 1px solid var(--color-border-secondary);
-    border-radius: var(--border-radius-sm);
-    background: var(--color-bg-base);
-    color: var(--color-text-secondary);
-    font-size: 12px; cursor: pointer;
-  }
-  .tb-select:focus { border-color: var(--color-primary); outline: none; }
 
   .tb-count {
     margin-left: auto;

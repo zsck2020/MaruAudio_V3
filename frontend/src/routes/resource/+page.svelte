@@ -459,7 +459,7 @@
     border-radius: var(--border-radius-pill);
     background: color-mix(in srgb, var(--color-primary) 12%, transparent);
     color: var(--color-primary);
-    font-size: 11px; font-weight: 600;
+    font-size: var(--font-size-xs); font-weight: 600;
   }
 
   /* -- List head -- */
@@ -470,7 +470,7 @@
     height: 34px;
     padding: 0 var(--spacing-md);
     color: var(--color-text-quaternary);
-    font-size: 11px;
+    font-size: var(--font-size-xs);
     text-transform: uppercase;
     letter-spacing: 0.5px;
     border-bottom: 1px solid var(--color-border-secondary);
@@ -569,7 +569,7 @@
   }
   .row.playing .name-primary { color: var(--color-primary); }
   .name-desc {
-    font-size: 11px; color: var(--color-text-tertiary);
+    font-size: var(--font-size-xs); color: var(--color-text-tertiary);
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
 
@@ -588,7 +588,7 @@
   .pill {
     height: 20px; display: inline-flex; align-items: center;
     padding: 0 7px; border-radius: var(--border-radius-pill);
-    font-size: 10px; font-style: normal; font-weight: 500;
+    font-size: var(--font-size-2xs); font-style: normal; font-weight: 500;
     color: var(--color-text-tertiary); background: var(--color-bg-spotlight);
   }
   .pill.male { color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 12%, transparent); }
@@ -641,13 +641,13 @@
     border-radius: var(--border-radius-sm);
     background: var(--color-bg-base);
     color: var(--color-text-tertiary);
-    font-size: 11px; cursor: pointer;
+    font-size: var(--font-size-xs); cursor: pointer;
     transition: all var(--transition-duration) var(--transition-timing);
   }
   .pager button:hover:not(:disabled) { border-color: var(--color-primary); color: var(--color-primary); }
   .pager button.on { background: var(--color-primary); border-color: var(--color-primary); color: #fff; }
   .pager button:disabled { opacity: 0.3; cursor: not-allowed; }
-  .pg-dot { width: 20px; display: inline-flex; align-items: center; justify-content: center; color: var(--color-text-quaternary); font-size: 11px; }
+  .pg-dot { width: 20px; display: inline-flex; align-items: center; justify-content: center; color: var(--color-text-quaternary); font-size: var(--font-size-xs); }
 
   /* ===== Right detail column ===== */
   .detail-col {
@@ -682,7 +682,7 @@
     display: inline-flex; align-items: center; gap: 3px;
     padding: 2px 8px; border-radius: var(--border-radius-pill);
     background: linear-gradient(135deg, #f0d060, #d4a44a);
-    color: #1a1a1a; font-size: 10px; font-weight: 700; font-style: normal;
+    color: #1a1a1a; font-size: var(--font-size-2xs); font-weight: 700; font-style: normal;
   }
 
   .d-head h2 { margin: 0; font-size: var(--font-size-lg); color: var(--color-text); font-weight: 600; }
@@ -713,9 +713,9 @@
   .ds { display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 4px; background: var(--color-bg-base); border-radius: var(--border-radius-sm); }
   .ds strong { font-size: var(--font-size-sm); color: var(--color-primary); line-height: 1; }
   .ds.gold strong { color: var(--color-warning); }
-  .ds span { font-size: 10px; color: var(--color-text-tertiary); }
+  .ds span { font-size: var(--font-size-2xs); color: var(--color-text-tertiary); }
 
-  .imp { font-size: 11px; color: var(--color-text-secondary); display: flex; flex-direction: column; gap: 3px; }
+  .imp { font-size: var(--font-size-xs); color: var(--color-text-secondary); display: flex; flex-direction: column; gap: 3px; }
   .imp-track { height: 3px; border-radius: var(--border-radius-pill); background: var(--color-bg-base); overflow: hidden; }
   .imp-track i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--color-primary), var(--color-primary-hover)); transition: width 0.3s ease; }
 
@@ -723,7 +723,7 @@
   .d-vocal.off { opacity: 0.5; }
   .d-vocal div { display: flex; flex-direction: column; gap: 1px; }
   .d-vocal strong { font-size: 12px; color: var(--color-text); }
-  .d-vocal span { font-size: 10px; color: var(--color-text-tertiary); }
+  .d-vocal span { font-size: var(--font-size-2xs); color: var(--color-text-tertiary); }
 
   @media (max-width: 900px) {
     .res-page { grid-template-columns: 1fr; }

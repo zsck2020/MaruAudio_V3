@@ -159,7 +159,7 @@
     display: block;
     margin-bottom: 4px;
     color: var(--color-warning);
-    font-size: 11px;
+    font-size: var(--font-size-xs);
   }
 
   .price-card strong {

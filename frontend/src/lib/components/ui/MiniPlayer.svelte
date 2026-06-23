@@ -148,7 +148,7 @@
   }
 
   .mp-time {
-    font-size: 11px;
+    font-size: var(--font-size-xs);
     color: var(--color-text-tertiary);
     font-variant-numeric: tabular-nums;
     flex-shrink: 0;
@@ -156,7 +156,7 @@
   }
 
   .mp-label {
-    font-size: 11px;
+    font-size: var(--font-size-xs);
     color: var(--color-text-disabled);
     overflow: hidden;
     text-overflow: ellipsis;

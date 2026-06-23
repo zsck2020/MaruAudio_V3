@@ -191,7 +191,7 @@
     width: 100%;
     text-align: center;
     padding: 3px 12px;
-    font-size: 11px;
+    font-size: var(--font-size-xs);
     color: #fff;
     background: linear-gradient(90deg, var(--color-warning), color-mix(in srgb, var(--color-warning) 70%, var(--color-error)));
     letter-spacing: 0.5px;

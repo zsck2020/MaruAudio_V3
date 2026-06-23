@@ -597,14 +597,14 @@
   .kv-row dd { margin: 0; color: var(--color-text); display: flex; align-items: center; gap: 8px; min-width: 0; }
   .mono { font-family: ui-monospace, Menlo, Consolas, monospace; }
   .ellipsis { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .kv-extra { color: var(--color-primary); font-size: 11px; margin-left: 4px; }
+  .kv-extra { color: var(--color-primary); font-size: var(--font-size-xs); margin-left: 4px; }
 
   .badge-pro {
     background: linear-gradient(135deg, #d4a44a, #b8862c);
     color: #1a1a1a;
     padding: 2px 8px;
     border-radius: var(--border-radius-sm);
-    font-size: 11px;
+    font-size: var(--font-size-xs);
     font-weight: 600;
   }
   .badge-active {
@@ -612,7 +612,7 @@
     color: var(--color-success);
     padding: 2px 8px;
     border-radius: var(--border-radius-sm);
-    font-size: 11px;
+    font-size: var(--font-size-xs);
   }
 
   .icon-btn {
@@ -649,14 +649,14 @@
     align-items: center;
     justify-content: space-between;
     color: var(--color-text-tertiary);
-    font-size: 11px;
+    font-size: var(--font-size-xs);
   }
   .foot-links { display: flex; gap: var(--spacing-md); }
   .foot-link {
     background: transparent;
     border: none;
     color: var(--color-text-tertiary);
-    font-size: 11px;
+    font-size: var(--font-size-xs);
     cursor: pointer;
     padding: 2px 4px;
   }

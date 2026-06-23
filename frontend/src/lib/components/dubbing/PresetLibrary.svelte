@@ -119,7 +119,7 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    font-size: 11px;
+    font-size: var(--font-size-xs);
     font-weight: 500;
     color: var(--color-text-tertiary);
     text-transform: uppercase;
@@ -208,7 +208,7 @@
   }
 
   .recent-count {
-    font-size: 11px;
+    font-size: var(--font-size-xs);
     color: var(--color-text-disabled);
   }
 

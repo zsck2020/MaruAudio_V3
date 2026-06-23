@@ -238,7 +238,7 @@
     position: absolute;
     top: 4px;
     color: var(--color-text-tertiary);
-    font-size: 10px;
+    font-size: var(--font-size-2xs);
   }
 
   .timeline-toolbar {
@@ -299,7 +299,7 @@
     bottom: 6px;
     transform: translateX(-50%);
     color: var(--color-text-tertiary);
-    font-size: 10px;
+    font-size: var(--font-size-2xs);
   }
 
   .ruler em {
@@ -308,7 +308,7 @@
     transform: translateX(-50%);
     font-style: normal;
     color: var(--color-warning);
-    font-size: 10px;
+    font-size: var(--font-size-2xs);
   }
 
   .playhead {
@@ -357,7 +357,7 @@
   .clip span {
     position: relative;
     z-index: 1;
-    font-size: 11px;
+    font-size: var(--font-size-xs);
   }
 
   .clip i {

@@ -75,7 +75,7 @@
       color var(--motion-duration-fast) var(--motion-ease-base);
   }
 
-  .ui-tag.size-sm { padding: 1px 6px; font-size: 11px; height: 18px; }
+  .ui-tag.size-sm { padding: 1px 6px; font-size: var(--font-size-xs); height: 18px; }
   .ui-tag.size-md { padding: 2px 8px; font-size: var(--font-size-sm); height: 22px; }
 
   .ui-tag.interactive {

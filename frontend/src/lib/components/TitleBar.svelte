@@ -677,7 +677,7 @@
 
   .summary-item span {
     color: var(--color-text-tertiary);
-    font-size: 11px;
+    font-size: var(--font-size-xs);
   }
 
   .summary-item strong {
@@ -706,7 +706,7 @@
     color: var(--color-text-tertiary);
     background: var(--color-bg-container);
     border-bottom: 1px solid var(--color-border-secondary);
-    font-size: 11px;
+    font-size: var(--font-size-xs);
   }
 
   .order-row {
@@ -721,7 +721,7 @@
   .order-id {
     color: var(--color-text-tertiary);
     font-family: ui-monospace, Menlo, Consolas, monospace;
-    font-size: 11px;
+    font-size: var(--font-size-xs);
   }
 
   .order-amount { color: var(--color-text); font-weight: 500; }
@@ -729,7 +729,7 @@
   .order-status {
     padding: 2px 7px;
     border-radius: var(--border-radius-pill);
-    font-size: 11px;
+    font-size: var(--font-size-xs);
     color: var(--color-success);
     background: color-mix(in srgb, var(--color-success) 14%, transparent);
     text-align: center;
@@ -743,7 +743,7 @@
   .orders-hint {
     margin: 0;
     color: var(--color-text-disabled);
-    font-size: 11px;
+    font-size: var(--font-size-xs);
     text-align: center;
   }
 
@@ -808,7 +808,7 @@
   .redeem-hint {
     margin: 0;
     color: var(--color-text-disabled);
-    font-size: 11px;
+    font-size: var(--font-size-xs);
     text-align: center;
   }
 

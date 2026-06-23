@@ -388,7 +388,7 @@
 
   .emotion-value {
     width: 36px;
-    font-size: 11px;
+    font-size: var(--font-size-xs);
     color: var(--color-text-tertiary);
     text-align: right;
     font-variant-numeric: tabular-nums;
@@ -415,7 +415,7 @@
     display: flex;
     align-items: center;
     gap: var(--spacing-xs);
-    font-size: 11px;
+    font-size: var(--font-size-xs);
     color: var(--color-text-disabled);
     margin: 0;
   }
@@ -487,7 +487,7 @@
 
   .text-mode-hint {
     margin: 0;
-    font-size: 11px;
+    font-size: var(--font-size-xs);
     line-height: 1.4;
     color: var(--color-text-disabled);
   }
@@ -507,7 +507,7 @@
   }
 
   .section-label {
-    font-size: 11px;
+    font-size: var(--font-size-xs);
     color: var(--color-text-tertiary);
   }
 
@@ -524,7 +524,7 @@
     border: 1px solid var(--color-border-secondary);
     border-radius: var(--border-radius-sm);
     cursor: pointer;
-    font-size: 11px;
+    font-size: var(--font-size-xs);
     color: var(--color-text-secondary);
     transition:
       border-color var(--transition-duration) var(--transition-timing),
@@ -559,7 +559,7 @@
   }
 
   .field-hint {
-    font-size: 11px;
+    font-size: var(--font-size-xs);
     color: var(--color-text-disabled);
   }
 

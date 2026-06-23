@@ -386,7 +386,7 @@
 
   .user-name {
     color: var(--color-text);
-    font-size: 22px;
+    font-size: var(--font-size-xl);
     font-weight: 700;
   }
 
@@ -396,7 +396,7 @@
     height: 20px;
     padding: 0 7px;
     border-radius: var(--border-radius-pill);
-    font-size: 11px;
+    font-size: var(--font-size-xs);
     display: inline-flex;
     align-items: center;
   }
@@ -437,7 +437,7 @@
   .metric-card span,
   .metric-card small {
     color: var(--color-text-tertiary);
-    font-size: 11px;
+    font-size: var(--font-size-xs);
   }
 
   .metric-card strong {
@@ -486,7 +486,7 @@
     min-height: 36px;
     margin: 0;
     color: var(--color-text-tertiary);
-    font-size: 11px;
+    font-size: var(--font-size-xs);
     line-height: 1.55;
   }
 
@@ -562,7 +562,7 @@
   .package-card span,
   .package-card small {
     color: var(--color-text-tertiary);
-    font-size: 11px;
+    font-size: var(--font-size-xs);
   }
 
   .usage-list strong,
@@ -598,9 +598,9 @@
   }
   .history-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
   .history-label { font-size: var(--font-size-sm); color: var(--color-text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .history-meta { font-size: 10px; color: var(--color-text-disabled); }
+  .history-meta { font-size: var(--font-size-2xs); color: var(--color-text-disabled); }
   .history-chars { font-size: var(--font-size-sm); color: var(--color-warning); font-weight: 500; white-space: nowrap; }
-  .history-date { font-size: 10px; color: var(--color-text-disabled); white-space: nowrap; }
+  .history-date { font-size: var(--font-size-2xs); color: var(--color-text-disabled); white-space: nowrap; }
 
   .redeem-section {
     padding: var(--spacing-md);
@@ -616,7 +616,7 @@
   }
   .redeem-input:focus { border-color: var(--color-primary); outline: none; }
   .redeem-input::placeholder { color: var(--color-text-disabled); font-family: inherit; letter-spacing: 0; }
-  .redeem-hint { margin: 6px 0 0; font-size: 10px; color: var(--color-text-disabled); }
+  .redeem-hint { margin: 6px 0 0; font-size: var(--font-size-2xs); color: var(--color-text-disabled); }
 
   .quota-bar {
     height: 8px;

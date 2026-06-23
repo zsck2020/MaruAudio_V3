@@ -312,7 +312,7 @@
   .engine-summary p {
     margin: 0;
     color: var(--color-text-tertiary);
-    font-size: 11px;
+    font-size: var(--font-size-xs);
     line-height: 1.45;
   }
 
@@ -376,7 +376,7 @@
     border: 1px solid var(--color-border-secondary);
     border-radius: var(--border-radius-sm);
     cursor: pointer;
-    font-size: 11px;
+    font-size: var(--font-size-xs);
     color: var(--color-text-secondary);
     transition:
       border-color var(--transition-duration) var(--transition-timing),
@@ -421,7 +421,7 @@
   }
 
   .param-hint {
-    font-size: 11px;
+    font-size: var(--font-size-xs);
     color: var(--color-text-disabled);
   }
 

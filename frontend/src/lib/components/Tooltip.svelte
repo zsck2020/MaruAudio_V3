@@ -181,7 +181,7 @@
   @media (max-width: 768px) {
     .tooltip-content {
       padding: 6px 10px;
-      font-size: 11px;
+      font-size: var(--font-size-xs);
     }
   }
 </style>

@@ -205,7 +205,7 @@
   }
 
   .section-title {
-    font-size: 11px;
+    font-size: var(--font-size-xs);
     color: var(--color-text-tertiary);
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -215,7 +215,7 @@
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    font-size: 11px;
+    font-size: var(--font-size-xs);
     color: var(--color-primary);
     background: transparent;
     border: none;
@@ -307,7 +307,7 @@
   }
 
   .toggle-hint {
-    font-size: 11px;
+    font-size: var(--font-size-xs);
     color: var(--color-text-tertiary);
     line-height: 1.4;
   }
@@ -340,7 +340,7 @@
   .vocal-progress-text {
     display: flex;
     justify-content: space-between;
-    font-size: 11px;
+    font-size: var(--font-size-xs);
     color: var(--color-text-secondary);
   }
 

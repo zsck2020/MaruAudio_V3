@@ -196,7 +196,7 @@
   .marks {
     position: relative;
     height: 16px;
-    font-size: 11px;
+    font-size: var(--font-size-xs);
     color: var(--color-text-tertiary);
   }
 

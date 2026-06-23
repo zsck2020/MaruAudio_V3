@@ -41,7 +41,7 @@
     padding: 0 7px;
     border-radius: var(--border-radius-pill);
     border: 1px solid transparent;
-    font-size: 11px;
+    font-size: var(--font-size-xs);
     font-weight: 600;
     line-height: 1;
     white-space: nowrap;

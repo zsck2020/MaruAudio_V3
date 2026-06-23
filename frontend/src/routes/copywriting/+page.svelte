@@ -690,7 +690,7 @@
 
   .job-empty {
     padding: var(--spacing-md);
-    font-size: 11px;
+    font-size: var(--font-size-xs);
     color: var(--color-text-tertiary);
     text-align: center;
     border: 1px dashed var(--color-border-secondary);
@@ -706,7 +706,7 @@
     border-radius: var(--border-radius-sm);
     background-color: color-mix(in srgb, var(--color-primary) 8%, transparent);
     border: 1px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
-    font-size: 11px;
+    font-size: var(--font-size-xs);
     color: var(--color-text-secondary);
   }
 

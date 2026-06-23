@@ -374,7 +374,7 @@
     justify-self: start;
     padding: 2px 7px;
     border-radius: var(--border-radius-sm);
-    font-size: 11px;
+    font-size: var(--font-size-xs);
     color: var(--color-primary);
     background-color: color-mix(in srgb, var(--color-primary) 14%, transparent);
   }
@@ -473,7 +473,7 @@
   .audio-line em {
     font-style: normal;
     color: var(--color-text-tertiary);
-    font-size: 11px;
+    font-size: var(--font-size-xs);
     font-variant-numeric: tabular-nums;
   }
 

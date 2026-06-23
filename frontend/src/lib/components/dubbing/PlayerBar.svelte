@@ -355,7 +355,7 @@
   }
 
   .time-label {
-    font-size: 11px;
+    font-size: var(--font-size-xs);
     color: var(--color-text-tertiary);
     font-variant-numeric: tabular-nums;
     font-feature-settings: "tnum";
@@ -402,7 +402,7 @@
   .empty-hint {
     position: relative;
     z-index: 1;
-    font-size: 11px;
+    font-size: var(--font-size-xs);
     color: var(--color-text-disabled);
     letter-spacing: 0.3px;
   }

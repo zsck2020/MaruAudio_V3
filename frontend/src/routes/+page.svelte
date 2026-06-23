@@ -560,7 +560,7 @@
     justify-self: center;
     padding: 2px 8px;
     border-radius: var(--border-radius-pill);
-    font-size: 11px;
+    font-size: var(--font-size-xs);
     font-weight: 500;
   }
   .engine-badge.blue { color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 16%, transparent); }
@@ -576,7 +576,7 @@
   }
 
   .pager-info {
-    font-size: 12px;
+    font-size: var(--font-size-xs);
     color: var(--color-text-disabled);
   }
 
@@ -595,7 +595,7 @@
     border-radius: var(--border-radius-sm);
     background: transparent;
     color: var(--color-text-tertiary);
-    font-size: 12px;
+    font-size: var(--font-size-xs);
     cursor: pointer;
     transition:
       border-color var(--motion-duration-mid) var(--motion-ease-base),
@@ -669,7 +669,7 @@
     display: inline-flex;
     align-items: center;
     gap: 3px;
-    font-size: 11px;
+    font-size: var(--font-size-xs);
     font-weight: 600;
     padding: 2px 8px;
     border-radius: var(--border-radius-pill);
@@ -681,7 +681,7 @@
   }
 
   .stat-vs {
-    font-size: 10px;
+    font-size: var(--font-size-2xs);
     color: var(--color-text-disabled);
   }
 
@@ -711,7 +711,7 @@
     display: flex;
     align-items: center;
     gap: var(--spacing-md);
-    font-size: 11px;
+    font-size: var(--font-size-xs);
     color: var(--color-text-tertiary);
   }
 
@@ -802,7 +802,7 @@
   }
 
   .engine-status {
-    font-size: 11px;
+    font-size: var(--font-size-xs);
     padding: 1px 6px;
     border-radius: var(--border-radius-sm);
   }
@@ -813,7 +813,7 @@
   }
 
   .engine-device {
-    font-size: 10px;
+    font-size: var(--font-size-2xs);
     color: var(--color-primary);
     background: color-mix(in srgb, var(--color-primary) 14%, transparent);
     padding: 1px 6px;
@@ -853,11 +853,11 @@
     background: var(--color-primary);
     padding: 3px 10px;
     border-radius: var(--border-radius-sm);
-    font-size: 11px;
+    font-size: var(--font-size-xs);
   }
 
   .demo-tag {
-    font-size: 10px;
+    font-size: var(--font-size-2xs);
     font-weight: 500;
     color: var(--color-warning);
     background: color-mix(in srgb, var(--color-warning) 14%, transparent);

@@ -293,7 +293,7 @@
     background: var(--color-bg-base);
     border: 1px solid var(--color-border-secondary);
     color: var(--color-text-tertiary);
-    font-size: 11px;
+    font-size: var(--font-size-xs);
     white-space: nowrap;
   }
 

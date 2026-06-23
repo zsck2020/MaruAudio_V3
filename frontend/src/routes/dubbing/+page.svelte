@@ -481,7 +481,7 @@
   }
 
   .action-card-sub {
-    font-size: 11px;
+    font-size: var(--font-size-xs);
     color: var(--color-text-tertiary);
     white-space: nowrap;
     overflow: hidden;

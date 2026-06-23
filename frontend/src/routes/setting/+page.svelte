@@ -940,13 +940,13 @@
   }
   .engine-meta { display: flex; flex-direction: column; gap: 4px; }
   .engine-name { display: flex; align-items: center; gap: 8px; color: var(--color-text); font-weight: 500; font-size: var(--font-size); }
-  .engine-sub { color: var(--color-text-tertiary); font-size: 11px; line-height: 1.5; }
+  .engine-sub { color: var(--color-text-tertiary); font-size: var(--font-size-xs); line-height: 1.5; }
 
   .engine-status { display: flex; align-items: center; gap: var(--spacing-sm); color: var(--color-text-secondary); font-size: var(--font-size-sm); }
   .dot { width: 8px; height: 8px; border-radius: 50%; background-color: var(--color-error); display: inline-block; transition: background-color var(--motion-duration-mid); }
   .dot.on { background-color: var(--color-success); box-shadow: 0 0 8px color-mix(in srgb, var(--color-success) 50%, transparent); }
   .device-tag {
-    font-size: 11px;
+    font-size: var(--font-size-xs);
     color: var(--color-primary);
     background: color-mix(in srgb, var(--color-primary) 14%, transparent);
     padding: 2px 8px;
@@ -970,7 +970,7 @@
   .cloud-status-row:hover { border-color: color-mix(in srgb, var(--color-primary) 30%, var(--color-border-secondary)); }
   .cloud-status-info { display: flex; flex-direction: column; gap: 4px; }
   .cloud-status-label { color: var(--color-text); font-weight: 500; font-size: var(--font-size); }
-  .cloud-status-sub { color: var(--color-text-tertiary); font-size: 11px; }
+  .cloud-status-sub { color: var(--color-text-tertiary); font-size: var(--font-size-xs); }
   .btn-link {
     display: inline-flex;
     align-items: center;
@@ -1002,7 +1002,7 @@
   .cell-value { color: var(--color-text); font-size: var(--font-size-xl); font-weight: 600; }
 
   .shortcut-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: var(--font-size-sm); }
-  .shortcut-table th { color: var(--color-text-tertiary); text-align: left; padding: var(--spacing-sm) var(--spacing-md); font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .shortcut-table th { color: var(--color-text-tertiary); text-align: left; padding: var(--spacing-sm) var(--spacing-md); font-weight: 500; font-size: var(--font-size-xs); text-transform: uppercase; letter-spacing: 0.5px; }
   .shortcut-table td { padding: var(--spacing-sm) var(--spacing-md); color: var(--color-text-secondary); border-top: 1px solid color-mix(in srgb, var(--color-border-secondary) 60%, transparent); }
   .shortcut-table tr:hover td { background: color-mix(in srgb, var(--color-bg-spotlight) 50%, transparent); }
   kbd {
@@ -1012,7 +1012,7 @@
     color: var(--color-text);
     padding: 3px 8px;
     border-radius: var(--border-radius-sm);
-    font-size: 11px;
+    font-size: var(--font-size-xs);
     box-shadow: 0 1px 0 var(--color-border-secondary);
   }
 
@@ -1032,7 +1032,7 @@
   .btn-secondary:hover { border-color: var(--color-primary); color: var(--color-text); }
   .btn-danger { background-color: var(--color-error); color: #fff; }
 
-  .tiny { height: 26px; padding: 0 var(--spacing-sm); font-size: 11px; }
+  .tiny { height: 26px; padding: 0 var(--spacing-sm); font-size: var(--font-size-xs); }
 
   .row-input {
     width: 100%;
@@ -1049,7 +1049,7 @@
 
   .help-text {
     margin: var(--spacing-xs) 0 0;
-    font-size: 11px;
+    font-size: var(--font-size-xs);
     color: var(--color-text-disabled);
     line-height: 1.5;
   }

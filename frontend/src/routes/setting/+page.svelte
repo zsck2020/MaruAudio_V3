@@ -4,6 +4,7 @@
   import Switch from '$lib/components/ui/Switch.svelte';
   import Slider from '$lib/components/ui/Slider.svelte';
   import Select from '$lib/components/ui/Select.svelte';
+  import Segmented from '$lib/components/ui/Segmented.svelte';
   import { toast } from '$lib/stores/toast.svelte';
   import * as ttsApi from '$lib/api/tts';
   import { dubbing, type EngineMode } from '$lib/stores/dubbing.svelte';
@@ -296,11 +297,16 @@
             </div>
             <div class="row">
               <div class="row-label">外观主题</div>
-              <div class="seg">
-                <button class:active={theme === 'dark'} onclick={() => (theme = 'dark')}>暗色</button>
-                <button class:active={theme === 'light'} onclick={() => (theme = 'light')}>浅色</button>
-                <button class:active={theme === 'auto'} onclick={() => (theme = 'auto')}>跟随系统</button>
-              </div>
+              <Segmented
+                value={theme}
+                options={[
+                  { value: 'dark', label: '暗色' },
+                  { value: 'light', label: '浅色' },
+                  { value: 'auto', label: '跟随系统' },
+                ]}
+                size="sm"
+                onchange={(v) => (theme = v as typeof theme)}
+              />
             </div>
             <div class="row">
               <div class="row-label">开机自启动</div>
@@ -365,11 +371,16 @@
             <div class="grid-2">
               <div class="row">
                 <div class="row-label">计算设备</div>
-                <div class="seg">
-                  <button class:active={device === 'auto'} onclick={() => (device = 'auto')}>自动</button>
-                  <button class:active={device === 'gpu'} onclick={() => (device = 'gpu')}>GPU</button>
-                  <button class:active={device === 'cpu'} onclick={() => (device = 'cpu')}>CPU</button>
-                </div>
+                <Segmented
+                  value={device}
+                  options={[
+                    { value: 'auto', label: '自动' },
+                    { value: 'gpu', label: 'GPU' },
+                    { value: 'cpu', label: 'CPU' },
+                  ]}
+                  size="sm"
+                  onchange={(v) => (device = v as typeof device)}
+                />
               </div>
               <div class="row">
                 <div class="row-label">推理优先引擎</div>
@@ -493,11 +504,16 @@
             <div class="grid-2">
               <div class="row">
                 <div class="row-label">默认导出格式</div>
-                <div class="seg">
-                  <button class:active={outputFormat === 'wav'} onclick={() => (outputFormat = 'wav')}>WAV</button>
-                  <button class:active={outputFormat === 'mp3'} onclick={() => (outputFormat = 'mp3')}>MP3</button>
-                  <button class:active={outputFormat === 'flac'} onclick={() => (outputFormat = 'flac')}>FLAC</button>
-                </div>
+                <Segmented
+                  value={outputFormat}
+                  options={[
+                    { value: 'wav', label: 'WAV' },
+                    { value: 'mp3', label: 'MP3' },
+                    { value: 'flac', label: 'FLAC' },
+                  ]}
+                  size="sm"
+                  onchange={(v) => (outputFormat = v as typeof outputFormat)}
+                />
               </div>
               <div class="row">
                 <div class="row-label">采样率</div>
@@ -538,11 +554,16 @@
             <div class="grid-2">
               <div class="row">
                 <div class="row-label">默认导出格式</div>
-                <div class="seg">
-                  <button class:active={subtitleFormat === 'srt'} onclick={() => (subtitleFormat = 'srt')}>SRT</button>
-                  <button class:active={subtitleFormat === 'vtt'} onclick={() => (subtitleFormat = 'vtt')}>VTT</button>
-                  <button class:active={subtitleFormat === 'ass'} onclick={() => (subtitleFormat = 'ass')}>ASS</button>
-                </div>
+                <Segmented
+                  value={subtitleFormat}
+                  options={[
+                    { value: 'srt', label: 'SRT' },
+                    { value: 'vtt', label: 'VTT' },
+                    { value: 'ass', label: 'ASS' },
+                  ]}
+                  size="sm"
+                  onchange={(v) => (subtitleFormat = v as typeof subtitleFormat)}
+                />
               </div>
               <div class="row">
                 <div class="row-label">字符编码</div>
@@ -558,10 +579,15 @@
               </div>
               <div class="row">
                 <div class="row-label">换行</div>
-                <div class="seg">
-                  <button class:active={subtitleEol === 'lf'} onclick={() => (subtitleEol = 'lf')}>LF</button>
-                  <button class:active={subtitleEol === 'crlf'} onclick={() => (subtitleEol = 'crlf')}>CRLF</button>
-                </div>
+                <Segmented
+                  value={subtitleEol}
+                  options={[
+                    { value: 'lf', label: 'LF' },
+                    { value: 'crlf', label: 'CRLF' },
+                  ]}
+                  size="sm"
+                  onchange={(v) => (subtitleEol = v as typeof subtitleEol)}
+                />
               </div>
               <div class="row">
                 <div class="row-label">嵌入说话人姓名</div>
@@ -648,16 +674,17 @@
             </div>
             <div class="row">
               <div class="row-label">缓存生命周期</div>
-              <div class="seg">
-                {#each [
-                  ['7', '7 天'],
-                  ['30', '30 天'],
-                  ['90', '90 天'],
-                  ['forever', '永久'],
-                ] as [val, label] (val)}
-                  <button class:active={cacheLifecycle === val} onclick={() => (cacheLifecycle = val as typeof cacheLifecycle)}>{label}</button>
-                {/each}
-              </div>
+              <Segmented
+                value={cacheLifecycle}
+                options={[
+                  { value: '7', label: '7 天' },
+                  { value: '30', label: '30 天' },
+                  { value: '90', label: '90 天' },
+                  { value: 'forever', label: '永久' },
+                ]}
+                size="sm"
+                onchange={(v) => (cacheLifecycle = v as typeof cacheLifecycle)}
+              />
             </div>
           </div>
         {/if}

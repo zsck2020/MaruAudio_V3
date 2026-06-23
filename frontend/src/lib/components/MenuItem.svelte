@@ -50,7 +50,7 @@
     transition: background-color var(--transition-duration) var(--transition-timing);
     position: relative;
     -webkit-app-region: no-drag;
-    gap: var(--spacing-xs);
+    gap: 1px;
     margin: 0 auto;
   }
 
@@ -95,9 +95,9 @@
   }
 
   .menu-text {
-    font-size: var(--font-size-sm);
+    font-size: var(--font-size-xs);
     color: var(--color-text-secondary);
-    font-weight: 500;
+    font-weight: 700;
     text-align: center;
     line-height: 1.2;
     letter-spacing: 0.5px;

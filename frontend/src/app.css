@@ -45,7 +45,7 @@
   --color-border-secondary: rgba(255, 255, 255, 0.10);
 
   /* —— 字体 · 整体 +1px 提升舒展感 —— */
-  --font-family: 'HarmonyOS Sans SC', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
+  --font-family: 'Microsoft YaHei', '微软雅黑', 'HarmonyOS Sans SC', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
   --font-size-xs: 12px;
   --font-size-sm: 13px;
   --font-size: 15px;

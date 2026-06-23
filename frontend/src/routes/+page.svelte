@@ -492,7 +492,7 @@
   .table-head {
     color: var(--color-text-disabled);
     border-bottom: 1px solid var(--color-border-secondary);
-    font-size: 11px;
+    font-size: var(--font-size-xs);
     text-align: center;
   }
 
@@ -539,7 +539,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 13px;
+    font-size: var(--font-size-xs);
     font-weight: 600;
     color: #fff;
   }

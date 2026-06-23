@@ -73,7 +73,7 @@
 
   .seg {
     flex: 1;
-    height: calc(var(--control-height-sm) - 6px);
+    height: calc(var(--control-height) - 6px);
     padding: 0 var(--spacing-md);
     border: none;
     border-radius: var(--border-radius-sm);
@@ -89,7 +89,7 @@
   }
 
   .ui-segmented.size-sm .seg {
-    height: calc(var(--control-height-xs) - 6px);
+    height: calc(var(--control-height-sm) - 6px);
     padding: 0 var(--spacing-sm);
     font-size: var(--font-size-xs);
   }

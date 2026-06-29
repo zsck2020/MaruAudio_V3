@@ -1,6 +1,6 @@
 use crate::utils::error::{AppError, AppResult};
 use serde::{Deserialize, Serialize};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExportSegment {
@@ -64,33 +64,29 @@ pub async fn export_concat_audio(
         }
 
         let start_ms = current_ms;
+        let mut sample_count: u64 = 0;
 
         match spec.sample_format {
             hound::SampleFormat::Int => {
-                let samples: Vec<i32> = reader.samples::<i32>()
-                    .filter_map(|s| s.ok())
-                    .collect();
-                for s in &samples {
-                    writer.write_sample(*s)
+                for sample in reader.samples::<i32>() {
+                    let s = sample.map_err(|e| AppError::File(format!("读取采样失败: {}", e)))?;
+                    writer.write_sample(s)
                         .map_err(|e| AppError::File(format!("写入 WAV 失败: {}", e)))?;
+                    sample_count += 1;
                 }
-                let total_samples = samples.len() as u64;
-                let duration_ms = total_samples * 1000 / (spec.sample_rate as u64 * spec.channels as u64);
-                current_ms += duration_ms;
             }
             hound::SampleFormat::Float => {
-                let samples: Vec<f32> = reader.samples::<f32>()
-                    .filter_map(|s| s.ok())
-                    .collect();
-                for s in &samples {
-                    writer.write_sample(*s)
+                for sample in reader.samples::<f32>() {
+                    let s = sample.map_err(|e| AppError::File(format!("读取采样失败: {}", e)))?;
+                    writer.write_sample(s)
                         .map_err(|e| AppError::File(format!("写入 WAV 失败: {}", e)))?;
+                    sample_count += 1;
                 }
-                let total_samples = samples.len() as u64;
-                let duration_ms = total_samples * 1000 / (spec.sample_rate as u64 * spec.channels as u64);
-                current_ms += duration_ms;
             }
         }
+
+        let duration_ms = sample_count * 1000 / (spec.sample_rate as u64 * spec.channels as u64);
+        current_ms += duration_ms;
 
         srt_entries.push((start_ms, current_ms, seg.role_name.clone(), seg.text.clone()));
 
@@ -118,11 +114,11 @@ pub async fn export_concat_audio(
         .map_err(|e| AppError::File(format!("写入 WAV 最终化失败: {}", e)))?;
 
     let srt_path = if generate_srt {
-        let srt_file = output_path.replace(".wav", ".srt");
+        let srt_file = PathBuf::from(&output_path).with_extension("srt");
         let srt_content = build_srt(&srt_entries);
         tokio::fs::write(&srt_file, srt_content).await
             .map_err(|e| AppError::File(format!("写入 SRT 失败: {}", e)))?;
-        Some(srt_file)
+        Some(srt_file.to_string_lossy().into_owned())
     } else {
         None
     };

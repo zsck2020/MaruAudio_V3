@@ -248,8 +248,10 @@ async function saveToStore(): Promise<void> {
     await store.set('lines', lines);
     await store.set('projectName', currentProjectName);
     await store.save();
-  } catch {
-    // 非 Tauri 环境或保存失败静默处理
+  } catch (err) {
+    if (typeof window !== 'undefined' && '__TAURI__' in window) {
+      console.error('[rolesStore] saveToStore failed:', err);
+    }
   }
 }
 
@@ -263,12 +265,67 @@ function exportProject(): string {
   }, null, 2);
 }
 
+function validateRole(raw: Record<string, unknown>): RoleConfig {
+  const id = typeof raw.id === 'string' && raw.id ? raw.id : generateId();
+  const name = typeof raw.name === 'string' && raw.name ? raw.name : '未命名';
+  const color = typeof raw.color === 'string' && raw.color ? raw.color : roleColors[0];
+  const ev = Array.isArray(raw.emotionVector) ? (raw.emotionVector as number[]) : [];
+  const emotionVector = ev.length === 8 && ev.every(v => typeof v === 'number')
+    ? ev
+    : [...defaultRole.emotionVector];
+
+  return {
+    ...defaultRole,
+    id,
+    name,
+    color,
+    type: typeof raw.type === 'string' ? raw.type : defaultRole.type,
+    voiceName: typeof raw.voiceName === 'string' ? raw.voiceName : defaultRole.voiceName,
+    voiceAudioPath: typeof raw.voiceAudioPath === 'string' ? raw.voiceAudioPath : null,
+    engine: (['lightweight', 'emotion', 'cloud'] as const).includes(raw.engine as EngineMode)
+      ? (raw.engine as EngineMode) : defaultRole.engine,
+    temperature: typeof raw.temperature === 'number' ? raw.temperature : defaultRole.temperature,
+    topP: typeof raw.topP === 'number' ? raw.topP : defaultRole.topP,
+    topK: typeof raw.topK === 'number' ? raw.topK : defaultRole.topK,
+    intervalSilence: typeof raw.intervalSilence === 'number' ? raw.intervalSilence : defaultRole.intervalSilence,
+    maxTextTokens: typeof raw.maxTextTokens === 'number' ? raw.maxTextTokens : defaultRole.maxTextTokens,
+    emoAlpha: typeof raw.emoAlpha === 'number' ? raw.emoAlpha : defaultRole.emoAlpha,
+    emotionMethod: (['slider', 'text', 'audio'] as const).includes(raw.emotionMethod as RoleConfig['emotionMethod'])
+      ? (raw.emotionMethod as RoleConfig['emotionMethod']) : defaultRole.emotionMethod,
+    emotionVector,
+    emotionText: typeof raw.emotionText === 'string' ? raw.emotionText : defaultRole.emotionText,
+    emotionAudioPath: typeof raw.emotionAudioPath === 'string' ? raw.emotionAudioPath : null,
+  };
+}
+
+function validateLine(raw: Record<string, unknown>, order: number, validRoleIds: Set<string>): ScriptLine {
+  const roleId = typeof raw.roleId === 'string' && validRoleIds.has(raw.roleId) ? raw.roleId : '';
+  return {
+    id: typeof raw.id === 'string' && raw.id ? raw.id : generateId(),
+    roleId,
+    text: typeof raw.text === 'string' ? raw.text : '',
+    emotion: typeof raw.emotion === 'string' ? raw.emotion : '平静',
+    strength: (['微弱', '中等', '强烈'] as const).includes(raw.strength as EmotionStrength)
+      ? (raw.strength as EmotionStrength) : '中等',
+    status: '待生成',
+    audioPath: null,
+    order,
+  };
+}
+
 function importProject(json: string): { roles: number; lines: number } {
   const data = JSON.parse(json);
   if (!data.roles || !Array.isArray(data.roles)) throw new Error('无效的工程文件');
-  roles = data.roles;
-  lines = data.lines ?? [];
-  currentProjectName = data.projectName ?? '导入的工程';
+
+  const validatedRoles = (data.roles as Record<string, unknown>[]).map(r => validateRole(r));
+  const validRoleIds = new Set(validatedRoles.map(r => r.id));
+  const validatedLines = Array.isArray(data.lines)
+    ? (data.lines as Record<string, unknown>[]).map((l, i) => validateLine(l, i + 1, validRoleIds))
+    : [];
+
+  roles = validatedRoles;
+  lines = validatedLines;
+  currentProjectName = typeof data.projectName === 'string' ? data.projectName : '导入的工程';
   activeRoleId = roles[0]?.id ?? null;
   currentPage = 1;
   return { roles: roles.length, lines: lines.length };

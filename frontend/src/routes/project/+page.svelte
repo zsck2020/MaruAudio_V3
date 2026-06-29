@@ -197,6 +197,13 @@
     const line = rolesStore.lines.find(l => l.id === lineId);
     if (!line) return;
 
+    if (rolesStore.batchGenerating) {
+      toast.warning('批量生成中，请等待完成后再试听');
+      return;
+    }
+
+    if (line.status === '生成中') return;
+
     if (line.audioPath) {
       playingLineId = lineId;
       playingLineSrc = line.audioPath;
@@ -630,7 +637,7 @@
             </div>
             <div class="lc-text-row">
               <input class="lc-text" value={line.text} disabled={!membership.canUseFeature('line_editing')} onclick={() => !membership.canUseFeature('line_editing') && membership.requestUpgrade('line_editing')} onchange={(e) => { rolesStore.updateLine(line.id, { text: (e.target as HTMLInputElement).value }); void rolesStore.saveToStore(); }} />
-              <button class="lc-play" onclick={() => handleTryPlay(line.id)} title="试听/生成">
+              <button class="lc-play" onclick={() => handleTryPlay(line.id)} disabled={rolesStore.batchGenerating || line.status === '生成中'} title="试听/生成">
                 <Icon name={playingLineId === line.id ? 'pause-fill' : 'play-fill'} size={14} color="currentColor" />
               </button>
               <button class="ibtn del" onclick={() => { if (!membership.canUseFeature('line_editing')) { membership.requestUpgrade('line_editing'); return; } if (confirm('删除这句台词？')) handleDeleteLine(line.id); }} title="删除台词">
@@ -952,7 +959,8 @@
 
   .lc-right { display:flex; flex-direction:column; align-items:center; gap:6px; flex-shrink:0; align-self:center; }
   .lc-play { width:34px; height:34px; display:flex; align-items:center; justify-content:center; border:1px solid var(--color-border-secondary); border-radius:50%; background:transparent; color:var(--color-primary); flex-shrink:0; transition:border-color .15s,background .15s,transform .1s; }
-  .lc-play:hover { border-color:var(--color-primary); background:color-mix(in srgb, var(--color-primary) 10%, transparent); transform:scale(1.05); }
+  .lc-play:hover:not(:disabled) { border-color:var(--color-primary); background:color-mix(in srgb, var(--color-primary) 10%, transparent); transform:scale(1.05); }
+  .lc-play:disabled { opacity:.35; cursor:not-allowed; }
 
   .pill.st { color:var(--color-primary); background:color-mix(in srgb, var(--color-primary) 14%, transparent); flex-shrink:0; }
   .pill.st.\5DF2\751F\6210 { color:var(--color-success); background:color-mix(in srgb, var(--color-success) 14%, transparent); }

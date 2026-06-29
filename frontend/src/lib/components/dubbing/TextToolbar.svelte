@@ -64,11 +64,11 @@
       showEngineMenu = false;
       return;
     }
-    if (mode === 'cloud' && !dubbing.engineAvailable.cloud) {
+    if (mode === 'cloud' && !dubbing.engineAvailable.cloud?.available) {
       toast.warning('云端模式需登录且余额充足，生成前请完成登录/充值');
-    } else if (mode === 'lightweight' && !dubbing.engineAvailable.lightweight) {
+    } else if (mode === 'lightweight' && !dubbing.engineAvailable.lightweight?.available) {
       toast.warning('轻量引擎不可用，可尝试云端引擎');
-    } else if (mode === 'emotion' && !dubbing.engineAvailable.emotion) {
+    } else if (mode === 'emotion' && !dubbing.engineAvailable.emotion?.available) {
       toast.warning('情感引擎不可用或显存不足，可尝试轻量引擎或云端引擎');
     }
     if (requestEngineChange(mode)) showEngineMenu = false;

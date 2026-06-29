@@ -68,6 +68,9 @@
     dubbing.generationSegmentTotal = 0;
     dubbing.generationSegmentCurrent = 0;
 
+    // onError（SSE tts-error 事件）与 catch（promise reject）会双双触发同一错误，用此标志去重
+    let streamErrorHandled = false;
+
     try {
       const req: ttsApi.SynthesizeRequest = {
         engine: dubbing.engineMode,
@@ -112,6 +115,7 @@
           dubbing.progress = 0;
           dubbing.progressMessage = '';
           toast.warning(`生成失败: ${evt.message}`);
+          streamErrorHandled = true;
         },
       });
 
@@ -132,7 +136,7 @@
       dubbing.progress = 0;
       dubbing.progressMessage = '';
       const msg = err instanceof Error ? err.message : String(err);
-      if (msg !== '推理已取消') {
+      if (msg !== '推理已取消' && !streamErrorHandled) {
         toast.warning(`生成失败: ${msg}`);
       }
     }

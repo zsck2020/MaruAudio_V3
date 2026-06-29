@@ -520,11 +520,15 @@ def create_app() -> FastAPI:
 
         _validate_api_base(req.api_base_url)
         if req.custom_prompt:
-            prompt = req.custom_prompt.format(
-                roles=', '.join(req.roles) if req.roles else '（未提供，请自行识别）',
-                emotions=', '.join(req.emotions),
-                strengths=', '.join(req.strengths),
-                text=req.text,
+            # 显式替换而非 str.format：自定义模板常含 JSON 示例的字面花括号，
+            # str.format 会把它们误当占位符解析并抛 KeyError/ValueError（导致 500）。
+            _roles = ', '.join(req.roles) if req.roles else '（未提供，请自行识别）'
+            prompt = (
+                req.custom_prompt
+                .replace('{roles}', _roles)
+                .replace('{emotions}', ', '.join(req.emotions))
+                .replace('{strengths}', ', '.join(req.strengths))
+                .replace('{text}', req.text)
             )
         else:
             prompt = f"""你的任务是将给定的文本内容划分为角色台词和旁白，输出结构化 JSON 数组。

@@ -14,6 +14,7 @@ import asyncio
 import os
 import shutil
 import subprocess
+import threading
 import time
 from pathlib import Path
 from typing import Awaitable, Callable, Optional, Tuple
@@ -52,6 +53,9 @@ class VocalSeparatorService:
         self._torch = None
         self._demucs_pretrained = None
         self._demucs_apply = None
+        self._demucs_model = None
+        self._demucs_device: Optional[str] = None
+        self._demucs_lock = threading.Lock()
         self._method: str = "none"
         self._detect_dependencies()
 
@@ -224,12 +228,19 @@ class VocalSeparatorService:
         return None
 
     def _separate_demucs(self, audio_path: str) -> Optional[str]:
-        """Demucs (htdemucs_ft) 分离人声"""
+        """Demucs (htdemucs_ft) 分离人声（模型懒加载并缓存，避免每次重载数百 MB）"""
         device = "cuda" if self._torch.cuda.is_available() else "cpu"
 
-        model = self._demucs_pretrained.get_model("htdemucs_ft")
-        model.to(device)
-        model.eval()
+        # 模型仅首次加载，之后复用；加锁避免并发请求重复加载导致显存翻倍
+        with self._demucs_lock:
+            if self._demucs_model is None:
+                model = self._demucs_pretrained.get_model("htdemucs_ft")
+                model.to(device)
+                model.eval()
+                self._demucs_model = model
+                self._demucs_device = device
+        model = self._demucs_model
+        device = self._demucs_device or device
 
         wav, sr = self._librosa.load(audio_path, sr=44100, mono=False)
         if wav.ndim == 1:

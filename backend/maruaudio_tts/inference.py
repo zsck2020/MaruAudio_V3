@@ -105,10 +105,21 @@ async def synthesize_stream(
 
     try:
         t0 = time.time()
-        if req.engine == "lightweight":
-            result = await _run_v15(engine, req, output_path)
-        else:
-            result = await _run_v20(engine, req, output_path)
+        coro = _run_v15(engine, req, output_path) if req.engine == "lightweight" else _run_v20(engine, req, output_path)
+        inference_task = asyncio.ensure_future(coro)
+
+        est_seconds = max(5, est_segments * 4)
+        progress_step = 0.78 / est_seconds
+        current_progress = 0.1
+
+        while not inference_task.done():
+            await asyncio.sleep(1.5)
+            if not inference_task.done():
+                current_progress = min(0.88, current_progress + progress_step * 1.5)
+                elapsed_s = time.time() - t0
+                yield f"data: {ProgressEvent(progress=round(current_progress, 3), message=f'{engine_label}推理中… ({elapsed_s:.0f}s)', segment_current=min(int(current_progress * est_segments), est_segments - 1), segment_total=est_segments).model_dump_json()}\n\n"
+
+        result = await inference_task
         elapsed = time.time() - t0
 
         if result is None:

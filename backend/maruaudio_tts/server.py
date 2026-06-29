@@ -220,31 +220,43 @@ def create_app() -> FastAPI:
     @app.post("/synthesize/stream")
     async def synthesize_sse(req: SynthesizeRequest):
         """SSE 流式推理 — 推送进度事件"""
-        req, tmp_ref = _decode_base64_audio(req)
-        if tmp_ref is None and req.speaker_audio_path:
-            _validate_input_file(req.speaker_audio_path, _ALLOWED_AUDIO_EXT)
 
-        async def _stream_and_cleanup(gen):
+        async def _validated_stream():
+            tmp_ref = None
             try:
+                nonlocal req
+                req, tmp_ref = _decode_base64_audio(req)
+                if tmp_ref is None and req.speaker_audio_path:
+                    _validate_input_file(req.speaker_audio_path, _ALLOWED_AUDIO_EXT)
+            except HTTPException as exc:
+                yield f"data: {ErrorEvent(message=exc.detail).model_dump_json()}\n\n"
+                return
+            except Exception as exc:
+                yield f"data: {ErrorEvent(message=str(exc)[:200]).model_dump_json()}\n\n"
+                return
+
+            try:
+                if req.engine == "cloud":
+                    gen = cloud_engine.synthesize_stream(
+                        text=req.text,
+                        speaker_audio_path=req.speaker_audio_path,
+                        emotion_method=req.emotion_method,
+                        emotion_vector=req.emotion_vector,
+                        emotion_text=req.emotion_text,
+                        emotion_audio_path=req.emotion_audio_path,
+                        emo_alpha=req.emo_alpha,
+                        temperature=req.temperature,
+                        top_p=req.top_p,
+                        max_mel_tokens=req.max_mel_tokens,
+                    )
+                else:
+                    gen = synthesize_stream(_mgr, req)
                 async for chunk in gen:
                     yield chunk
             finally:
                 _safe_unlink(tmp_ref)
 
-        if req.engine == "cloud":
-            return EventSourceResponse(_stream_and_cleanup(cloud_engine.synthesize_stream(
-                text=req.text,
-                speaker_audio_path=req.speaker_audio_path,
-                emotion_method=req.emotion_method,
-                emotion_vector=req.emotion_vector,
-                emotion_text=req.emotion_text,
-                emotion_audio_path=req.emotion_audio_path,
-                emo_alpha=req.emo_alpha,
-                temperature=req.temperature,
-                top_p=req.top_p,
-                max_mel_tokens=req.max_mel_tokens,
-            )))
-        return EventSourceResponse(_stream_and_cleanup(synthesize_stream(_mgr, req)))
+        return EventSourceResponse(_validated_stream())
 
     @app.post("/engine/{engine_name}/preload")
     async def preload_engine(engine_name: str):

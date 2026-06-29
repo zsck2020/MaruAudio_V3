@@ -160,6 +160,7 @@ class BcutASR:
         max_polls: int = 500,
         interval: float = 1.0,
     ) -> ASRData:
+        _FAILURE_STATES = {-1, 5, 6, 7, 8, 9, 10}
         last_resp: Optional[dict] = None
         for i in range(max_polls):
             params = {"model_id": 7, "task_id": self._task_id}
@@ -168,8 +169,11 @@ class BcutASR:
             data = resp.json()["data"]
             last_resp = data
 
-            if data.get("state") == 4:
+            state = data.get("state")
+            if state == 4:
                 break
+            if state in _FAILURE_STATES:
+                raise RuntimeError(f"必剪 ASR 任务失败（state={state}）")
 
             if progress is not None:
                 p = 0.55 + 0.4 * (i / max_polls)

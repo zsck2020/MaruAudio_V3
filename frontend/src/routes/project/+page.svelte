@@ -636,7 +636,7 @@
               <span class="pill st {line.status}">{line.status}</span>
             </div>
             <div class="lc-text-row">
-              <input class="lc-text" value={line.text} disabled={!membership.canUseFeature('line_editing')} onclick={() => !membership.canUseFeature('line_editing') && membership.requestUpgrade('line_editing')} onchange={(e) => { rolesStore.updateLine(line.id, { text: (e.target as HTMLInputElement).value }); void rolesStore.saveToStore(); }} />
+              <textarea class="lc-text" rows={1} disabled={!membership.canUseFeature('line_editing')} onclick={() => !membership.canUseFeature('line_editing') && membership.requestUpgrade('line_editing')} oninput={(e) => { const el = e.target as HTMLTextAreaElement; el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; }} onchange={(e) => { rolesStore.updateLine(line.id, { text: (e.target as HTMLTextAreaElement).value }); void rolesStore.saveToStore(); }}>{line.text}</textarea>
               <button class="lc-play" onclick={() => handleTryPlay(line.id)} disabled={rolesStore.batchGenerating || line.status === '生成中'} title="试听/生成">
                 <Icon name={playingLineId === line.id ? 'pause-fill' : 'play-fill'} size={14} color="currentColor" />
               </button>
@@ -893,7 +893,10 @@
   .hidden { display:none; }
   button { cursor:pointer; font-family:inherit; }
 
-  .role-list { flex:1; padding:var(--spacing-sm); display:flex; flex-direction:column; gap:6px; min-height:0; overflow:hidden; }
+  .role-list { flex:1; padding:var(--spacing-sm); display:flex; flex-direction:column; gap:6px; min-height:0; overflow-y:auto; scrollbar-gutter:stable; }
+  .role-list::-webkit-scrollbar { width:4px; }
+  .role-list::-webkit-scrollbar-thumb { background:var(--color-border); border-radius:2px; }
+  .role-list::-webkit-scrollbar-thumb:hover { background:var(--color-text-disabled); }
   .role-item { display:flex; align-items:center; gap:var(--spacing-sm); padding:var(--spacing-sm) var(--spacing-md); border:1px solid var(--color-border-secondary); border-radius:var(--border-radius); background:var(--color-bg-base); color:var(--color-text); text-align:left; transition:border-color .2s,background .2s,box-shadow .2s; min-height:56px; min-width:0; }
   @media (max-width: 900px) {
     .role-list { flex-direction:row; flex-wrap:wrap; overflow-x:auto; overflow-y:hidden; }
@@ -914,7 +917,10 @@
 
   .script-panel { min-width:0; }
 
-  .line-list { flex:1; display:flex; flex-direction:column; gap:6px; padding:var(--spacing-sm); min-height:0; overflow:hidden; }
+  .line-list { flex:1; display:flex; flex-direction:column; gap:6px; padding:var(--spacing-sm); min-height:0; overflow-y:auto; scrollbar-gutter:stable; }
+  .line-list::-webkit-scrollbar { width:4px; }
+  .line-list::-webkit-scrollbar-thumb { background:var(--color-border); border-radius:2px; }
+  .line-list::-webkit-scrollbar-thumb:hover { background:var(--color-text-disabled); }
 
   .line-card { display:flex; align-items:stretch; gap:var(--spacing-sm); padding:var(--spacing-sm) var(--spacing-md); border:1px solid var(--color-border-secondary); border-radius:var(--border-radius); background:var(--color-bg-base); border-left:4px solid var(--lc); transition:border-color .15s,background .15s,box-shadow .15s; }
   .line-card:hover { background:var(--color-bg-elevated); box-shadow:var(--shadow-1); }
@@ -953,6 +959,9 @@
     padding: 6px 10px;
     border-radius: var(--border-radius);
     transition: border-color var(--motion-duration-mid) var(--motion-ease-base), box-shadow var(--motion-duration-mid) var(--motion-ease-base);
+    resize:none;
+    overflow:hidden;
+    min-height:30px;
   }
   .lc-text:hover { border-color: color-mix(in srgb, var(--lc) 40%, var(--color-border-secondary)); }
   .lc-text:focus { border-color: var(--lc); box-shadow: 0 0 0 2px color-mix(in srgb, var(--lc) 15%, transparent); }
@@ -994,7 +1003,10 @@
   .param-hero-meta { flex:1; min-width:0; display:flex; align-items:center; gap:var(--spacing-xs); }
   .param-hero-meta strong { font-size:var(--font-size); color:var(--color-text); }
 
-  .pbody { flex:1; padding:var(--spacing-sm); display:flex; flex-direction:column; gap:var(--spacing-sm); min-height:0; overflow:hidden; }
+  .pbody { flex:1; padding:var(--spacing-sm); display:flex; flex-direction:column; gap:var(--spacing-sm); min-height:0; overflow-y:auto; scrollbar-gutter:stable; }
+  .pbody::-webkit-scrollbar { width:4px; }
+  .pbody::-webkit-scrollbar-thumb { background:var(--color-border); border-radius:2px; }
+  .pbody::-webkit-scrollbar-thumb:hover { background:var(--color-text-disabled); }
 
   .psec-card { padding:var(--spacing-sm); background:var(--color-bg-base); border:1px solid var(--color-border-secondary); border-radius:var(--border-radius); display:flex; flex-direction:column; gap:var(--spacing-sm); }
   .psec-title { display:flex; align-items:center; gap:var(--spacing-xs); font-size:var(--font-size-xs); color:var(--color-text-secondary); font-weight:500; }

@@ -10,6 +10,7 @@
   import { membership } from '$lib/stores/membership.svelte';
   import PermissionBadge from '$lib/components/membership/PermissionBadge.svelte';
   import { transcribe, translateSubtitle, optimizeTiming, type SubtitleFormat } from '$lib/api/tts';
+  import { parseSrt as parseSrtLib, msToSrtTime } from '$lib/subtitle/srt';
 
   interface SubtitleRow {
     index: number;
@@ -50,6 +51,8 @@
   let languageLabel = $state('中文普通话');
   let needWordTimestamp = $state(false);
   let subtitleFont = $state('思源黑体');
+  let subtitleFontSize = $state(42);
+  let subtitleStroke = $state(2);
   let subtitlePosition = $state('底部居中');
 
   const ASR_LANG_OPTIONS = [
@@ -87,25 +90,14 @@
   }
 
   function parseSrt(content: string): SubtitleRow[] {
-    const rows: SubtitleRow[] = [];
-    const blocks = content.replace(/\r\n/g, '\n').split(/\n\n+/);
-    let idx = 1;
-    const tsRe = /(\d{2}:\d{2}:\d{2},\d{3})\s*-->\s*(\d{2}:\d{2}:\d{2},\d{3})/;
-    for (const block of blocks) {
-      const lines = block.split('\n').filter((l) => l.trim());
-      if (lines.length < 2) continue;
-      const tsLine = lines.find((l) => tsRe.test(l));
-      if (!tsLine) continue;
-      const match = tsLine.match(tsRe);
-      if (!match) continue;
-      const start = match[1];
-      const end = match[2];
-      const textLines = lines.slice(lines.indexOf(tsLine) + 1);
-      const text = textLines.join('\n').trim();
-      if (!text) continue;
-      rows.push({ index: idx++, start, end, text, confidence: 95, role: '识别' });
-    }
-    return rows;
+    return parseSrtLib(content).map((cue) => ({
+      index: cue.index,
+      start: msToSrtTime(cue.startMs),
+      end: msToSrtTime(cue.endMs),
+      text: cue.text,
+      confidence: cue.confidence != null ? Math.round(cue.confidence * 100) : 95,
+      role: cue.speaker ?? '识别',
+    }));
   }
 
   async function selectMediaFile(): Promise<string | null> {
@@ -365,6 +357,35 @@
   function selectFormat(fmt: SubtitleFormat) {
     exportFormat = fmt;
   }
+
+  let editStart = $state('');
+  let editEnd = $state('');
+  let editRole = $state('');
+  let editText = $state('');
+
+  $effect(() => {
+    editStart = activeSubtitle.start;
+    editEnd = activeSubtitle.end;
+    editRole = activeSubtitle.role;
+    editText = activeSubtitle.text;
+  });
+
+  function saveEdit() {
+    const idx = subtitles.findIndex((s) => s.index === activeSubtitle.index);
+    if (idx < 0) return;
+    subtitles[idx] = { ...subtitles[idx], start: editStart, end: editEnd, role: editRole, text: editText };
+    subtitles = subtitles;
+    activeSubtitle = subtitles[idx];
+    toast.success('字幕已保存');
+  }
+
+  function navSubtitle(delta: number) {
+    const idx = subtitles.findIndex((s) => s.index === activeSubtitle.index);
+    const next = idx + delta;
+    if (next >= 0 && next < subtitles.length) {
+      activeSubtitle = subtitles[next];
+    }
+  }
 </script>
 
 <div class="subtitle-page">
@@ -469,24 +490,24 @@
     </header>
 
     <section class="edit-card">
-      <label>入点<input value={activeSubtitle.start} /></label>
-      <label>出点<input value={activeSubtitle.end} /></label>
-      <label>角色<Select size="sm" block value={activeSubtitle.role} ariaLabel="角色" options={roleSelectOptions} /></label>
-      <label class="full">字幕内容<textarea value={activeSubtitle.text}></textarea></label>
+      <label>入点<input bind:value={editStart} /></label>
+      <label>出点<input bind:value={editEnd} /></label>
+      <label>角色<Select size="sm" block bind:value={editRole} ariaLabel="角色" options={roleSelectOptions} /></label>
+      <label class="full">字幕内容<textarea bind:value={editText}></textarea></label>
       <div class="edit-actions">
-        <Button variant="default" size="sm">上一条</Button>
-        <Button variant="primary" size="sm">保存修改</Button>
-        <Button variant="default" size="sm">下一条</Button>
+        <Button variant="default" size="sm" disabled={subtitles.findIndex(s => s.index === activeSubtitle.index) <= 0} onclick={() => navSubtitle(-1)}>上一条</Button>
+        <Button variant="primary" size="sm" onclick={saveEdit}>保存修改</Button>
+        <Button variant="default" size="sm" disabled={subtitles.findIndex(s => s.index === activeSubtitle.index) >= subtitles.length - 1} onclick={() => navSubtitle(1)}>下一条</Button>
       </div>
     </section>
 
     <section class="style-card">
       <h3>字幕样式</h3>
       <label>字体<Select size="sm" block bind:value={subtitleFont} ariaLabel="字体" options={SUBTITLE_FONT_OPTIONS} /></label>
-      <label>字号<input type="number" value="42" /></label>
-      <label>描边<input type="number" value="2" /></label>
+      <label>字号<input type="number" bind:value={subtitleFontSize} min={12} max={120} /></label>
+      <label>描边<input type="number" bind:value={subtitleStroke} min={0} max={10} /></label>
       <label>位置<Select size="sm" block bind:value={subtitlePosition} ariaLabel="位置" options={SUBTITLE_POSITION_OPTIONS} /></label>
-      <div class="style-preview">字幕预览</div>
+      <div class="style-preview" style="font-family:'{subtitleFont}'; font-size:{subtitleFontSize}px; -webkit-text-stroke:{subtitleStroke}px black; {subtitlePosition === '顶部居中' ? 'align-items:flex-start; padding-top:12px; padding-bottom:0' : ''}">字幕预览</div>
     </section>
 
     <section class="export-card">
@@ -771,7 +792,7 @@
   .subtitle-toolbar h1 {
     margin: 0;
     color: var(--color-text);
-    font-size: 20px;
+    font-size: var(--font-size-xl);
   }
 
   .toolbar-actions {

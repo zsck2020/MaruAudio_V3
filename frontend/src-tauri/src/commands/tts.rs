@@ -12,10 +12,9 @@ pub async fn tts_check_health(state: State<'_, TtsState>) -> AppResult<HealthRes
 /// 同步推理 — 返回输出音频路径
 #[tauri::command]
 pub async fn tts_synthesize(state: State<'_, TtsState>, req: SynthesizeRequest) -> AppResult<String> {
-    if state.is_synthesizing() {
+    if !state.try_begin_synthesis() {
         return Err(crate::utils::error::AppError::Tts("已有推理任务进行中".to_string()));
     }
-    state.set_synthesizing(true);
 
     let result = match tts::synthesize(&state, req).await {
         Ok(resp) => resp.output_path,
@@ -43,10 +42,9 @@ pub async fn tts_synthesize_stream(
     app: AppHandle,
     req: SynthesizeRequest,
 ) -> AppResult<String> {
-    if state.is_synthesizing() {
+    if !state.try_begin_synthesis() {
         return Err(crate::utils::error::AppError::Tts("已有推理任务进行中".to_string()));
     }
-    state.set_synthesizing(true);
 
     let result = match tts::synthesize_stream(&state, &app, req).await {
         Ok(path) => path,

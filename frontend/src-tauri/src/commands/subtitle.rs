@@ -9,12 +9,11 @@ pub async fn subtitle_transcribe_stream(
     app: AppHandle,
     req: TranscribeRequest,
 ) -> AppResult<String> {
-    if state.is_running() {
+    if !state.try_begin() {
         return Err(crate::utils::error::AppError::Tts(
             "已有字幕任务进行中".to_string(),
         ));
     }
-    state.set_running(true);
 
     let result = match subtitle::transcribe_stream(&state, &app, req).await {
         Ok(path) => path,

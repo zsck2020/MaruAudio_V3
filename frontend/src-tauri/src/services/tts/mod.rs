@@ -108,12 +108,21 @@ impl TtsState {
         }
     }
 
+    #[allow(dead_code)]
     pub fn is_synthesizing(&self) -> bool {
         self.is_synthesizing.load(Ordering::Relaxed)
     }
 
     pub fn set_synthesizing(&self, val: bool) {
         self.is_synthesizing.store(val, Ordering::Relaxed);
+    }
+
+    /// 原子地尝试开始推理：仅当当前空闲（false→true）时返回 true，
+    /// 避免「检查后置位」之间的 TOCTOU 竞态导致并发双任务
+    pub fn try_begin_synthesis(&self) -> bool {
+        self.is_synthesizing
+            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+            .is_ok()
     }
 
     #[allow(dead_code)]
@@ -203,6 +212,9 @@ pub async fn synthesize_stream(
         .client
         .post(&url)
         .json(&req)
+        // 流式推理可能远超 client 默认 600s（长文本），单独放宽到 1 小时兜底；
+        // 真正的提前结束仍靠 CancellationToken。
+        .timeout(std::time::Duration::from_secs(3600))
         .send()
         .await?;
 
@@ -215,7 +227,7 @@ pub async fn synthesize_stream(
 
     let mut stream = resp.bytes_stream();
     let mut output_path = String::new();
-    let mut buffer = String::new();
+    let mut buffer: Vec<u8> = Vec::new();
 
     use futures_util::StreamExt;
 
@@ -226,12 +238,13 @@ pub async fn synthesize_stream(
         }
 
         let chunk = chunk?;
-        buffer.push_str(&String::from_utf8_lossy(&chunk));
+        buffer.extend_from_slice(&chunk);
 
-        // 解析 SSE 事件（以 "data: " 开头，"\n\n" 结尾）
-        while let Some(event_end) = buffer.find("\n\n") {
-            let raw_event = buffer[..event_end].to_string();
-            buffer = buffer[event_end + 2..].to_string();
+        // 在字节层面按 "\n\n" 切出完整 SSE 事件再解码，
+        // 避免多字节 UTF-8（中文消息/路径）跨 chunk 边界被截断成乱码
+        while let Some(event_end) = find_double_newline(&buffer) {
+            let raw_event: Vec<u8> = buffer.drain(..event_end + 2).collect();
+            let raw_event = String::from_utf8_lossy(&raw_event[..event_end]);
 
             for line in raw_event.lines() {
                 if let Some(data) = line.strip_prefix("data: ") {
@@ -275,4 +288,9 @@ pub async fn synthesize_stream(
     }
 
     Ok(output_path)
+}
+
+/// 在字节缓冲中定位 SSE 事件分隔符 "\n\n" 的起始下标
+fn find_double_newline(buf: &[u8]) -> Option<usize> {
+    buf.windows(2).position(|w| w == b"\n\n")
 }

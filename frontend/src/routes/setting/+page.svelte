@@ -599,6 +599,7 @@
 
         {#if active === 'security'}
           <div class="section-body">
+            <div class="section-wip"><Icon name="info-circle" size={12} color="var(--color-text-disabled)" /><span>安全设置将在后续版本接入，当前为界面预览</span></div>
             <div class="grid-2">
               <div class="row">
                 <div class="row-label">启动应用时需密码</div>
@@ -655,6 +656,7 @@
 
         {#if active === 'storage'}
           <div class="section-body">
+            <div class="section-wip"><Icon name="info-circle" size={12} color="var(--color-text-disabled)" /><span>存储数据将在后续版本接入真实统计，当前为演示值</span></div>
             <div class="storage-grid">
               <div class="storage-cell">
                 <div class="cell-title">推理缓存</div>
@@ -856,6 +858,18 @@
     overflow-y: auto;
     scrollbar-width: thin;
     scrollbar-color: color-mix(in srgb, var(--color-border-secondary) 60%, transparent) transparent;
+  }
+
+  .section-wip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px var(--spacing-sm);
+    border-radius: var(--border-radius-sm);
+    background: color-mix(in srgb, var(--color-warning) 8%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-warning) 20%, transparent);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-disabled);
   }
 
   .section-body {

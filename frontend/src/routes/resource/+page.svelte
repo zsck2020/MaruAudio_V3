@@ -43,7 +43,7 @@
   function presetToVoice(p: PresetVoice): Voice {
     const tag = p.display_tag || p.tags?.[0] || '样音';
     const tags = p.tags ?? [];
-    const cover = p.cover ? (/^[a-zA-Z]:[\\/]/.test(p.cover) || p.cover.startsWith('http') || p.cover.startsWith('blob:') ? p.cover : `E:\\Exploitation\\MaruAudio\\MaruAudio_V3\\backend\\outputs\\preset\\${p.cover}`) : undefined;
+    const cover = p.cover ? (/^[a-zA-Z]:[\\/]/.test(p.cover) || p.cover.startsWith('http') || p.cover.startsWith('blob:') ? p.cover : `${_presetBaseDir}\\${p.cover}`) : undefined;
     return { id: p.id || p.name, name: p.name, description: p.description || `${p.language} · ${p.display_tag}`, gender: p.gender, genderLabel: normalizeGender(p.gender), language: p.language || '中文', tag, tags, premium: p.is_premium, filePath: p.file_path, cover, duration: p.duration, source: p.source, searchText: `${p.name} ${p.description || ''} ${tag} ${tags.join(' ')}`.toLowerCase() };
   }
 
@@ -55,6 +55,8 @@
     { id: 'female-heal', name: '治愈女声', description: '柔和舒缓，适合助眠', gender: '女', genderLabel: '女', language: '中文', tag: '治愈', tags: ['温柔', '舒缓'], premium: false, searchText: '治愈女声 柔和舒缓 助眠 治愈 温柔 舒缓' },
     { id: 'cantonese-m', name: '粤语男声', description: '粤语叙事，适合方言内容', gender: '男', genderLabel: '男', language: '粤语', tag: '粤语', tags: ['粤语', '磁性'], premium: true, searchText: '粤语男声 粤语叙事 方言 粤语 磁性' },
   ];
+
+  let _presetBaseDir = $state('');
 
   /* ── state ── */
   let voices = $state<Voice[]>([]);
@@ -146,11 +148,15 @@
   async function loadLocal(): Promise<Voice[]> {
     try {
       const { readTextFile, exists } = await import('@tauri-apps/plugin-fs');
-      const { join, appDataDir } = await import('@tauri-apps/api/path');
-      const dirs = ['E:\\Exploitation\\MaruAudio\\MaruAudio_V3\\backend\\outputs\\preset', await join(await appDataDir(), 'preset'), await join(await appDataDir(), 'outputs', 'preset')];
+      const { join, appDataDir, resourceDir } = await import('@tauri-apps/api/path');
+      const devPresetDir = import.meta.env.DEV ? 'E:\\Exploitation\\MaruAudio\\MaruAudio_V3\\backend\\outputs\\preset' : '';
+      const candidateDirs = [devPresetDir, await join(await appDataDir(), 'preset'), await join(await appDataDir(), 'outputs', 'preset')].filter(Boolean);
+      let dirs: string[];
+      try { dirs = [await join(await resourceDir(), 'preset'), ...candidateDirs]; } catch { dirs = candidateDirs; }
       let pd = '', mp = '';
       for (const d of dirs) { const c = await join(d, 'metadata.json'); if (await exists(c)) { pd = d; mp = c; break; } }
       if (!pd) return [];
+      _presetBaseDir = pd;
       const data = JSON.parse(await readTextFile(mp)) as Array<{ name: string; gender: string; language: string; display_tag: string; tags: string[]; is_premium: boolean; file_path: string; description: string; duration?: number; cover?: string }>;
       return Promise.all(data.map(async p => {
         const fn = p.file_path.split(/[/\\]/).pop()!;
@@ -521,7 +527,7 @@
     color: rgba(255, 255, 255, 0.9);
     font-weight: 800; font-size: 15px;
     letter-spacing: -0.5px;
-    background: linear-gradient(140deg, #1e4878 0%, #3b6eaf 50%, #5e8ace 100%);
+    background: linear-gradient(140deg, color-mix(in srgb, var(--color-primary) 60%, #000) 0%, var(--color-primary) 50%, color-mix(in srgb, var(--color-primary) 60%, #fff) 100%);
     overflow: hidden;
     box-shadow:
       0 2px 8px color-mix(in srgb, var(--color-primary) 20%, transparent),
@@ -544,7 +550,7 @@
   }
   .av img { width: 100%; height: 100%; object-fit: cover; position: relative; z-index: 1; }
   .av.female {
-    background: linear-gradient(140deg, #4a1f7a 0%, #8B5CF6 50%, #b794f4 100%);
+    background: linear-gradient(140deg, color-mix(in srgb, var(--color-accent) 60%, #000) 0%, var(--color-accent) 50%, color-mix(in srgb, var(--color-accent) 60%, #fff) 100%);
     box-shadow:
       0 2px 8px color-mix(in srgb, var(--color-accent) 20%, transparent),
       inset 0 1px 0 rgba(255, 255, 255, 0.08);
@@ -555,9 +561,9 @@
       inset 0 1px 0 rgba(255, 255, 255, 0.1);
   }
   .av.neutral {
-    background: linear-gradient(140deg, #2a2a3a 0%, #4a5568 50%, #718096 100%);
+    background: linear-gradient(140deg, var(--color-bg-base) 0%, var(--color-text-disabled) 50%, var(--color-text-tertiary) 100%);
     box-shadow:
-      0 2px 8px rgba(100, 116, 139, 0.2),
+      0 2px 8px color-mix(in srgb, var(--color-text-disabled) 20%, transparent),
       inset 0 1px 0 rgba(255, 255, 255, 0.06);
   }
 
@@ -668,11 +674,11 @@
     border-radius: var(--border-radius);
     overflow: hidden;
     display: flex; align-items: center; justify-content: center;
-    background: linear-gradient(145deg, #1e3a5c, #3b6eaf);
+    background: linear-gradient(145deg, color-mix(in srgb, var(--color-primary) 50%, #000), var(--color-primary));
     position: relative; flex-shrink: 0;
   }
-  .d-cover.female { background: linear-gradient(145deg, #3a2060, #8B5CF6); }
-  .d-cover.neutral { background: linear-gradient(145deg, #2a2a36, #64748b); }
+  .d-cover.female { background: linear-gradient(145deg, color-mix(in srgb, var(--color-accent) 50%, #000), var(--color-accent)); }
+  .d-cover.neutral { background: linear-gradient(145deg, var(--color-bg-base), var(--color-text-disabled)); }
   .d-cover img { width: 100%; height: 100%; object-fit: cover; }
 
   .d-letter { font-size: 56px; font-weight: 700; color: rgba(255, 255, 255, 0.3); user-select: none; }

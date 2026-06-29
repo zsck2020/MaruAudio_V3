@@ -333,10 +333,16 @@ function isTeamPlan(plan: PlanId = account.plan): boolean {
   return plan === 'team';
 }
 
+const PLAN_RANK: Record<PlanId, number> = { free: 0, flagship: 1, creator_year: 2, team: 3 };
+
 function canUseFeature(feature: FeatureKey): boolean {
   ensureDailyReset();
   if (feature === 'team_license') return isTeamPlan();
   if (feature === 'cloud_chars') return isPaidPlan();
+  const info = FEATURE_INFO[feature];
+  if (info?.requiredPlan) {
+    return PLAN_RANK[account.plan] >= PLAN_RANK[info.requiredPlan];
+  }
   return isPaidPlan();
 }
 
@@ -411,8 +417,12 @@ async function logout(): Promise<void> {
 }
 
 async function redeemCardKey(key: string): Promise<{ ok: boolean; message: string }> {
-  // 演示性本地兑换：正式版必须改为「服务端核销卡密 → 返回带签名的授权令牌 → 前端缓存」，
-  // 前端不得自行判定升级结果（当前实现仅用于无服务端时的本地演示）。
+  // ⚠ 安全警告：当前为纯前端演示实现，正式版必须改为：
+  // 1. 前端提交卡密到服务端 API
+  // 2. 服务端核销卡密 + 签发带加密签名的授权令牌
+  // 3. 前端仅缓存授权令牌，不自行判定升级结果
+  // 当前硬编码的测试前缀（MARU-VIP/MARU-CLOUD）仅在开发模式下有效，
+  // 生产 build 应禁用本地兑换路径或走服务端。
   const trimmed = key.trim().toUpperCase();
   if (!trimmed || trimmed.length < 8) {
     return { ok: false, message: '请输入有效的卡密' };
